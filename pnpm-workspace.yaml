@@ -1,18 +1,18 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
 
 # pnpm 11: 의존성 postinstall/build 스크립트 실행 허용 목록.
 # 여기에 없는 패키지의 build 스크립트는 실행되지 않는다.
 allowBuilds:
   prisma: true
-  "@prisma/client": true
-  "@prisma/engines": true
-  "@tailwindcss/oxide": true
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@tailwindcss/oxide': true
   esbuild: true
   sharp: false
   unrs-resolver: false
-  "@scarf/scarf": false
+  '@scarf/scarf': false
 
 minimumReleaseAgeExclude:
   - '@tanstack/query-core@5.103.2'

@@ -28,7 +28,11 @@ const LEVEL_WEIGHT: Record<LogLevel, number> = {
 export function createLogger(options: CreateLoggerOptions): Logger {
   const minWeight = LEVEL_WEIGHT[options.level ?? 'info'];
 
-  const write = (level: LogLevel, message: string, fields?: LogFields): void => {
+  const write = (
+    level: LogLevel,
+    message: string,
+    fields?: LogFields,
+  ): void => {
     if (LEVEL_WEIGHT[level] < minWeight) {
       return;
     }

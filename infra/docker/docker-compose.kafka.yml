@@ -6,10 +6,10 @@ services:
   kafka:
     image: apache/kafka:4.0.0
     container_name: oneul-sai-kafka
-    profiles: ["kafka"]
+    profiles: ['kafka']
     restart: unless-stopped
     ports:
-      - "9092:9092"
+      - '9092:9092'
     environment:
       # KRaft 단일 노드 (로컬 개발 전용)
       KAFKA_NODE_ID: 1
@@ -23,4 +23,4 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
