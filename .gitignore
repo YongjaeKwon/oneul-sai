@@ -38,3 +38,6 @@ Thumbs.db
 
 # next.js가 dev/build 시 재생성
 next-env.d.ts
+
+# Claude Code 로컬 프리뷰 설정
+.claude/launch.json
