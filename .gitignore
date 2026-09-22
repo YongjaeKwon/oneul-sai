@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+build/
+.next/
+out/
+.expo/
+*.tsbuildinfo
+
+# turbo
+.turbo/
+
+# prisma generated client (각 서비스의 src/generated/prisma)
+**/src/generated/
+
+# env
+.env
+.env.*
+!.env.example
+
+# test
+coverage/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# next.js가 dev/build 시 재생성
+next-env.d.ts

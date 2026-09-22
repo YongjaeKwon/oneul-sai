@@ -1,0 +1,25 @@
+{
+  "name": "oneul-sai",
+  "private": true,
+  "description": "오늘 사이 — 오프라인 로테이션 소개팅 서비스 Monorepo",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,md,yml,yaml}\"",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "turbo run db:generate"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.8",
+    "turbo": "^2.11.2"
+  }
+}
