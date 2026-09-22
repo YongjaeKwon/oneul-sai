@@ -24,7 +24,7 @@ docs/      overview specs architecture adr api database events design guides
 - 외부 요청은 Gateway만 받는다. `/api/v1/**`를 서비스로 프록시. 라우팅 표: `docs/api/README.md`.
 - 인증(SPEC-001, ADR-009): Gateway가 `Authorization: Bearer`(JWT HS256)를 검증해 `x-user-id` · `x-user-role`로 바꾸고 모든 프록시 요청에 `x-internal-token`을 붙인다. 서비스는 `x-internal-token`을 먼저 확인하고 `Authorization`은 보지 않는다. 어느 엔드포인트가 공개인지는 서비스의 `@Public()`이 원천(Gateway에 경로별 정책 없음). 규칙: `docs/api/README.md` 5절.
 - notification은 외부 라우팅 없음(이벤트 소비자). Kafka는 **구조만** 있다.
-- 현재 단계: **Step 0 완료, Step 1 회원/인증 구현 완료 · 검증 중.** 그 밖의 비즈니스 기능은 아직 없다. 로드맵 9단계는 5장.
+- 현재 단계: **Step 0 · Step 1(회원/인증) 완료, Step 2 소개팅 상품/일정 설계 중.** 그 밖의 비즈니스 기능은 아직 없다. 로드맵 9단계는 5장.
 
 ## 3. 반드시 지킬 원칙
 
@@ -60,17 +60,17 @@ curl http://localhost:4001/health                 # {status, service, database, 
 
 ## 5. 로드맵 (Step)
 
-| Step | 내용                                                   | 상태                |
-| ---- | ------------------------------------------------------ | ------------------- |
-| 0    | 기반 마무리(문서 · 협업 규칙 · 설정)                   | 완료                |
-| 1    | 회원/인증 (member, gateway, web, admin)                | 구현 완료 · 검증 중 |
-| 2    | 소개팅 상품/일정 (event)                               | 예정                |
-| 3    | 참가 신청 — 성별 정원 동시성 (event)                   | 예정                |
-| 4    | 결제 + 첫 Kafka (payment) — 초기엔 입금 확인 기반 가능 | 예정                |
-| 5    | 현장 운영 — 체크인 · 로테이션 (event)                  | 예정                |
-| 6    | 매칭 — 상호 선택 · ONE MORE · AFTER (matching)         | 예정                |
-| 7    | 알림 — 알림톡 · Push (notification)                    | 예정                |
-| 8    | 운영 준비 — K8s · 모니터링 (infra)                     | 예정                |
+| Step | 내용                                                   | 상태 |
+| ---- | ------------------------------------------------------ | ---- |
+| 0    | 기반 마무리(문서 · 협업 규칙 · 설정)                   | 완료 |
+| 1    | 회원/인증 (member, gateway, web, admin)                | 완료 |
+| 2    | 소개팅 상품/일정 (event)                               | 예정 |
+| 3    | 참가 신청 — 성별 정원 동시성 (event)                   | 예정 |
+| 4    | 결제 + 첫 Kafka (payment) — 초기엔 입금 확인 기반 가능 | 예정 |
+| 5    | 현장 운영 — 체크인 · 로테이션 (event)                  | 예정 |
+| 6    | 매칭 — 상호 선택 · ONE MORE · AFTER (matching)         | 예정 |
+| 7    | 알림 — 알림톡 · Push (notification)                    | 예정 |
+| 8    | 운영 준비 — K8s · 모니터링 (infra)                     | 예정 |
 
 Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md` 5장. 이 표는 그 사본이며, Step 상태가 바뀌면 함께 갱신한다. 진행 상황판(8장)은 빠르게 보는 용도이고, 문서와 어긋나면 문서가 원천이다(`docs/guides/documentation-rules.md` 6절).
 
