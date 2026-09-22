@@ -22,6 +22,7 @@
     "@oneul-sai/logger": "workspace:*",
     "dotenv": "^18.0.2",
     "http-proxy-middleware": "^3.0.7",
+    "jose": "^6.2.12",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
   },
