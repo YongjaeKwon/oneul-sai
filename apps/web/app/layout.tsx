@@ -1,7 +1,12 @@
 import type * as React from 'react';
 import type { Metadata } from 'next';
-import { Noto_Sans_KR, Noto_Serif_KR, Playfair_Display } from 'next/font/google';
+import {
+  Noto_Sans_KR,
+  Noto_Serif_KR,
+  Playfair_Display,
+} from 'next/font/google';
 import './globals.css';
+import { SiteHeader } from '@/components/site-header';
 import { Providers } from './providers';
 
 // 글꼴 변수 이름은 @oneul-sai/ui/theme.css 의 --font-* 정의와 맞춘다.
@@ -26,7 +31,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: '오늘사이',
+  title: { default: '오늘사이', template: '%s · 오늘사이' },
   description: '오늘, 우리 사이의 시작. 오프라인 로테이션 소개팅 오늘사이',
 };
 
@@ -41,7 +46,10 @@ export default function RootLayout({
       className={`${notoSans.variable} ${notoSerif.variable} ${playfair.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
-        <Providers>{children}</Providers>
+        <Providers>
+          <SiteHeader />
+          {children}
+        </Providers>
       </body>
     </html>
   );
