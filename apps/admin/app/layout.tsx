@@ -19,7 +19,7 @@ const notoSerif = Noto_Serif_KR({
 });
 
 export const metadata: Metadata = {
-  title: '오늘사이 관리자',
+  title: { default: '오늘사이 관리자', template: '%s · 오늘사이 관리자' },
   description: '오늘사이 오프라인 로테이션 소개팅 서비스 관리자 콘솔',
 };
 

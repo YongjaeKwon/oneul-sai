@@ -12,6 +12,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
     "@oneul-sai/api-client": "workspace:*",
+    "@oneul-sai/contracts": "workspace:*",
     "@oneul-sai/ui": "workspace:*",
     "@tanstack/react-query": "^5.103.2",
     "next": "16.3.5",
