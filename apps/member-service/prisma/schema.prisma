@@ -1,0 +1,10 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 실제 비즈니스 모델은 기능 구현 단계에서 추가한다 (현재 의도적으로 모델 없음).
