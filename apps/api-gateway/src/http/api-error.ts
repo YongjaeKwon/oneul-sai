@@ -1,15 +1,13 @@
 import { HEADER_REQUEST_ID } from '@oneul-sai/constants';
+import { API_ERROR_CODES } from '@oneul-sai/contracts';
 import type { ApiErrorCode, ApiErrorResponse } from '@oneul-sai/contracts';
 import type { Request, Response } from 'express';
 import { requestPathname } from './request-path.js';
 
-/**
- * SPEC-001 7절 에러 코드 표의 403 `ORIGIN_NOT_ALLOWED`(Gateway · 서비스 공용).
- * `@oneul-sai/contracts`의 `API_ERROR_CODES`에 아직 없어 여기서 정의한다 — Contract에 추가되면 그 값으로 바꾼다.
- */
-export const ORIGIN_NOT_ALLOWED = 'ORIGIN_NOT_ALLOWED';
+/** SPEC-001 7절 에러 코드 표의 403 `ORIGIN_NOT_ALLOWED`(Gateway · 서비스 공용). */
+export const ORIGIN_NOT_ALLOWED = API_ERROR_CODES.ORIGIN_NOT_ALLOWED;
 
-export type GatewayErrorCode = ApiErrorCode | typeof ORIGIN_NOT_ALLOWED;
+export type GatewayErrorCode = ApiErrorCode;
 
 /** Gateway가 직접 내는 에러는 항상 기계용 `code`를 갖는다 (SPEC-001 7절 에러 코드 표). */
 export type GatewayErrorResponse = ApiErrorResponse & {
