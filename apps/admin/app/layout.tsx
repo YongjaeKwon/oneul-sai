@@ -4,8 +4,8 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: '오늘 사이 관리자',
-  description: '오늘 사이 오프라인 로테이션 소개팅 서비스 관리자 콘솔',
+  title: '오늘사이 관리자',
+  description: '오늘사이 오프라인 로테이션 소개팅 서비스 관리자 콘솔',
 };
 
 export default function RootLayout({

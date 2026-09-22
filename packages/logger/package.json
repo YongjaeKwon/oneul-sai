@@ -2,7 +2,7 @@
   "name": "@oneul-sai/logger",
   "version": "0.0.0",
   "private": true,
-  "description": "오늘 사이 공통 구조화(JSON) 로거",
+  "description": "오늘사이 공통 구조화(JSON) 로거",
   "type": "module",
   "exports": {
     ".": {

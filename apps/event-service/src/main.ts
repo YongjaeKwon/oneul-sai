@@ -12,7 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('오늘 사이 Event Service')
+    .setTitle('오늘사이 Event Service')
     .setDescription(
       '오프라인 소개팅 운영 핵심인 Meetup, Schedule, Application, Participant, Check-in, Rotation을 담당하는 서비스',
     )

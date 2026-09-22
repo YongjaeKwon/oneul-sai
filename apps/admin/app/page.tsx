@@ -10,7 +10,7 @@ const sections = [
 export default function AdminHomePage() {
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">오늘 사이 관리자</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">오늘사이 관리자</h1>
       <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
         서비스 운영을 위한 관리자 콘솔입니다.
       </p>

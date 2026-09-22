@@ -1,6 +1,6 @@
 # @oneul-sai/mobile
 
-오늘 사이 사용자 모바일 앱입니다. Expo(React Native) 기반이며, API Gateway(`http://localhost:4000`)를 통해 백엔드와 통신합니다.
+오늘사이 사용자 모바일 앱입니다. Expo(React Native) 기반이며, API Gateway(`http://localhost:4000`)를 통해 백엔드와 통신합니다.
 
 ## 실행 방법
 

@@ -12,7 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('오늘 사이 Notification Service')
+    .setTitle('오늘사이 Notification Service')
     .setDescription('Push, SMS, Email, 알림 발송 이력을 담당하는 서비스')
     .setVersion('0.1.0')
     .build();

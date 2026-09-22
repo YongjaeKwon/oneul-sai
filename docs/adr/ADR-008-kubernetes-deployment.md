@@ -5,7 +5,7 @@
 
 ## Context
 
-오늘 사이는 오프라인 로테이션 소개팅 서비스이고, 백엔드는 api-gateway, member-service, event-service, matching-service, notification-service, payment-service의 6개 서비스로 분리되어 있다. 이 서비스들은 결국 하나의 Kubernetes 네임스페이스(`oneul-sai`)에 함께 배포될 예정이며, 각 서비스는 거의 동일한 형태의 리소스 묶음 — Deployment, Service, ConfigMap, Secret — 을 필요로 한다.
+오늘사이는 오프라인 로테이션 소개팅 서비스이고, 백엔드는 api-gateway, member-service, event-service, matching-service, notification-service, payment-service의 6개 서비스로 분리되어 있다. 이 서비스들은 결국 하나의 Kubernetes 네임스페이스(`oneul-sai`)에 함께 배포될 예정이며, 각 서비스는 거의 동일한 형태의 리소스 묶음 — Deployment, Service, ConfigMap, Secret — 을 필요로 한다.
 
 배포 대상 워크로드의 성격을 보면 요구사항이 단순하지 않다. 이벤트 신청 오픈 시점에는 정원이 한정된 이벤트에 동시 신청이 몰리므로 event-service와 api-gateway는 순간 트래픽을 받아낼 수 있어야 하고, 필요하면 수평 확장(HPA)이 가능해야 한다. 현장 로테이션 진행 중에는 event-service가 잠깐이라도 죽으면 진행자와 참가자가 바로 체감하므로, 롤링 업데이트 중에도 준비되지 않은 파드로 트래픽이 가지 않도록 Readiness Probe가 정확해야 한다. 매칭 발표 직후에는 notification-service가 알림을 몰아서 보내고, payment-service는 결제라는 특성상 배포 중 중단 시간이 곧 매출 손실과 신뢰 문제로 이어진다. 즉 "6개의 비슷한 서비스"이지만 배포·가용성 요구는 서비스마다 결이 다르고, 이것을 환경(local/dev/prod)별로 다르게 조정할 수 있어야 한다.
 

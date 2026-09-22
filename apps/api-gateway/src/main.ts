@@ -40,7 +40,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('오늘 사이 API Gateway')
+    .setTitle('오늘사이 API Gateway')
     .setDescription(
       '외부 클라이언트의 단일 진입점. /api/v1/** 요청을 내부 서비스로 프록시한다.',
     )

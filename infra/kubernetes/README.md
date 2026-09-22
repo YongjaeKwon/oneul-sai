@@ -1,6 +1,6 @@
 # infra/kubernetes
 
-오늘 사이(oneul-sai) 서비스의 Kubernetes 배포 구성을 담을 디렉토리입니다.
+오늘사이(oneul-sai) 서비스의 Kubernetes 배포 구성을 담을 디렉토리입니다.
 현재는 **구조만 준비하는 단계**이며, 실제 매니페스트는 Kubernetes 배포 단계에서 작성합니다.
 
 ## 배포 도구 선택

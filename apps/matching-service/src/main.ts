@@ -12,7 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('오늘 사이 Matching Service')
+    .setTitle('오늘사이 Matching Service')
     .setDescription(
       '호감 선택, Preference, 상호 선택 판별, Match 생성, Match 결과를 담당하는 서비스',
     )

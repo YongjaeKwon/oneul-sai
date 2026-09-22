@@ -2,7 +2,7 @@
   "name": "@oneul-sai/kafka",
   "version": "0.0.0",
   "private": true,
-  "description": "오늘 사이 공통 Kafka 연결 설정 및 토픽 네이밍 (구조 준비 단계)",
+  "description": "오늘사이 공통 Kafka 연결 설정 및 토픽 네이밍 (구조 준비 단계)",
   "type": "module",
   "exports": {
     ".": {

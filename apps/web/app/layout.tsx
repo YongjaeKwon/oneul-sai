@@ -3,7 +3,7 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: '오늘 사이',
+  title: '오늘사이',
   description: '오프라인 로테이션 소개팅 서비스',
 };
 

@@ -12,7 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('오늘 사이 Payment Service')
+    .setTitle('오늘사이 Payment Service')
     .setDescription(
       '결제 요청/승인/검증/취소, Webhook, 결제 상태를 담당하는 서비스',
     )

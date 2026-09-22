@@ -1,6 +1,6 @@
 # @oneul-sai/web
 
-오늘 사이 사용자 Web 앱 (Next.js, 포트 3000).
+오늘사이 사용자 Web 앱 (Next.js, 포트 3000).
 
 ## 역할
 

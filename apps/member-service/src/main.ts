@@ -12,7 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('오늘 사이 Member Service')
+    .setTitle('오늘사이 Member Service')
     .setDescription(
       '회원, 로그인, 인증, 프로필, 본인 인증 정보, 계정 상태를 담당하는 서비스',
     )

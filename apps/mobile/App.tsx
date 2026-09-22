@@ -8,7 +8,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <View style={styles.container}>
-        <Text style={styles.title}>오늘 사이</Text>
+        <Text style={styles.title}>오늘사이</Text>
         <StatusBar style="auto" />
       </View>
     </QueryClientProvider>

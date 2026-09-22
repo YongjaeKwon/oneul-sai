@@ -1,6 +1,6 @@
 # 아키텍처 개요
 
-오늘 사이(oneul-sai)는 오프라인 로테이션 소개팅 서비스이며, Monorepo(pnpm workspace + Turborepo) 위에서 Microservice Architecture로 구성한다. 이 문서는 전체 구조와 통신 원칙, 그리고 현재 단계의 구현 범위를 정의한다.
+오늘사이(oneul-sai)는 오프라인 로테이션 소개팅 서비스이며, Monorepo(pnpm workspace + Turborepo) 위에서 Microservice Architecture로 구성한다. 이 문서는 전체 구조와 통신 원칙, 그리고 현재 단계의 구현 범위를 정의한다.
 
 ## 1. 전체 구조
 
