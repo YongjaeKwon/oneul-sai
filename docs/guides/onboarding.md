@@ -13,13 +13,13 @@
 
 ## 1. 요구 환경
 
-| 항목 | 버전 | 확인 명령 | 메모 |
-| --- | --- | --- | --- |
-| Node.js | **22.12 이상** (22 LTS 권장) | `node -v` | 루트 `.node-version`(내용 `22`)을 fnm/nvm 등 버전 관리자가 읽습니다 |
-| pnpm | **11** | `pnpm -v` | `corepack enable` 후 루트에서 `pnpm -v`를 치면 `package.json`의 `packageManager` 버전이 자동 적용됩니다 |
-| Docker Desktop | 최신 | `docker compose version` | PostgreSQL(필수), Kafka(선택) 로컬 실행용 |
-| Git | 2.40 이상 | `git --version` | Windows는 Git Bash 포함 설치 권장 |
-| VS Code | 최신 | — | 루트 `.vscode/extensions.json`의 권장 확장을 모두 설치하세요 (ESLint, Prettier, Prisma, Tailwind CSS, Expo Tools) |
+| 항목           | 버전                         | 확인 명령                | 메모                                                                                                              |
+| -------------- | ---------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Node.js        | **22.12 이상** (22 LTS 권장) | `node -v`                | 루트 `.node-version`(내용 `22`)을 fnm/nvm 등 버전 관리자가 읽습니다                                               |
+| pnpm           | **11**                       | `pnpm -v`                | `corepack enable` 후 루트에서 `pnpm -v`를 치면 `package.json`의 `packageManager` 버전이 자동 적용됩니다           |
+| Docker Desktop | 최신                         | `docker compose version` | PostgreSQL(필수), Kafka(선택) 로컬 실행용                                                                         |
+| Git            | 2.40 이상                    | `git --version`          | Windows는 Git Bash 포함 설치 권장                                                                                 |
+| VS Code        | 최신                         | —                        | 루트 `.vscode/extensions.json`의 권장 확장을 모두 설치하세요 (ESLint, Prettier, Prisma, Tailwind CSS, Expo Tools) |
 
 - 운영체제는 Windows / macOS / Linux 모두 지원합니다. 줄바꿈은 `.gitattributes`와 `.editorconfig`가 LF로 통일합니다.
 - 모바일 앱(Expo)을 기기에서 보려면 스마트폰에 **Expo Go** 앱이 필요합니다. 첫날에는 선택 사항입니다.
@@ -60,17 +60,17 @@ pnpm dev
 
 > Windows PowerShell에서 `curl`은 `Invoke-WebRequest`의 별칭입니다. `curl.exe http://localhost:4000/health` 처럼 `.exe`를 붙이거나 Git Bash를 사용하세요.
 
-| 대상 | 포트 | Health | Swagger | 기대 응답 |
-| --- | --- | --- | --- | --- |
-| API Gateway | 4000 | `http://localhost:4000/health` | `http://localhost:4000/docs` | `status: "ok"`, `service: "api-gateway"` |
-| member-service | 4001 | `http://localhost:4001/health` | `http://localhost:4001/docs` | `status: "ok"`, `database: "up"` |
-| event-service | 4002 | `http://localhost:4002/health` | `http://localhost:4002/docs` | 같음 |
-| matching-service | 4003 | `http://localhost:4003/health` | `http://localhost:4003/docs` | 같음 |
-| notification-service | 4004 | `http://localhost:4004/health` | `http://localhost:4004/docs` | 같음 |
-| payment-service | 4005 | `http://localhost:4005/health` | `http://localhost:4005/docs` | 같음 |
-| Web (사용자) | 3000 | — | — | `http://localhost:3000` 랜딩 화면 |
-| Admin (운영자) | 3001 | — | — | `http://localhost:3001` 관리자 홈 |
-| Mobile (Expo) | — | — | — | `pnpm --filter @oneul-sai/mobile start` 후 QR을 Expo Go로 스캔 |
+| 대상                 | 포트 | Health                         | Swagger                      | 기대 응답                                                      |
+| -------------------- | ---- | ------------------------------ | ---------------------------- | -------------------------------------------------------------- |
+| API Gateway          | 4000 | `http://localhost:4000/health` | `http://localhost:4000/docs` | `status: "ok"`, `service: "api-gateway"`                       |
+| member-service       | 4001 | `http://localhost:4001/health` | `http://localhost:4001/docs` | `status: "ok"`, `database: "up"`                               |
+| event-service        | 4002 | `http://localhost:4002/health` | `http://localhost:4002/docs` | 같음                                                           |
+| matching-service     | 4003 | `http://localhost:4003/health` | `http://localhost:4003/docs` | 같음                                                           |
+| notification-service | 4004 | `http://localhost:4004/health` | `http://localhost:4004/docs` | 같음                                                           |
+| payment-service      | 4005 | `http://localhost:4005/health` | `http://localhost:4005/docs` | 같음                                                           |
+| Web (사용자)         | 3000 | —                              | —                            | `http://localhost:3000` 랜딩 화면                              |
+| Admin (운영자)       | 3001 | —                              | —                            | `http://localhost:3001` 관리자 홈                              |
+| Mobile (Expo)        | —    | —                              | —                            | `pnpm --filter @oneul-sai/mobile start` 후 QR을 Expo Go로 스캔 |
 
 - 서비스 `/health`에서 `database: "down"`, `status: "degraded"`가 나오면 Postgres가 안 떠 있다는 뜻입니다. 아래 표를 보세요.
 - 한 개만 띄우려면 `pnpm --filter @oneul-sai/member-service dev` 처럼 `--filter`를 씁니다.
@@ -80,17 +80,17 @@ pnpm dev
 
 증상 → 해결만 빠르게 적었습니다. **원인의 자세한 설명과 우리가 그렇게 대응한 이유**는 [기술 스택 문서의 "알려진 함정"](../architecture/tech-stack.md#2-알려진-함정)에 있습니다.
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| `/health`가 `database: "down"` 또는 `ECONNREFUSED ...:5432` | Docker Desktop이 꺼져 있거나 Postgres 컨테이너가 안 떠 있음 | Docker Desktop 실행 → `docker compose up -d` → `docker ps`로 `oneul-sai-postgres` 확인 |
-| `nest` 명령이 없다 / `nest g ...`가 안 된다 | 이 프로젝트는 **Nest CLI를 쓰지 않습니다.** Node 22.14에서 CLI가 크래시하는 문제로 `tsc` + `tsc-watch`만 사용 | 파일은 손으로 만들거나 기존 서비스 구조를 복사합니다. `dev`/`build` 스크립트는 각 서비스 `package.json` 참고 |
-| `Cannot find name 'process'` / `Buffer` 타입 오류 | TypeScript 6는 `@types/*`를 **자동 포함하지 않습니다** | 해당 패키지 `tsconfig.json`에 `"types": ["node"]` (vitest 쓰는 곳은 `["node", "vitest/globals"]`) |
-| `pnpm install` 중 "Ignored build scripts" 경고 또는 허용 프롬프트 | pnpm 11은 의존성의 build 스크립트를 **허용 목록**(`pnpm-workspace.yaml`의 `allowBuilds`)으로만 실행 | 프롬프트는 목록을 읽고 `y`. 새 의존성이 빌드 스크립트를 가지면 팀과 상의 후 `allowBuilds`에 추가하고 PR에 이유를 남깁니다 |
-| `Cannot find module '../generated/prisma/client.js'` / 타입체크 실패 | `prisma generate`를 안 돌려서 `src/generated/`가 비어 있음 (gitignore 대상) | `pnpm db:generate`. turbo가 `dev`/`build`/`typecheck` 전에 자동 실행하지만, **VS Code의 빨간 줄**은 직접 한 번 돌려야 사라집니다 |
-| Prisma CLI가 `DATABASE_URL`을 못 찾는다 | Prisma 7은 `.env`를 자동 로드하지 않음 | 각 서비스 `prisma.config.ts`가 `dotenv`로 로드합니다. 서비스 디렉토리에서 실행하거나 `pnpm --filter <service> db:generate`를 쓰세요 |
-| `EADDRINUSE: address already in use :::4001` | 같은 포트를 다른 프로세스가 사용 중 | 이전 `pnpm dev` 프로세스를 종료하거나, 해당 서비스 `.env`의 `PORT`를 바꿉니다 |
-| Windows에서 `LF will be replaced by CRLF` 경고 | Git 줄바꿈 자동 변환 | `.gitattributes`가 저장소 쪽을 LF로 고정하므로 무해합니다. 경고를 없애려면 `git config core.autocrlf false` |
-| Next.js에서 환경 변수가 `undefined` | Next.js는 `.env.local`을 읽고, 클라이언트 노출 변수는 `NEXT_PUBLIC_` 접두사 필요 | `apps/web/.env.example` → `.env.local` 복사 후 dev 서버 재시작 |
+| 증상                                                                 | 원인                                                                                                          | 해결                                                                                                                                |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `/health`가 `database: "down"` 또는 `ECONNREFUSED ...:5432`          | Docker Desktop이 꺼져 있거나 Postgres 컨테이너가 안 떠 있음                                                   | Docker Desktop 실행 → `docker compose up -d` → `docker ps`로 `oneul-sai-postgres` 확인                                              |
+| `nest` 명령이 없다 / `nest g ...`가 안 된다                          | 이 프로젝트는 **Nest CLI를 쓰지 않습니다.** Node 22.14에서 CLI가 크래시하는 문제로 `tsc` + `tsc-watch`만 사용 | 파일은 손으로 만들거나 기존 서비스 구조를 복사합니다. `dev`/`build` 스크립트는 각 서비스 `package.json` 참고                        |
+| `Cannot find name 'process'` / `Buffer` 타입 오류                    | TypeScript 6는 `@types/*`를 **자동 포함하지 않습니다**                                                        | 해당 패키지 `tsconfig.json`에 `"types": ["node"]` (vitest 쓰는 곳은 `["node", "vitest/globals"]`)                                   |
+| `pnpm install` 중 "Ignored build scripts" 경고 또는 허용 프롬프트    | pnpm 11은 의존성의 build 스크립트를 **허용 목록**(`pnpm-workspace.yaml`의 `allowBuilds`)으로만 실행           | 프롬프트는 목록을 읽고 `y`. 새 의존성이 빌드 스크립트를 가지면 팀과 상의 후 `allowBuilds`에 추가하고 PR에 이유를 남깁니다           |
+| `Cannot find module '../generated/prisma/client.js'` / 타입체크 실패 | `prisma generate`를 안 돌려서 `src/generated/`가 비어 있음 (gitignore 대상)                                   | `pnpm db:generate`. turbo가 `dev`/`build`/`typecheck` 전에 자동 실행하지만, **VS Code의 빨간 줄**은 직접 한 번 돌려야 사라집니다    |
+| Prisma CLI가 `DATABASE_URL`을 못 찾는다                              | Prisma 7은 `.env`를 자동 로드하지 않음                                                                        | 각 서비스 `prisma.config.ts`가 `dotenv`로 로드합니다. 서비스 디렉토리에서 실행하거나 `pnpm --filter <service> db:generate`를 쓰세요 |
+| `EADDRINUSE: address already in use :::4001`                         | 같은 포트를 다른 프로세스가 사용 중                                                                           | 이전 `pnpm dev` 프로세스를 종료하거나, 해당 서비스 `.env`의 `PORT`를 바꿉니다                                                       |
+| Windows에서 `LF will be replaced by CRLF` 경고                       | Git 줄바꿈 자동 변환                                                                                          | `.gitattributes`가 저장소 쪽을 LF로 고정하므로 무해합니다. 경고를 없애려면 `git config core.autocrlf false`                         |
+| Next.js에서 환경 변수가 `undefined`                                  | Next.js는 `.env.local`을 읽고, 클라이언트 노출 변수는 `NEXT_PUBLIC_` 접두사 필요                              | `apps/web/.env.example` → `.env.local` 복사 후 dev 서버 재시작                                                                      |
 
 ## 5. 읽을 문서 순서
 

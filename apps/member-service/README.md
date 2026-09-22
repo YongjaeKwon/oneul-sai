@@ -12,7 +12,7 @@
 이 서비스는 다른 도메인의 비즈니스 데이터를 관리하지 않는다. 현장 본인 확인 기록은 event-service의 체크인(SPEC-005)이 소유한다.
 설계서: [SPEC-001 회원/인증](../../docs/specs/SPEC-001-member-auth.md).
 
-> Step 1 구현 중. 데이터 계층(스키마 · 마이그레이션 `init_member` · seed · 비밀번호 해시 · env)과 auth · members 모듈(아래 API 전부)이 들어갔다. 남은 것은 web · admin 화면과 마무리 문서다.
+> Step 1 구현 완료(2026-09-23). 데이터 계층 · auth · members 모듈, web · admin 화면, 문서까지 들어갔다. 검증: 단위 106 · 통합 27 · Gateway 경유 e2e 29 시나리오.
 
 ## 실행 방법
 

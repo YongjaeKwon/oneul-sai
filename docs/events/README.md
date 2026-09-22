@@ -27,15 +27,15 @@ interface EventEnvelope<TPayload> {
 
 실제 구현 시점에만 payload 타입을 contracts에 추가한다.
 
-| 도메인 | 이벤트 |
-| --- | --- |
-| member | `member.created` |
-| application | `application.created` / `application.accepted` / `application.cancelled` |
-| payment | `payment.completed` / `payment.failed` / `payment.cancelled` |
-| event | `event.started` / `event.completed` |
-| rotation | `rotation.started` / `rotation.changed` / `rotation.completed` |
-| preference | `preference.submitted` |
-| match | `match.created` |
+| 도메인      | 이벤트                                                                                                    |
+| ----------- | --------------------------------------------------------------------------------------------------------- |
+| member      | `member.created` / `member.withdrawn` — SPEC-001 8절이 예약. 발행 시점 · outbox 여부는 결정 예정 (Step 4) |
+| application | `application.created` / `application.accepted` / `application.cancelled`                                  |
+| payment     | `payment.completed` / `payment.failed` / `payment.cancelled`                                              |
+| event       | `event.started` / `event.completed`                                                                       |
+| rotation    | `rotation.started` / `rotation.changed` / `rotation.completed`                                            |
+| preference  | `preference.submitted`                                                                                    |
+| match       | `match.created`                                                                                           |
 
 ## 4. 신뢰성 고려사항
 

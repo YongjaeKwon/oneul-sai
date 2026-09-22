@@ -22,8 +22,9 @@ docs/      overview specs architecture adr api database events design guides
 ```
 
 - 외부 요청은 Gateway만 받는다. `/api/v1/**`를 서비스로 프록시. 라우팅 표: `docs/api/README.md`.
+- 인증(SPEC-001, ADR-009): Gateway가 `Authorization: Bearer`(JWT HS256)를 검증해 `x-user-id` · `x-user-role`로 바꾸고 모든 프록시 요청에 `x-internal-token`을 붙인다. 서비스는 `x-internal-token`을 먼저 확인하고 `Authorization`은 보지 않는다. 어느 엔드포인트가 공개인지는 서비스의 `@Public()`이 원천(Gateway에 경로별 정책 없음). 규칙: `docs/api/README.md` 5절.
 - notification은 외부 라우팅 없음(이벤트 소비자). Kafka는 **구조만** 있다.
-- 현재 단계: **Step 0 기반 마무리.** 비즈니스 기능은 아직 하나도 없다. 로드맵 9단계는 5장.
+- 현재 단계: **Step 0 완료, Step 1 회원/인증 구현 완료 · 검증 중.** 그 밖의 비즈니스 기능은 아직 없다. 로드맵 9단계는 5장.
 
 ## 3. 반드시 지킬 원칙
 
@@ -36,7 +37,7 @@ docs/      overview specs architecture adr api database events design guides
 7. **비즈니스 기능 임의 구현 금지** — `docs/specs/SPEC-00N-<slug>.md`로 머지된 설계서가 있는 기능만 구현한다. 없으면 `docs/specs/TEMPLATE.md`로 초안을 먼저 쓰고 사람의 확인을 기다린다(001~008은 Step 1~8에 예약, 목록은 `docs/specs/README.md`).
 8. **제품 사실을 지어내지 않는다** — 팜플렛 · 운영 메시지에 있는 것만. 미정은 **"결정 예정 (Step N)"** 으로 쓴다.
 
-근거: `docs/adr/` (ADR-001~008). 결정을 바꾸려면 새 ADR.
+근거: `docs/adr/` (ADR-001~008, 인증은 [ADR-009](docs/adr/ADR-009-authentication.md)). 결정을 바꾸려면 새 ADR.
 
 ## 4. 자주 쓰는 커맨드
 
@@ -46,6 +47,9 @@ pnpm install && pnpm db:generate     # clone 직후. generate 없이는 typechec
 pnpm dev | build | lint | typecheck | test | format | format:check
 pnpm --filter @oneul-sai/member-service dev      # 하나만
 pnpm --filter @oneul-sai/member-service db:generate
+pnpm --filter @oneul-sai/member-service exec prisma migrate dev   # 커밋된 마이그레이션 적용 (member_db)
+pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed   # ADMIN 계정
+pnpm --filter @oneul-sai/member-service test:integration          # 실제 member_db 통합 테스트 (테이블을 비운다 → 뒤에 db:seed)
 curl http://localhost:4001/health                 # {status, service, database, timestamp}
 ```
 
@@ -56,17 +60,17 @@ curl http://localhost:4001/health                 # {status, service, database, 
 
 ## 5. 로드맵 (Step)
 
-| Step | 내용 | 상태 |
-| --- | --- | --- |
-| 0 | 기반 마무리(문서 · 협업 규칙 · 설정) | 진행 중 |
-| 1 | 회원/인증 (member) | 예정 |
-| 2 | 소개팅 상품/일정 (event) | 예정 |
-| 3 | 참가 신청 — 성별 정원 동시성 (event) | 예정 |
-| 4 | 결제 + 첫 Kafka (payment) — 초기엔 입금 확인 기반 가능 | 예정 |
-| 5 | 현장 운영 — 체크인 · 로테이션 (event) | 예정 |
-| 6 | 매칭 — 상호 선택 · ONE MORE · AFTER (matching) | 예정 |
-| 7 | 알림 — 알림톡 · Push (notification) | 예정 |
-| 8 | 운영 준비 — K8s · 모니터링 (infra) | 예정 |
+| Step | 내용                                                   | 상태                |
+| ---- | ------------------------------------------------------ | ------------------- |
+| 0    | 기반 마무리(문서 · 협업 규칙 · 설정)                   | 완료                |
+| 1    | 회원/인증 (member, gateway, web, admin)                | 구현 완료 · 검증 중 |
+| 2    | 소개팅 상품/일정 (event)                               | 예정                |
+| 3    | 참가 신청 — 성별 정원 동시성 (event)                   | 예정                |
+| 4    | 결제 + 첫 Kafka (payment) — 초기엔 입금 확인 기반 가능 | 예정                |
+| 5    | 현장 운영 — 체크인 · 로테이션 (event)                  | 예정                |
+| 6    | 매칭 — 상호 선택 · ONE MORE · AFTER (matching)         | 예정                |
+| 7    | 알림 — 알림톡 · Push (notification)                    | 예정                |
+| 8    | 운영 준비 — K8s · 모니터링 (infra)                     | 예정                |
 
 Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md` 5장. 이 표는 그 사본이며, Step 상태가 바뀌면 함께 갱신한다. 진행 상황판(8장)은 빠르게 보는 용도이고, 문서와 어긋나면 문서가 원천이다(`docs/guides/documentation-rules.md` 6절).
 
@@ -78,13 +82,13 @@ Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md`
 
 **Prisma 7.** 패턴은 `apps/member-service`를 그대로 따른다.
 
-| 파일 | 역할 |
-| --- | --- |
-| `prisma/schema.prisma` | `generator client { provider = "prisma-client", output = "../src/generated/prisma" }`. datasource에 url 없음 |
-| `prisma.config.ts` | `import 'dotenv/config'` + `defineConfig({ schema, migrations, datasource: { url: process.env['DATABASE_URL'] } })` |
-| `src/prisma/prisma.service.ts` | `PrismaClient` 상속, `new PrismaPg({ connectionString })` 어댑터 필수, `onModuleDestroy`에서 `$disconnect` |
-| `src/prisma/prisma.module.ts` | `PrismaService` provide/export |
-| `src/generated/` | gitignore. 커밋 금지 |
+| 파일                           | 역할                                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `prisma/schema.prisma`         | `generator client { provider = "prisma-client", output = "../src/generated/prisma" }`. datasource에 url 없음        |
+| `prisma.config.ts`             | `import 'dotenv/config'` + `defineConfig({ schema, migrations, datasource: { url: process.env['DATABASE_URL'] } })` |
+| `src/prisma/prisma.service.ts` | `PrismaClient` 상속, `new PrismaPg({ connectionString })` 어댑터 필수, `onModuleDestroy`에서 `$disconnect`          |
+| `src/prisma/prisma.module.ts`  | `PrismaService` provide/export                                                                                      |
+| `src/generated/`               | gitignore. 커밋 금지                                                                                                |
 
 마이그레이션은 실제 모델이 생기는 Step에서 시작(`prisma migrate dev`). 스키마 변경 → migrate → generate 순서.
 
@@ -102,19 +106,19 @@ Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md`
 
 코드가 바뀌면 **같은 PR**에서 문서를 갱신한다. 원천: `docs/guides/documentation-rules.md`. 요약:
 
-| 변경 | 갱신 |
-| --- | --- |
-| 새 기능 착수 | `docs/specs/SPEC-00N-<slug>.md` **먼저**, 상황판 |
-| 기능 구현 완료 | 설계서 "17. 실제 구현과의 차이", `docs/overview/features/`, 상황판 |
-| API 추가 · 변경 | Swagger 데코레이터, `docs/api/README.md`(인덱스 표), `packages/contracts` + `api-client` |
-| Prisma 스키마 | `docs/database/README.md`, 설계서 "9. DB 변경" |
-| Kafka 이벤트 | `docs/events/README.md`, `packages/contracts`, 설계서 "8. 이벤트" |
-| 아키텍처 결정 | 새 ADR + `docs/adr/README.md` 인덱스, `docs/architecture/overview.md` |
-| 의존성 메이저 · 새 기술 | `docs/architecture/tech-stack.md` (되돌리기 어렵다면 ADR) |
-| 환경 변수 | 루트 · 앱 `.env.example`, 앱 README |
-| 새 앱 · 패키지 | 루트 README, 아키텍처 개요, 디렉토리 README, `.github/CODEOWNERS` |
-| 커맨드 · 툴체인 | 루트 README, CONTRIBUTING, `docs/guides/onboarding.md`, 이 파일 |
-| 사용자에게 보이는 규칙 · 문구 · 용어 | `docs/overview/features/`, `docs/overview/glossary.md` |
+| 변경                                 | 갱신                                                                                     |
+| ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| 새 기능 착수                         | `docs/specs/SPEC-00N-<slug>.md` **먼저**, 상황판                                         |
+| 기능 구현 완료                       | 설계서 "17. 실제 구현과의 차이", `docs/overview/features/`, 상황판                       |
+| API 추가 · 변경                      | Swagger 데코레이터, `docs/api/README.md`(인덱스 표), `packages/contracts` + `api-client` |
+| Prisma 스키마                        | `docs/database/README.md`, 설계서 "9. DB 변경"                                           |
+| Kafka 이벤트                         | `docs/events/README.md`, `packages/contracts`, 설계서 "8. 이벤트"                        |
+| 아키텍처 결정                        | 새 ADR + `docs/adr/README.md` 인덱스, `docs/architecture/overview.md`                    |
+| 의존성 메이저 · 새 기술              | `docs/architecture/tech-stack.md` (되돌리기 어렵다면 ADR)                                |
+| 환경 변수                            | 루트 · 앱 `.env.example`, 앱 README                                                      |
+| 새 앱 · 패키지                       | 루트 README, 아키텍처 개요, 디렉토리 README, `.github/CODEOWNERS`                        |
+| 커맨드 · 툴체인                      | 루트 README, CONTRIBUTING, `docs/guides/onboarding.md`, 이 파일                          |
+| 사용자에게 보이는 규칙 · 문구 · 용어 | `docs/overview/features/`, `docs/overview/glossary.md`                                   |
 
 ## 8. 커밋 · PR · 상황판
 
@@ -134,7 +138,7 @@ Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md`
 - 팜플렛 · 운영 메시지에 없는 제품 기능 · 문구 · 정책을 만들어 내기.
 - 타 서비스 DB · Prisma 모델 · 테이블 이름 참조. cross-DB JOIN.
 - `packages/*`에 도메인 규칙(정원 계산, 매칭 판별, 결제 상태 전이 등) 넣기.
-- Gateway에 비즈니스 로직. Gateway는 라우팅 · request-id · 로깅 · 에러 정책만.
+- Gateway에 비즈니스 로직 · 경로별 인증 정책 · 역할 판단. Gateway는 라우팅 · request-id · 로깅 · 에러 정책 + 토큰 검증 · 내부 헤더 · 내부 토큰 부착 · `Origin` 확인 · IP rate limit · CORS까지만(ADR-009).
 - Nest CLI 사용. `console.log`. `process.env` 직접 접근. `any`.
 - `src/generated/`, `dist/`, `.env`, `.turbo/` 커밋.
 - 상대 import에 `.js` 확장자 빠뜨리기(ESM 런타임에서 깨진다).

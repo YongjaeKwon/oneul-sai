@@ -39,19 +39,20 @@
     └──────────────────┘        └──────────────────┘
 ```
 
-- 클라이언트는 API Gateway(:4000)만 호출한다. 마이크로서비스 직접 호출은 로컬 디버깅 용도로만 허용한다.
+- 클라이언트는 API Gateway(:4000)만 호출한다. 마이크로서비스 직접 호출은 로컬 디버깅 용도로만 허용한다(이때 `x-internal-token`을 직접 실어야 한다).
+- 인증(Step 1, [ADR-009](../adr/ADR-009-authentication.md)): 클라이언트는 `Authorization: Bearer <access token>`을 보내고, Gateway가 검증해 `x-user-id` · `x-user-role`로 바꿔 서비스에 넘긴다. Gateway는 프록시하는 모든 요청에 `x-internal-token`을 붙이고, 서비스는 이 값이 맞는 요청만 받는다. refresh token은 Gateway 호스트의 httpOnly 쿠키(`onulsai_rt_web` · `onulsai_rt_admin`)다. 규칙은 [API 규칙 5절](../api/README.md#5-인증--쿠키--cors--rate-limit-step-1).
 - payment-service는 이벤트 소비 외에 결제 요청/Webhook 처리를 위해 Gateway의 REST 라우팅(`/api/v1/payments`)도 받는다. 라우팅 테이블은 [API 규칙](../api/README.md) 참고.
 
 ## 2. 서비스별 책임
 
-| 서비스 | 포트 | 책임 |
-| --- | --- | --- |
-| api-gateway | 4000 | 라우팅, 인증 전달, Request ID 발급/전파, 공통 로깅, 공통 에러 정책 |
-| member-service | 4001 | 회원, 로그인, 인증, 프로필, 본인인증, 계정 상태 |
-| event-service | 4002 | Meetup, Schedule, Application, Participant, Check-in, Rotation |
-| matching-service | 4003 | 호감 선택, Preference, 상호 판별, Match 생성, 결과 제공 |
-| notification-service | 4004 | Push/SMS/Email 발송, 발송 이력 |
-| payment-service | 4005 | 결제 요청/승인/검증/취소, Webhook, 결제 상태 관리 |
+| 서비스               | 포트 | 책임                                                                                                                                                                                                                                                                              |
+| -------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| api-gateway          | 4000 | 라우팅, Request ID 발급/전파, **access token 검증 → `x-user-*` 내부 헤더**, 내부 토큰(`x-internal-token`) 부착, `POST /api/v1/auth/*`의 `Origin` 허용 목록 확인, IP 단위 rate limit(인메모리), CORS, 공통 로깅, 공통 에러 정책. 비즈니스 로직 · 경로별 인증 정책 · 역할 판단 없음 |
+| member-service       | 4001 | 회원(가입 · 프로필 · 탈퇴 익명화), 로그인 · access token 서명 · refresh 토큰 회전, 비밀번호 변경, 로그인 백오프, 계정 상태(정지 · 해제), 운영자 조회. 온라인 본인인증은 결정 예정 (Step 1 이후), 현장 본인 확인은 event-service 체크인                                            |
+| event-service        | 4002 | Meetup, Schedule, Application, Participant, Check-in, Rotation                                                                                                                                                                                                                    |
+| matching-service     | 4003 | 호감 선택, Preference, 상호 판별, Match 생성, 결과 제공                                                                                                                                                                                                                           |
+| notification-service | 4004 | Push/SMS/Email 발송, 발송 이력                                                                                                                                                                                                                                                    |
+| payment-service      | 4005 | 결제 요청/승인/검증/취소, Webhook, 결제 상태 관리                                                                                                                                                                                                                                 |
 
 서비스 경계의 근거는 ADR-004(Service Boundary)에 기록한다.
 
@@ -117,10 +118,11 @@ oneul-sai/
 
 ## 7. 현재 구현 범위
 
-| 구분 | 내용 |
-| --- | --- |
-| **현재 구현됨** | Monorepo wiring(pnpm + Turborepo, 공유 tsconfig/ESLint), 각 서비스 `/health` 엔드포인트, Gateway 라우팅 골격과 Request ID 전파, Prisma 7 클라이언트 생성 파이프라인(`db:generate`), 로컬 Postgres(논리 DB 5개) compose, 공유 패키지 골격, CI(lint/typecheck/test/build) |
-| **구조만 준비** | Kafka(로컬 compose profile + `EventEnvelope` 계약 + `@oneul-sai/kafka` 자리), notification/payment의 이벤트 소비 구조, `infra/kubernetes`·`infra/helm`·`infra/monitoring` 디렉토리 |
-| **미구현** | 모든 비즈니스 기능(회원/인증, Meetup/Application/Check-in/Rotation, 매칭, 결제, 알림), DB 도메인 모델과 마이그레이션, 실제 이벤트 발행/구독, 인증/인가, 배포 파이프라인과 K8s 매니페스트 |
+| 구분                                                                                  | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **현재 구현됨**                                                                       | Monorepo wiring(pnpm + Turborepo, 공유 tsconfig/ESLint), 각 서비스 `/health` 엔드포인트, Gateway 라우팅과 Request ID 전파, Prisma 7 클라이언트 생성 파이프라인(`db:generate`), 로컬 Postgres(논리 DB 5개) compose, 공유 패키지 골격, CI(`ci` 잡 lint/typecheck/test/build + `integration` 잡 Postgres 통합 테스트)                                                                                                                                                                                               |
+| **구현됨 — Step 1 회원/인증** ([SPEC-001](../specs/SPEC-001-member-auth.md), 검증 중) | member-service: 가입 · 로그인 · refresh 회전(유예 창 · 재사용 탐지) · 로그아웃 · 모든 기기 로그아웃 · 비밀번호 변경 · 프로필 · 탈퇴(즉시 익명화) · 운영자 목록 · 상세 · 계정 상태 변경, 로그인 백오프, `member_db` 마이그레이션 `init_member` · ADMIN seed. api-gateway: JWT 검증 · `x-user-*` · 내부 토큰 · `Origin` 확인 · IP rate limit · CORS. contracts/api-client: Zod 스키마 · 에러 코드 · 인증 흐름. web: 가입 · 로그인 · 내 프로필 · 비밀번호 변경 · 탈퇴. admin: 로그인 · 회원 목록 · 상세 · 정지/해제 |
+| **구조만 준비**                                                                       | Kafka(로컬 compose profile + `EventEnvelope` 계약 + `@oneul-sai/kafka` 자리), notification/payment의 이벤트 소비 구조, `infra/kubernetes`·`infra/helm`·`infra/monitoring` 디렉토리                                                                                                                                                                                                                                                                                                                               |
+| **미구현**                                                                            | Meetup/Schedule(Step 2), Application(Step 3), 결제 + 첫 Kafka 이벤트 발행/구독(Step 4), Check-in/Rotation · 참가자 앱 로그인(Step 5), 매칭(Step 6), 알림(Step 7), 서비스 간 REST, 분산 rate limit · 거부 목록 · 배포 파이프라인과 K8s 매니페스트(Step 8)                                                                                                                                                                                                                                                         |
 
 새 기능은 "미구현" 목록에서 꺼내 구현하며, 이때 관련 문서(API 규칙, 이벤트, ADR)를 함께 갱신한다.

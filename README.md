@@ -98,37 +98,37 @@ oneul-sai/
 
 ### Applications
 
-| 이름 | 포트 | 역할 |
-| --- | --- | --- |
-| `@oneul-sai/web` | 3000 | 사용자용 웹 프론트엔드 (Next.js) |
-| `@oneul-sai/admin` | 3001 | 운영자용 어드민 웹 (Next.js) |
-| `@oneul-sai/mobile` | - | 모바일 앱 (Expo / React Native) |
+| 이름                | 포트 | 역할                             |
+| ------------------- | ---- | -------------------------------- |
+| `@oneul-sai/web`    | 3000 | 사용자용 웹 프론트엔드 (Next.js) |
+| `@oneul-sai/admin`  | 3001 | 운영자용 어드민 웹 (Next.js)     |
+| `@oneul-sai/mobile` | -    | 모바일 앱 (Expo / React Native)  |
 
 ### Microservices
 
-| 이름 | 포트 | 역할 |
-| --- | --- | --- |
-| `@oneul-sai/api-gateway` | 4000 | 단일 진입점. 라우팅·프록시, 요청 ID(`x-request-id`) 부여·전파, 공통 로깅·에러 정책. 비즈니스 로직 없음 |
-| `@oneul-sai/member-service` | 4001 | 회원 (가입/로그인/인증/프로필/계정 상태) 도메인. DB: `member_db` |
-| `@oneul-sai/event-service` | 4002 | 소개팅 상품·일정·참가 신청·체크인·로테이션 도메인. DB: `event_db` |
-| `@oneul-sai/matching-service` | 4003 | 호감 선택/상호 선택/매칭 도메인. DB: `matching_db` |
-| `@oneul-sai/notification-service` | 4004 | 알림 (알림톡/Push/SMS/Email) 도메인. DB: `notification_db` |
-| `@oneul-sai/payment-service` | 4005 | 결제 도메인. DB: `payment_db` |
+| 이름                              | 포트 | 역할                                                                                                                                                                                                      |
+| --------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@oneul-sai/api-gateway`          | 4000 | 단일 진입점. 라우팅·프록시, 요청 ID(`x-request-id`) 부여·전파, access token(JWT) 검증 → `x-user-*` 내부 헤더, 내부 토큰 부착, `Origin` 확인, IP rate limit, CORS, 공통 로깅·에러 정책. 비즈니스 로직 없음 |
+| `@oneul-sai/member-service`       | 4001 | 회원 (가입/로그인/refresh 회전/비밀번호 변경/프로필/탈퇴/계정 상태/운영자 조회) 도메인. DB: `member_db`. Step 1 구현됨                                                                                    |
+| `@oneul-sai/event-service`        | 4002 | 소개팅 상품·일정·참가 신청·체크인·로테이션 도메인. DB: `event_db`                                                                                                                                         |
+| `@oneul-sai/matching-service`     | 4003 | 호감 선택/상호 선택/매칭 도메인. DB: `matching_db`                                                                                                                                                        |
+| `@oneul-sai/notification-service` | 4004 | 알림 (알림톡/Push/SMS/Email) 도메인. DB: `notification_db`                                                                                                                                                |
+| `@oneul-sai/payment-service`      | 4005 | 결제 도메인. DB: `payment_db`                                                                                                                                                                             |
 
 ### Shared Packages
 
-| 이름 | 역할 |
-| --- | --- |
-| `@oneul-sai/contracts` | 서비스 간 공유되는 유일한 것: API/이벤트 계약 (Zod 스키마) |
-| `@oneul-sai/api-client` | contracts 기반 타입 안전 HTTP 클라이언트 (프론트엔드용) |
-| `@oneul-sai/kafka` | Kafka 연동 공통 래퍼 (현재 구조만) |
-| `@oneul-sai/logger` | 구조화 로깅 |
-| `@oneul-sai/config` | 환경 변수 로딩·Zod 검증 |
-| `@oneul-sai/types` | 공유 타입 |
-| `@oneul-sai/constants` | 공유 상수 (포트, `x-request-id` 헤더명 등) |
-| `@oneul-sai/utils` | 공유 유틸 |
-| `@oneul-sai/ui` | 공유 React 컴포넌트 |
-| `@oneul-sai/eslint-config` | ESLint 9 flat config 프리셋 |
+| 이름                           | 역할                                                       |
+| ------------------------------ | ---------------------------------------------------------- |
+| `@oneul-sai/contracts`         | 서비스 간 공유되는 유일한 것: API/이벤트 계약 (Zod 스키마) |
+| `@oneul-sai/api-client`        | contracts 기반 타입 안전 HTTP 클라이언트 (프론트엔드용)    |
+| `@oneul-sai/kafka`             | Kafka 연동 공통 래퍼 (현재 구조만)                         |
+| `@oneul-sai/logger`            | 구조화 로깅                                                |
+| `@oneul-sai/config`            | 환경 변수 로딩·Zod 검증                                    |
+| `@oneul-sai/types`             | 공유 타입                                                  |
+| `@oneul-sai/constants`         | 공유 상수 (포트, `x-request-id` 헤더명 등)                 |
+| `@oneul-sai/utils`             | 공유 유틸                                                  |
+| `@oneul-sai/ui`                | 공유 React 컴포넌트                                        |
+| `@oneul-sai/eslint-config`     | ESLint 9 flat config 프리셋                                |
 | `@oneul-sai/typescript-config` | tsconfig 프리셋 (base/library/nestjs/nextjs/react-library) |
 
 ---
@@ -166,7 +166,14 @@ docker compose --profile kafka up -d
 
 # 3. Prisma Client 생성
 pnpm db:generate
+
+# 4. member_db 마이그레이션 적용 + 운영자(ADMIN) 계정 seed (apps/member-service/.env 필요)
+cp apps/member-service/.env.example apps/member-service/.env
+pnpm --filter @oneul-sai/member-service exec prisma migrate dev
+pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed
 ```
+
+Gateway · web · admin도 각 `.env.example`을 복사한다(인증 시크릿은 Gateway와 member-service가 같은 값이어야 한다 — 예시 파일의 개발용 값이 이미 같다).
 
 ---
 
@@ -238,26 +245,27 @@ docker build -f apps/member-service/Dockerfile -t oneul-sai/member-service .
 
 ## 현재 상태와 Roadmap
 
-현재는 **Step 0 기반 마무리** 단계입니다. 초기 환경 구축은 끝났고, 비즈니스 기능은 아직 구현되지 않았습니다.
+**Step 0 기반 마무리는 완료**됐고, **Step 1 회원/인증은 구현 완료 · 검증 중**입니다([SPEC-001](docs/specs/SPEC-001-member-auth.md), [기능 소개서](docs/overview/features/README.md)).
 
-| 상태 | 항목 |
-| --- | --- |
-| 구현됨 | pnpm workspace + Turborepo, 앱/서비스 스캐폴드, Health 엔드포인트, Prisma DB 연결, CI (GitHub Actions) |
-| 구조만 준비 | Kafka, Kubernetes/Helm, Monitoring |
-| 미구현 | 회원가입, 참가 신청, 결제, 체크인/로테이션, 매칭 등 모든 비즈니스 기능 |
+| 상태            | 항목                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 구현됨          | pnpm workspace + Turborepo, 앱/서비스 스캐폴드, Health 엔드포인트, Prisma DB 연결, CI (GitHub Actions — `ci` 잡 + Postgres 통합 테스트 `integration` 잡)                                                                                                                                                                                                                                                      |
+| 구현됨 (Step 1) | member-service: 가입 · 로그인 · refresh 회전 · 로그아웃 · 모든 기기 로그아웃 · 비밀번호 변경 · 프로필 · 탈퇴(즉시 익명화) · 운영자 회원 목록 · 상세 · 정지, 로그인 백오프, `member_db` 첫 마이그레이션 · seed. api-gateway: JWT 검증 · 내부 헤더 · 내부 토큰 · `Origin` 확인 · IP rate limit · CORS. web: 가입 · 로그인 · 내 프로필 · 비밀번호 변경 · 탈퇴. admin: 로그인 · 회원 목록 · 상세 · 계정 상태 변경 |
+| 구조만 준비     | Kafka, Kubernetes/Helm, Monitoring                                                                                                                                                                                                                                                                                                                                                                            |
+| 미구현          | 참가 신청, 소개팅 상품/일정, 결제, 체크인/로테이션, 매칭, 알림, 참가자 앱 로그인(SPEC-005)                                                                                                                                                                                                                                                                                                                    |
 
 ### Roadmap (Step 0~8)
 
 기능은 아래 Step 순서로 채워 갑니다. Step 번호·이름·상태의 원천은 [개요 소개서 5장](docs/overview/project-overview.md#5-지금-어디까지-왔나)이고, 세부 진행은 [진행 상황판](https://claude.ai/artifact/M3foVY7pn38tXo5QguZvXa)에서 봅니다.
 
-| Step | 내용 | 주요 서비스 |
-| --- | --- | --- |
-| 0 | 기반 마무리 — 문서 · 협업 규칙 · 개발 환경 | — |
-| 1 | 회원/인증 | member-service |
-| 2 | 소개팅 상품/일정 | event-service |
-| 3 | 참가 신청 — 성별 정원 동시성 | event-service |
-| 4 | 결제 + 첫 Kafka — 초기엔 입금 확인 기반 | payment-service |
-| 5 | 현장 운영 — 체크인 · 로테이션 | event-service |
-| 6 | 매칭 — 상호 선택 · ONE MORE · AFTER | matching-service |
-| 7 | 알림 — 알림톡 · Push | notification-service |
-| 8 | 운영 준비 — K8s · 모니터링 | infra |
+| Step | 내용                                       | 주요 서비스          |
+| ---- | ------------------------------------------ | -------------------- |
+| 0    | 기반 마무리 — 문서 · 협업 규칙 · 개발 환경 | —                    |
+| 1    | 회원/인증                                  | member-service       |
+| 2    | 소개팅 상품/일정                           | event-service        |
+| 3    | 참가 신청 — 성별 정원 동시성               | event-service        |
+| 4    | 결제 + 첫 Kafka — 초기엔 입금 확인 기반    | payment-service      |
+| 5    | 현장 운영 — 체크인 · 로테이션              | event-service        |
+| 6    | 매칭 — 상호 선택 · ONE MORE · AFTER        | matching-service     |
+| 7    | 알림 — 알림톡 · Push                       | notification-service |
+| 8    | 운영 준비 — K8s · 모니터링                 | infra                |
