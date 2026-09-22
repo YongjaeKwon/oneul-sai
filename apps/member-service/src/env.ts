@@ -1,11 +1,5 @@
 import 'dotenv/config';
-import { parseEnv, z } from '@oneul-sai/config';
+import { parseEnv } from '@oneul-sai/config';
+import { envSchema } from './env.schema.js';
 
-export const env = parseEnv(
-  z.object({
-    PORT: z.coerce.number().default(4001),
-    DATABASE_URL: z
-      .string()
-      .default('postgresql://oneul:oneul@localhost:5432/member_db'),
-  }),
-);
+export const env = parseEnv(envSchema);

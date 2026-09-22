@@ -7,4 +7,88 @@ datasource db {
   provider = "postgresql"
 }
 
-// 실제 비즈니스 모델은 기능 구현 단계에서 추가한다 (현재 의도적으로 모델 없음).
+// SPEC-001 9절. 인증 수단 · 본인확인 테이블은 없다 (D1 · D2).
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum MemberRole {
+  MEMBER
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  WITHDRAWN
+}
+
+// 앱용 값은 SPEC-005에서 추가한다 (D3)
+enum ClientType {
+  WEB
+  ADMIN
+}
+
+enum RefreshTokenStatus {
+  ACTIVE
+  ROTATED
+  REVOKED
+}
+
+enum RevokedReason {
+  LOGOUT
+  RELOGIN
+  LIMIT
+  SUSPENDED
+  PASSWORD_CHANGED
+  REUSE
+}
+
+model Member {
+  id                   String        @id @default(uuid())
+  email                String        @unique
+  passwordHash         String // scrypt. 카카오 · OTP 도입 시 Credential 테이블로 분리 (D1, 결정 예정 Step 1 이후)
+  name                 String?
+  gender               Gender?
+  birthYear            Int?
+  phone                String?
+  role                 MemberRole    @default(MEMBER)
+  status               AccountStatus @default(ACTIVE)
+  statusReason         String?
+  failedLoginCount     Int           @default(0)
+  lastFailedLoginAt    DateTime?
+  privacyAgreedAt      DateTime
+  marketingAgreedAt    DateTime?
+  marketingWithdrawnAt DateTime?
+  withdrawnAt          DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  refreshTokens RefreshToken[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([phone])
+}
+
+model RefreshToken {
+  id              String             @id @default(uuid())
+  memberId        String
+  familyId        String
+  familyStartedAt DateTime
+  client          ClientType
+  tokenHash       String             @unique
+  status          RefreshTokenStatus @default(ACTIVE)
+  expiresAt       DateTime
+  rotatedAt       DateTime?
+  revokedAt       DateTime?
+  revokedReason   RevokedReason?
+  createdAt       DateTime           @default(now())
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([memberId, status])
+  @@index([familyId, status])
+}
