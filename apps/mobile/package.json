@@ -1,0 +1,29 @@
+{
+  "name": "@oneul-sai/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@oneul-sai/api-client": "workspace:*",
+    "@tanstack/react-query": "^5.103.2",
+    "expo": "~57.0.24",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3"
+  },
+  "devDependencies": {
+    "@oneul-sai/eslint-config": "workspace:*",
+    "@types/react": "~19.2.2",
+    "eslint": "^9",
+    "typescript": "~6.0.3"
+  }
+}
