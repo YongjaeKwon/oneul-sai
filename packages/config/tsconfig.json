@@ -1,0 +1,9 @@
+{
+  "extends": "@oneul-sai/typescript-config/library.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

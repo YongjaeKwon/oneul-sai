@@ -1,0 +1,29 @@
+{
+  "name": "@oneul-sai/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "오늘 사이 공통 환경 변수 검증 헬퍼",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@oneul-sai/eslint-config": "workspace:*",
+    "@oneul-sai/typescript-config": "workspace:*",
+    "@types/node": "^24.0.0",
+    "eslint": "^9",
+    "typescript": "~6.0.3"
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "extends": "@oneul-sai/typescript-config/react-library.json",
+  "include": ["src"]
+}
