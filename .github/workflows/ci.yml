@@ -35,3 +35,66 @@ jobs:
 
       - name: Lint, typecheck, test, build
         run: pnpm turbo run lint typecheck test build
+
+  # 실제 Postgres 위에서 member-service 통합 테스트를 돈다 (SPEC-001 13절 · 15절 5번 PR, ★A 승인).
+  # 아래 시크릿 값은 CI 전용 더미다 — 어떤 환경의 실제 값과도 같지 않다.
+  integration:
+    needs: ci
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: oneul
+          POSTGRES_PASSWORD: oneul
+          POSTGRES_DB: member_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U oneul -d member_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://oneul:oneul@localhost:5432/member_db
+      # base64 디코드 32바이트 (env 검증 조건). `openssl rand -base64 32` 형식의 더미 값
+      JWT_ACCESS_SECRET: Y2ktZHVtbXktand0LWFjY2Vzcy1zZWNyZXQtMzJieSE=
+      INTERNAL_API_TOKEN: Y2ktZHVtbXktaW50ZXJuYWwtYXBpLXRva2VuLTMyYiE=
+      JWT_ACCESS_TTL: 900
+      REFRESH_TTL: 2592000
+      # 로컬 .env.example과 같은 값 (프로덕션은 true). NODE_ENV=test라 부팅 거부 조건에 걸리지 않는다
+      COOKIE_SECURE: 'false'
+      ADMIN_ORIGIN: http://localhost:3001
+      # scrypt 동시 실행 4 + 여유 (SPEC-001 12절 권고)
+      UV_THREADPOOL_SIZE: 8
+      # seed 통합 테스트(SPEC-001 13절)용. 앱 .env.example과 같은 더미 값이며 NODE_ENV=test라 env 비밀번호가 허용된다
+      SEED_ADMIN_EMAIL: admin@example.com
+      SEED_ADMIN_NAME: 운영자
+      SEED_ADMIN_PASSWORD: admin-ci-password
+      SEED_ADMIN_RESET_PASSWORD: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        run: pnpm --filter @oneul-sai/member-service exec prisma migrate deploy
+
+      # migrate deploy는 클라이언트를 생성하지 않는다. build(tsc)는 src/generated/prisma가 있어야 한다
+      - name: Generate Prisma client
+        run: pnpm --filter @oneul-sai/member-service db:generate
+
+      - name: Build member-service
+        run: pnpm --filter @oneul-sai/member-service build
+
+      - name: Integration tests
+        run: pnpm --filter @oneul-sai/member-service test:integration
