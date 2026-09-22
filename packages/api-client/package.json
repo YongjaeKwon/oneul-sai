@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@oneul-sai/constants": "workspace:*",
+    "@oneul-sai/contracts": "workspace:*",
     "@oneul-sai/utils": "workspace:*"
   },
   "devDependencies": {
