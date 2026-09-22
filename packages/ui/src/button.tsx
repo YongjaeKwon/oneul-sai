@@ -12,8 +12,7 @@ const baseClasses =
 // 본문 대비를 위해 기본 버튼은 딥 브라운, 로즈는 강조/보조에만 쓴다 (docs/design/design-foundation.md)
 const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {
   primary: 'bg-ink text-paper hover:bg-ink-soft',
-  secondary:
-    'border border-line-strong bg-surface text-ink hover:bg-rose-wash',
+  secondary: 'border border-line-strong bg-surface text-ink hover:bg-rose-wash',
   ghost: 'text-rose-deep hover:bg-rose-wash',
 };
 
