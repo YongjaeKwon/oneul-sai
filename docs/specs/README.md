@@ -73,7 +73,7 @@ stateDiagram-v2
 
 | 번호 | 파일명(예정) | 주제 | Step | 주요 서비스 | 상태 |
 | --- | --- | --- | --- | --- | --- |
-| SPEC-001 | `SPEC-001-member-auth.md` | 회원 가입, 로그인, 인증, 프로필, 계정 상태 | 1 | member-service | 작성 예정 |
+| SPEC-001 | [`SPEC-001-member-auth.md`](./SPEC-001-member-auth.md) | 회원 가입, 로그인, 인증, 프로필, 계정 상태 | 1 | member-service, api-gateway | 초안(확인 대기) |
 | SPEC-002 | `SPEC-002-meetup-schedule.md` | 소개팅 상품과 일정(Meetup, Schedule) | 2 | event-service | 작성 예정 |
 | SPEC-003 | `SPEC-003-application.md` | 참가 신청과 정원 관리(성별 정원 동시성) | 3 | event-service | 작성 예정 |
 | SPEC-004 | `SPEC-004-payment.md` | 결제와 참가 확정. 첫 Kafka 이벤트 | 4 | payment-service, event-service | 작성 예정 |
