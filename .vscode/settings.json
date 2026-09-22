@@ -1,0 +1,42 @@
+{
+  // 저장 시 Prettier로 포맷하고 ESLint 자동 수정을 적용한다.
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  // ESLint 9 flat config (eslint.config.js). 패키지마다 설정 파일이 있으므로 작업 디렉토리를 자동 탐지한다.
+  "eslint.useFlatConfig": true,
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+  "eslint.validate": ["javascript", "typescript", "typescriptreact"],
+
+  // 줄바꿈 LF, 마지막 줄 개행 (.editorconfig 와 같은 값)
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+
+  // 워크스페이스의 TypeScript 6를 사용한다 (VS Code 내장 버전이 아니라)
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // Prisma 스키마는 Prisma 확장이 포맷한다
+  "[prisma]": {
+    "editor.defaultFormatter": "Prisma.prisma"
+  },
+
+  // 생성물은 검색·탐색기에서 숨긴다
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/.turbo": true,
+    "**/src/generated": true,
+    "pnpm-lock.yaml": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/.next/**": true,
+    "**/.turbo/**": true
+  }
+}

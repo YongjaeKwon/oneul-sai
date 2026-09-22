@@ -1,0 +1,49 @@
+# CODEOWNERS — 경로별 기본 리뷰어
+#
+# PR이 열리면 GitHub가 여기 적힌 사람을 자동으로 리뷰어로 지정한다.
+# 나중에 적힌 규칙이 먼저 적힌 규칙을 덮어쓴다.
+#
+# 현재는 1인 개발 단계라 모든 경로의 소유자가 @YongjaeKwon 이다.
+# 팀원이 합류하면 담당 영역별로 이 파일을 갱신한다. 예)
+#   /apps/web/    @frontend-dev
+#   /apps/member-service/  @backend-dev
+#   /docs/design/ @designer
+# 갱신할 때 docs/guides/pull-requests.md 의 "셀프 리뷰 허용" 문단도 함께 삭제한다.
+
+# 기본값 — 아래 규칙에 걸리지 않는 모든 파일
+*                                   @YongjaeKwon
+
+# 저장소 공통 설정 · 협업 규칙
+/.github/                           @YongjaeKwon
+/CLAUDE.md                          @YongjaeKwon
+/CONTRIBUTING.md                    @YongjaeKwon
+/package.json                       @YongjaeKwon
+/pnpm-workspace.yaml                @YongjaeKwon
+/turbo.json                         @YongjaeKwon
+
+# 프론트엔드 앱
+/apps/web/                          @YongjaeKwon
+/apps/admin/                        @YongjaeKwon
+/apps/mobile/                       @YongjaeKwon
+
+# 백엔드 — Gateway와 서비스 5개
+/apps/api-gateway/                  @YongjaeKwon
+/apps/member-service/               @YongjaeKwon
+/apps/event-service/                @YongjaeKwon
+/apps/matching-service/             @YongjaeKwon
+/apps/notification-service/         @YongjaeKwon
+/apps/payment-service/              @YongjaeKwon
+
+# 공유 패키지 — contracts 변경은 모든 소비자에 영향을 주므로 리뷰가 특히 중요
+/packages/                          @YongjaeKwon
+/packages/contracts/                @YongjaeKwon
+/packages/ui/                       @YongjaeKwon
+
+# 인프라
+/infra/                             @YongjaeKwon
+/docker-compose.yml                 @YongjaeKwon
+
+# 문서
+/docs/                              @YongjaeKwon
+/docs/adr/                          @YongjaeKwon
+/docs/design/                       @YongjaeKwon

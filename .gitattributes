@@ -1,0 +1,28 @@
+# 줄바꿈 통일 — 저장소 안의 텍스트 파일은 항상 LF로 저장한다.
+# Windows 개발자가 core.autocrlf 설정과 무관하게 같은 결과를 얻고,
+# "LF will be replaced by CRLF" 경고나 줄바꿈만 바뀐 diff가 생기지 않도록 하는 목적이다.
+* text=auto eol=lf
+
+# Windows 전용 스크립트는 CRLF가 필요하다
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 바이너리 — 줄바꿈 변환과 텍스트 diff를 하지 않는다
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.svg text
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.jar binary
+
+# 생성 파일 — diff 와 PR 리뷰에서 접어 보이게 한다
+pnpm-lock.yaml text eol=lf linguist-generated=true -diff

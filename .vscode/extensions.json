@@ -1,0 +1,11 @@
+{
+  // VS Code가 저장소를 열 때 설치를 권장하는 확장. 팀원 모두 같은 도구를 쓰기 위한 목록이다.
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "Prisma.prisma",
+    "bradlc.vscode-tailwindcss",
+    "expo.vscode-expo-tools",
+    "EditorConfig.EditorConfig"
+  ]
+}
