@@ -1,0 +1,143 @@
+# 기술 스택과 버전 결정
+
+오늘사이가 쓰는 기술과 버전, 각 선택의 이유, 그리고 알려진 함정을 기록한다. 버전을 올리거나 새 기술을 들일 때 이 문서를 먼저 읽고, 바꾼 뒤 이 문서를 갱신한다.
+
+- 상태: 확정
+- 최종 갱신: 2026-09-22 (npm registry 실측 + 공식 템플릿 생성으로 확정)
+- 원천: 루트 `package.json`, `pnpm-workspace.yaml`, 각 앱·패키지의 `package.json`과 tsconfig. 이 문서와 다르면 코드가 맞다. 이 문서를 고친다.
+- 구조와 통신 원칙은 [아키텍처 개요](./overview.md), 결정의 배경은 [ADR](../adr/README.md).
+
+## 1. 한눈에 보기
+
+### 공통
+
+| 영역 | 선택 | 버전 | 한 줄 이유 |
+| --- | --- | --- | --- |
+| 런타임 | Node.js | 22 (`>=22.12`, 개발 머신 22.14) | LTS. Next 16·Expo 57·Prisma 7의 공통 하한 |
+| 언어 | TypeScript | `~6.0.3` (전 패키지 통일) | strict 모드. TS 7(네이티브)은 typescript-eslint와 Nest 도구가 아직 API를 못 쓴다 |
+| 패키지 매니저 | pnpm | 11 (`pnpm@11.24.0`) | workspace, 엄격한 의존성 격리, `allowBuilds`로 빌드 스크립트를 명시 통제 |
+| 모노레포 빌드 | Turborepo | 2 | 태스크 그래프·캐시. `db:generate → build/typecheck/dev` 의존을 한 곳에서 연결 |
+| 린트 | ESLint flat config + typescript-eslint | 9 / 8.70 | `eslint-config-next` 16이 ESLint 9를 요구. 공유 프리셋은 `@oneul-sai/eslint-config` |
+| 포맷 | Prettier | 3 | single quote, trailing comma. 루트 `pnpm format` |
+| 스키마 검증 | Zod | 4 | contracts·config·프론트 폼에서 같은 스키마를 쓴다 |
+| CI | GitHub Actions | — | `pnpm turbo run lint typecheck test build` 한 잡. 변경 범위(`--affected`) 최적화는 이후 단계 |
+
+### 백엔드
+
+| 영역 | 선택 | 버전 | 한 줄 이유 |
+| --- | --- | --- | --- |
+| 프레임워크 | NestJS (ESM) | 12 | 모듈·DI·데코레이터로 서비스 5개의 구조를 같게 유지. Swagger 통합 |
+| API 문서 | @nestjs/swagger | 12 | 컨트롤러 데코레이터가 API 문서의 원천 |
+| 테스트 | vitest | 4 | ESM 친화, 빠름. jest는 쓰지 않는다 |
+| 빌드·실행 | tsc + tsc-watch | — | Nest CLI를 쓰지 않는다(아래 함정 1). `build`는 `tsc -p tsconfig.build.json`, `dev`는 `tsc-watch --onSuccess "node dist/main.js"` |
+| ORM | Prisma | `7.10.0` | 타입 안전 쿼리·마이그레이션. `prisma-client` generator + `@prisma/adapter-pg` |
+| DB | PostgreSQL | 17 | 서비스별 논리 DB 5개. 로컬은 Docker Compose |
+| Gateway 프록시 | http-proxy-middleware | `^3.0.7` | v3 유지(아래 함정 5) |
+| 메시징 | Kafka (KRaft 단일 노드) | — | 현재 구조만. `docker compose --profile kafka up -d` |
+| 로깅 | `@oneul-sai/logger` | — | JSON 구조화 로그. `x-request-id`를 함께 남긴다 |
+| 환경 변수 | dotenv + Zod (`@oneul-sai/config`) | dotenv 18 | 서비스 부팅 시 검증. 잘못된 값이면 바로 실패 |
+
+### 프론트엔드
+
+| 영역 | 선택 | 버전 | 한 줄 이유 |
+| --- | --- | --- | --- |
+| Web / Admin | Next.js (Turbopack) | `16.3.5` | App Router, 서버 컴포넌트. 사용자 웹(3000)과 운영자 웹(3001)이 같은 스택 |
+| UI 런타임 | React | `19.2.x` | Next 16 요구 버전 |
+| 스타일 | Tailwind CSS | 4 | 디자인 토큰을 CSS 변수로. 공유 UI는 `@source`로 스캔(아래 함정 7) |
+| 서버 상태 | TanStack Query | 5 | 캐시·재시도·로딩 상태를 한 방식으로 |
+| 폼 | React Hook Form + `@hookform/resolvers` | 7 / 5 | Zod 스키마를 폼 검증에 재사용 |
+| 공유 UI | `@oneul-sai/ui` | — | Web/Admin 공용. 소스 그대로 소비(`transpilePackages`) |
+| 모바일 | Expo SDK / React Native | 57 / `0.86.3` | pnpm isolated install 지원(SDK 54+). metro 설정·hoisting 불필요 |
+| API 호출 | `@oneul-sai/api-client` | — | contracts 기반 타입 안전 클라이언트. Web/Admin/Mobile 공용 |
+
+### 인프라
+
+| 영역 | 선택 | 상태 | 한 줄 이유 |
+| --- | --- | --- | --- |
+| 로컬 인프라 | Docker Compose | 사용 중 | Postgres 17 + init 스크립트(논리 DB 5개). Kafka는 profile |
+| 컨테이너 이미지 | Dockerfile per service (`turbo prune`) | 사용 중 | 서비스에 필요한 workspace만 담은 독립 이미지 |
+| 배포 | Kubernetes (Kustomize) | 구조만 | Step 8에서 매니페스트 작성. 배경은 ADR-008 |
+| 서드파티 차트 | Helm values | 구조만 | 직접 차트를 만들지 않고 values만 관리 |
+| 모니터링 | — | 구조만 | 도구 선택은 결정 예정 (Step 8) |
+
+## 2. 알려진 함정
+
+각 항목은 "증상 → 원인 → 우리 대응" 순서다. 새 팀원이 같은 곳에서 넘어지지 않게 하는 것이 목적이다.
+
+### 함정 1. Nest CLI가 Node 22.14에서 크래시한다
+
+- 증상: `nest new`, `nest build`가 `ERR_REQUIRE_CYCLE_MODULE`로 죽는다.
+- 원인: Nest CLI와 Node 22.14의 ESM/CJS 순환 로딩 충돌.
+- 대응: **CLI를 아예 쓰지 않는다.** 빌드는 `tsc -p tsconfig.build.json`, 개발은 `tsc-watch -p tsconfig.build.json --onSuccess "node dist/main.js"`. 새 서비스는 기존 서비스 디렉토리를 복사해 만든다. `nest generate`도 쓰지 않고 파일을 직접 만든다.
+
+### 함정 2. TS 6에서 `@types/*`가 자동으로 포함되지 않는다
+
+- 증상: `process`, `NodeJS.Timeout` 등에 "Cannot find name" 에러. `@types/node`가 설치돼 있어도 난다.
+- 원인: TypeScript 6.0은 `node_modules/@types`를 자동으로 끌어오지 않는다.
+- 대응: `process`나 Node 전역을 쓰는 패키지는 tsconfig에 `"types": ["node"]`를 명시한다. `packages/logger`, `packages/config`가 그 예다. 새 패키지에서 같은 에러가 나면 이것부터 확인한다.
+
+### 함정 3. pnpm 11은 `package.json`의 `pnpm.*` 설정을 무시한다
+
+- 증상: `package.json`에 `pnpm.onlyBuiltDependencies`를 넣어도 Prisma·esbuild의 postinstall이 돌지 않는다. `.npmrc` 설정도 일부 무시된다.
+- 원인: pnpm 11부터 pnpm 설정은 `pnpm-workspace.yaml`이 원천이다.
+- 대응: 빌드 스크립트 허용은 `pnpm-workspace.yaml`의 **`allowBuilds`** 맵에 적는다(`prisma`, `@prisma/client`, `@prisma/engines`, `@tailwindcss/oxide`, `esbuild`는 `true`). 새 의존성이 postinstall을 요구하면 여기에 추가한다. 갓 배포된 버전은 `minimumReleaseAge` 정책에 걸릴 수 있어 `minimumReleaseAgeExclude`에 명시한다.
+
+### 함정 4. Prisma 7은 옛 Prisma와 여러 곳이 다르다
+
+- 증상: `.env`를 읽지 않는다. `datasource url`이 없다는 에러. `PrismaClient`를 `new` 했을 때 adapter가 필요하다는 에러. clone 직후 typecheck가 실패한다.
+- 원인: Prisma 7은 `.env` 자동 로드를 없앴고, `prisma-client` generator(ESM 전용)와 driver adapter를 요구한다. 생성된 클라이언트는 커밋하지 않는다.
+- 대응:
+  - 연결 문자열은 `apps/<service>/prisma.config.ts`에서 `import 'dotenv/config'` 뒤 `datasource.url`로 넘긴다. `schema.prisma`의 datasource에는 url을 쓰지 않는다.
+  - 런타임은 `@prisma/adapter-pg`: `new PrismaClient({ adapter: new PrismaPg({ connectionString }) })`.
+  - 출력 경로는 `src/generated/prisma`(gitignore). clone 뒤 `pnpm db:generate`를 먼저 돌린다. turbo가 `build`/`dev`/`typecheck` 앞에 자동으로 연결해 두었다.
+  - 모델이 0개인 스키마에서도 generate가 정상 동작한다(검증됨).
+
+### 함정 5. http-proxy-middleware는 v3를 유지한다
+
+- 증상: v4로 올리면 Node 22.14에서 설치·실행이 막힌다.
+- 원인: v4는 ESM 전용이고 Node `>=22.15`를 요구한다. 개발 머신과 CI 하한이 22.14/22.12다.
+- 대응: `^3.0.7` 유지. API는 v3와 v4가 같으므로 Node를 22.15 이상으로 올린 뒤에는 코드 변경 없이 v4로 갈 수 있다.
+
+### 함정 6. NestJS ESM 플레이버의 import 규칙
+
+- 증상: 런타임에 `ERR_MODULE_NOT_FOUND`. 타입체크는 통과한다.
+- 원인: `"type": "module"`이므로 상대 import에 확장자가 필요하다.
+- 대응: 상대 import는 `./app.module.js`처럼 **`.js` 확장자**를 붙인다(소스는 `.ts`여도). `env.ts`는 dotenv side effect 때문에 `main.ts`에서 가장 먼저 import한다.
+
+### 함정 7. Next 16과 Tailwind 4의 달라진 점
+
+- `next lint`가 없다. 각 앱의 `lint` 스크립트는 `eslint`를 직접 부른다.
+- Turbopack이 기본이다. webpack 설정을 넣지 않는다.
+- workspace 패키지는 대부분 `transpilePackages`가 필요 없다. 예외는 소스를 그대로 소비하는 `@oneul-sai/ui`.
+- Tailwind 4는 클래스 스캔 범위를 CSS에서 지정한다. web/admin의 `globals.css`에 `@source "../../../packages/ui/src"`가 있어야 공유 UI의 클래스가 빌드에 포함된다.
+
+### 함정 8. Expo 57과 pnpm
+
+- Expo SDK 54부터 pnpm isolated install을 지원한다. `node-linker=hoisted`를 켜지 않는다. `metro.config.js`도 필요 없다.
+- mobile의 React 버전(`19.2.3`)은 Expo가 고정한다. web(`19.2.8`)과 패치 버전이 달라도 정상이다. 억지로 맞추지 않는다.
+
+## 3. 업그레이드 시 확인할 것
+
+### 절차
+
+1. 별도 브랜치에서 한 번에 한 영역만 올린다. 커밋은 `chore(deps): ...`.
+2. `pnpm install` → `pnpm db:generate` → `pnpm lint && pnpm typecheck && pnpm test && pnpm build`가 모두 초록인지 확인한다.
+3. 로컬에서 `docker compose up -d` 뒤 서비스 하나를 띄워 `/health`와 `/docs`를 열어 본다.
+4. 이 문서의 1절 표와 2절 함정을 갱신한다. 함정이 사라졌으면 "해소됨(날짜)"으로 남긴다.
+5. 되돌리기 어려운 변경(ORM 교체, 프레임워크 메이저, 런타임 교체)은 ADR을 쓴다.
+
+### 영역별 확인표
+
+| 올리는 것 | 먼저 확인할 것 |
+| --- | --- |
+| Node | Nest CLI 크래시(함정 1)가 해소됐는지. `>=22.15`면 http-proxy-middleware v4 전환 가능(함정 5). Dockerfile 베이스 이미지와 CI `node-version`도 함께 |
+| TypeScript | typescript-eslint가 그 버전을 지원하는지. TS 7 전환은 도구 지원 확인 뒤 ADR로 결정 |
+| pnpm | `pnpm-workspace.yaml`의 `allowBuilds`·`minimumReleaseAge*` 스키마 변경 여부. `packageManager` 필드 갱신 |
+| Turborepo | `turbo.json` 태스크 정의 형식 변경. `db:generate` 의존 연결이 유지되는지 |
+| NestJS / @nestjs/swagger | 두 패키지 메이저를 같이 올린다. ESM 플레이버 유지. vitest 호환 |
+| Prisma | generator 이름과 출력 경로, adapter 패키지 버전을 `prisma`·`@prisma/client`·`@prisma/adapter-pg` 셋 다 같은 버전으로 |
+| Next.js / React | `eslint-config-next`를 같은 버전으로. Turbopack 비호환 설정 여부. `@oneul-sai/ui` transpile 확인 |
+| Tailwind | `@source` 문법과 `@tailwindcss/postcss` 플러그인 변경 여부 |
+| Expo SDK | React Native와 React 버전이 함께 바뀐다. `expo-doctor`로 호환 확인 |
+| ESLint / Prettier | flat config 형식, `@oneul-sai/eslint-config` 프리셋의 플러그인 호환 |
+| PostgreSQL | Docker 이미지 태그, init 스크립트, Prisma 지원 범위. 데이터 볼륨은 `docker compose down -v` 뒤 재생성 |

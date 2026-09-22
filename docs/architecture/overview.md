@@ -67,7 +67,7 @@
 - 각 서비스는 자신의 논리 DB만 소유한다: `member_db`, `event_db`, `matching_db`, `notification_db`, `payment_db`.
 - **개발 환경에서는 PostgreSQL 인스턴스 하나를 공유**하되(`docker compose up -d`, init 스크립트가 논리 DB 5개 생성), 소유권은 논리 DB 단위로 엄격히 분리한다.
 - **다른 서비스의 DB를 직접 조회하는 것은 금지**다(cross-DB 쿼리, FK 참조 포함). 다른 서비스의 데이터가 필요하면 REST 호출 또는 Kafka 이벤트로만 얻는다.
-- 상세는 [Database 문서](../database/README.md)와 ADR-007 참고.
+- 상세는 [데이터베이스 문서](../database/README.md)와 ADR-007 참고.
 
 ## 5. Monorepo 구조
 
@@ -100,7 +100,7 @@ oneul-sai/
 │   ├── kubernetes/             # K8s 매니페스트 자리 (Kustomize, 구조만 준비)
 │   ├── helm/                   # 서드파티 차트 values 자리 (구조만 준비)
 │   └── monitoring/             # 모니터링 구성 자리 (구조만 준비)
-└── docs/                       # architecture / api / database / events / adr
+└── docs/                       # overview / specs / architecture / adr / api / database / events / design / guides (지도: docs/README.md)
 ```
 
 - 패키지 이름은 `@oneul-sai/<name>`, 앱 간 코드 공유는 반드시 `packages/`를 통해서만 한다.

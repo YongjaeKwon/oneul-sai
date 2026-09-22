@@ -13,7 +13,7 @@
 | ADR-002 | Why NestJS | [ADR-002-why-nestjs.md](./ADR-002-why-nestjs.md) |
 | ADR-003 | Why MSA | [ADR-003-why-msa.md](./ADR-003-why-msa.md) |
 | ADR-004 | Service Boundary | [ADR-004-service-boundary.md](./ADR-004-service-boundary.md) |
-| ADR-005 | Sync vs Async Communication | [ADR-005-sync-vs-async-communication.md](./ADR-005-sync-vs-async-communication.md) |
+| ADR-005 | Sync vs Async Communication | [ADR-005-sync-vs-async.md](./ADR-005-sync-vs-async.md) |
 | ADR-006 | Why Kafka | [ADR-006-why-kafka.md](./ADR-006-why-kafka.md) |
 | ADR-007 | Database per Service | [ADR-007-database-per-service.md](./ADR-007-database-per-service.md) |
-| ADR-008 | Kubernetes Deployment Strategy | [ADR-008-kubernetes-deployment-strategy.md](./ADR-008-kubernetes-deployment-strategy.md) |
+| ADR-008 | Kubernetes Deployment Strategy | [ADR-008-kubernetes-deployment.md](./ADR-008-kubernetes-deployment.md) |

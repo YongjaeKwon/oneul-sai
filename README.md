@@ -11,6 +11,15 @@
 
 ---
 
+## 문서 안내
+
+- 서비스가 무엇인지 처음 알아보려면 [개요 소개서](docs/overview/project-overview.md)를 읽으세요. 개발자가 아니어도 읽을 수 있게 썼습니다.
+- 어떤 문서가 어디에 있고 언제 고치는지는 [문서 지도](docs/README.md)에 있습니다. 코드를 바꾸는 PR을 열기 전에 판단표를 확인하세요.
+- 기능을 만들기 전에는 [기능 설계서](docs/specs/README.md)를, 기술 선택의 이유는 [기술 스택](docs/architecture/tech-stack.md)과 [ADR](docs/adr/README.md)을 보세요.
+- 함께 일하는 규칙(브랜치·커밋·PR·Definition of Done)은 [CONTRIBUTING.md](CONTRIBUTING.md)에, AI 에이전트용 작업 규칙은 [CLAUDE.md](CLAUDE.md)에 있습니다.
+
+---
+
 ## Architecture 개요
 
 ```
@@ -75,12 +84,16 @@ oneul-sai/
 │   ├── kubernetes/           # K8s 매니페스트 (구조만)
 │   ├── helm/                 # Helm 차트 (구조만)
 │   └── monitoring/           # 모니터링 구성 (구조만)
-└── docs/
-    ├── architecture/         # 아키텍처 문서
+└── docs/                     # 문서 지도: docs/README.md
+    ├── overview/             # 개요 소개서, 용어 사전, 기능 소개서 (비개발자도 읽음)
+    ├── specs/                # 기능 설계서 (SPEC-00N, 구현 전 작성)
+    ├── architecture/         # 아키텍처 개요, 기술 스택
     ├── adr/                  # Architecture Decision Records
-    ├── api/                  # API 문서
-    ├── database/             # DB 스키마/설계 문서
-    └── events/               # Kafka 이벤트/토픽 문서
+    ├── api/                  # API 규칙과 엔드포인트 인덱스
+    ├── database/             # 데이터베이스 소유권, Prisma 워크플로우
+    ├── events/               # Kafka 이벤트/토픽 규약
+    ├── design/               # 브랜드·UI 디자인 파운데이션
+    └── guides/               # 협업 가이드 (온보딩, 브랜치·커밋, PR, 문서 갱신 규칙)
 ```
 
 ### Applications
@@ -95,11 +108,11 @@ oneul-sai/
 
 | 이름 | 포트 | 역할 |
 | --- | --- | --- |
-| `@oneul-sai/api-gateway` | 4000 | 단일 진입점. 인증/요청 ID 부여, 각 서비스로 라우팅·프록시 |
-| `@oneul-sai/member-service` | 4001 | 회원 (가입/프로필) 도메인. DB: `member_db` |
-| `@oneul-sai/event-service` | 4002 | 소개팅 이벤트 (개설/신청) 도메인. DB: `event_db` |
-| `@oneul-sai/matching-service` | 4003 | 로테이션/상호 선택/매칭 도메인. DB: `matching_db` |
-| `@oneul-sai/notification-service` | 4004 | 알림 (푸시/메시지) 도메인. DB: `notification_db` |
+| `@oneul-sai/api-gateway` | 4000 | 단일 진입점. 라우팅·프록시, 요청 ID(`x-request-id`) 부여·전파, 공통 로깅·에러 정책. 비즈니스 로직 없음 |
+| `@oneul-sai/member-service` | 4001 | 회원 (가입/로그인/인증/프로필/계정 상태) 도메인. DB: `member_db` |
+| `@oneul-sai/event-service` | 4002 | 소개팅 상품·일정·참가 신청·체크인·로테이션 도메인. DB: `event_db` |
+| `@oneul-sai/matching-service` | 4003 | 호감 선택/상호 선택/매칭 도메인. DB: `matching_db` |
+| `@oneul-sai/notification-service` | 4004 | 알림 (알림톡/Push/SMS/Email) 도메인. DB: `notification_db` |
 | `@oneul-sai/payment-service` | 4005 | 결제 도메인. DB: `payment_db` |
 
 ### Shared Packages
@@ -225,19 +238,26 @@ docker build -f apps/member-service/Dockerfile -t oneul-sai/member-service .
 
 ## 현재 상태와 Roadmap
 
-현재는 **초기 환경 구축 단계**입니다. 비즈니스 기능은 아직 구현되지 않았습니다.
+현재는 **Step 0 기반 마무리** 단계입니다. 초기 환경 구축은 끝났고, 비즈니스 기능은 아직 구현되지 않았습니다.
 
 | 상태 | 항목 |
 | --- | --- |
 | 구현됨 | pnpm workspace + Turborepo, 앱/서비스 스캐폴드, Health 엔드포인트, Prisma DB 연결, CI (GitHub Actions) |
-| 구조만 준비 | Kafka, Kubernetes/Helm, Redis, Monitoring |
-| 미구현 | 회원가입, 이벤트 신청, 결제, 체크인/로테이션, 매칭 등 모든 비즈니스 기능 |
+| 구조만 준비 | Kafka, Kubernetes/Helm, Monitoring |
+| 미구현 | 회원가입, 참가 신청, 결제, 체크인/로테이션, 매칭 등 모든 비즈니스 기능 |
 
-### Roadmap (제안 순서)
+### Roadmap (Step 0~8)
 
-1. 인증/회원 (member-service)
-2. 이벤트 개설/신청 — 정원 동시성 제어 (event-service)
-3. 결제 (payment-service)
-4. 현장 체크인/로테이션 진행 (event-service)
-5. 매칭/알림 — Kafka 도입 (matching-service, notification-service)
-6. K8s 배포/모니터링
+기능은 아래 Step 순서로 채워 갑니다. Step 번호·이름·상태의 원천은 [개요 소개서 5장](docs/overview/project-overview.md#5-지금-어디까지-왔나)이고, 세부 진행은 [진행 상황판](https://claude.ai/artifact/M3foVY7pn38tXo5QguZvXa)에서 봅니다.
+
+| Step | 내용 | 주요 서비스 |
+| --- | --- | --- |
+| 0 | 기반 마무리 — 문서 · 협업 규칙 · 개발 환경 | — |
+| 1 | 회원/인증 | member-service |
+| 2 | 소개팅 상품/일정 | event-service |
+| 3 | 참가 신청 — 성별 정원 동시성 | event-service |
+| 4 | 결제 + 첫 Kafka — 초기엔 입금 확인 기반 | payment-service |
+| 5 | 현장 운영 — 체크인 · 로테이션 | event-service |
+| 6 | 매칭 — 상호 선택 · ONE MORE · AFTER | matching-service |
+| 7 | 알림 — 알림톡 · Push | notification-service |
+| 8 | 운영 준비 — K8s · 모니터링 | infra |
