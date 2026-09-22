@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: oneul-sai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-oneul}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oneul}
+      POSTGRES_DB: oneul
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - oneul-sai-postgres-data:/var/lib/postgresql/data
+      # Database per Service: 서비스별 논리 DB를 초기화 시점에 생성한다.
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oneul}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  oneul-sai-postgres-data:
