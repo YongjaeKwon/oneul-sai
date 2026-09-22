@@ -1,0 +1,104 @@
+/*
+ * 오늘사이 브랜드 디자인 토큰 — Web/Admin 공용.
+ * 원천 문서: docs/design/design-foundation.md (팜플렛·로고에서 추출)
+ * 앱의 globals.css에서 `@import '@oneul-sai/ui/theme.css'`로 사용한다.
+ */
+
+:root {
+  /* 바탕 — 팜플렛의 아이보리 종이 */
+  --paper: #fbf8f5;
+  --ivory: #f5efea;
+  --surface: #ffffff;
+
+  /* 글자 — 로고 워드마크의 딥 브라운 */
+  --ink: #4a3430;
+  --ink-soft: #7a625c;
+  --ink-muted: #a08c86;
+
+  /* 로즈 — 로고 왼쪽 원·강조 */
+  --rose: #d28b8b;
+  --rose-deep: #c7827f;
+  --rose-soft: #e9afae;
+  --rose-wash: #f3d9d6;
+
+  /* 모브 — 로고 오른쪽 원 */
+  --mauve: #c9b2ae;
+
+  /* 선 */
+  --line: #e7d9d4;
+  --line-strong: #d9a5a0;
+
+  /* 상태 (브랜드 톤에 맞춘 저채도) */
+  --success: #5e8c6a;
+  --warning: #c98a3a;
+  --danger: #b9534f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1b1412;
+    --ivory: #221a17;
+    --surface: #2a201d;
+    --ink: #f1e7e2;
+    --ink-soft: #c9b7b0;
+    --ink-muted: #8f7a75;
+    --rose: #e39a97;
+    --rose-deep: #d98884;
+    --rose-soft: #b97a78;
+    --rose-wash: #4a3331;
+    --mauve: #8f7a75;
+    --line: #3a2d29;
+    --line-strong: #6b4f4b;
+    --success: #7fae8b;
+    --warning: #d9a35c;
+    --danger: #d4736f;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ivory: var(--ivory);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-rose: var(--rose);
+  --color-rose-deep: var(--rose-deep);
+  --color-rose-soft: var(--rose-soft);
+  --color-rose-wash: var(--rose-wash);
+  --color-mauve: var(--mauve);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  /* 글꼴 — next/font가 <html>에 심는 CSS 변수를 우선 사용 */
+  --font-sans:
+    var(--font-noto-sans-kr), 'Noto Sans KR', 'Apple SD Gothic Neo',
+    'Malgun Gothic', system-ui, sans-serif;
+  --font-display:
+    var(--font-noto-serif-kr), 'Noto Serif KR', 'Apple SD Gothic Neo', serif;
+  --font-latin-display:
+    var(--font-playfair), 'Playfair Display', Georgia, 'Times New Roman', serif;
+
+  --radius-card: 1rem;
+  --radius-control: 0.75rem;
+}
+
+@layer base {
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+}
