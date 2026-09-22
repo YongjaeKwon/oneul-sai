@@ -1,0 +1,63 @@
+import {
+  Catch,
+  HttpException,
+  HttpStatus,
+  type ArgumentsHost,
+  type ExceptionFilter,
+} from '@nestjs/common';
+import { API_ERROR_CODES, type ApiErrorResponse } from '@oneul-sai/contracts';
+import type { Request, Response } from 'express';
+import { requestIdOf, requestPathname } from '../common/api-error.js';
+
+/**
+ * Gateway의 필터를 복사해 `code`를 얹은 것 (SPEC-001 10절 내부 구조). 서비스가 늘면 공용 패키지로 뺄지 결정 예정 (Step 2).
+ * `message`에 입력값을 되돌려 주지 않고, `path`는 query string을 뗀 pathname이다 (12절).
+ */
+@Catch()
+export class HttpExceptionFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request>();
+    const response = ctx.getResponse<Response>();
+
+    let statusCode: number = HttpStatus.INTERNAL_SERVER_ERROR;
+    let error = 'Internal Server Error';
+    let message = 'Internal server error';
+    let code: string | undefined;
+
+    if (exception instanceof HttpException) {
+      statusCode = exception.getStatus();
+      const body = exception.getResponse();
+
+      if (typeof body === 'string') {
+        error = exception.name;
+        message = body;
+      } else {
+        const record = body as Record<string, unknown>;
+        error =
+          typeof record.error === 'string' ? record.error : exception.name;
+        message = Array.isArray(record.message)
+          ? record.message.join(', ')
+          : typeof record.message === 'string'
+            ? record.message
+            : exception.message;
+        code = typeof record.code === 'string' ? record.code : undefined;
+      }
+    }
+
+    const payload: ApiErrorResponse = {
+      statusCode,
+      error,
+      message,
+      ...(code !== undefined ? { code } : {}),
+      path: requestPathname(request),
+      requestId: requestIdOf(request),
+      timestamp: new Date().toISOString(),
+    };
+
+    if (code === API_ERROR_CODES.SERVICE_BUSY) {
+      response.setHeader('Retry-After', '1');
+    }
+    response.status(statusCode).json(payload);
+  }
+}
