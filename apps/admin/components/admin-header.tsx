@@ -7,7 +7,11 @@ import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth-provider';
 
-const NAV_ITEMS = [{ href: '/members', label: '회원' }] as const;
+// "모임 상품" 아래에 상품마다 회차(운영자가 말하는 "모임")가 있다(SPEC-002 4절 운영자 웹).
+const NAV_ITEMS = [
+  { href: '/members', label: '회원' },
+  { href: '/meetups', label: '모임 상품' },
+] as const;
 
 /** 보호 화면 공통 헤더 — 브랜드, 메뉴, 로그인한 운영자, 로그아웃(SPEC-001 4절 운영자 웹). */
 export function AdminHeader() {
