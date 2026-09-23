@@ -83,6 +83,8 @@ interface ApiErrorResponse {
 
 원천은 [SPEC-001 회원/인증](../specs/SPEC-001-member-auth.md) 7 · 12절과 [ADR-009 인증 방식](../adr/ADR-009-authentication.md)이며, 구현 상세는 [apps/api-gateway/README.md](../../apps/api-gateway/README.md)와 [apps/member-service/README.md](../../apps/member-service/README.md)다. 여기서는 모든 API가 따르는 규칙만 적는다.
 
+**청중별 경로.** 비공개 필드가 있는 리소스는 청중별 경로와 스키마로 나누고, 공개 핸들러는 역할에 따라 응답을 바꾸지 않는다(SPEC-002 D9). 예: 회차는 참가자 공개 경로 `/api/v1/events`(`@Public()`, `PublicSchedule` — 지역만)와 운영자 경로 `/api/v1/meetups/:meetupId/schedules/**`(클래스 수준 `@Roles('ADMIN')`, `AdminSchedule` — 정확한 장소 · 취소 사유 포함)로 나뉜다. 운영자도 공개 경로에서는 비공개 필드를 받지 않는다. 운영자 경로 응답에는 `Cache-Control: no-store`를 붙인다.
+
 ### 5.1 Gateway 검증과 내부 헤더
 
 1. Gateway는 **모든 요청**에서 클라이언트가 보낸 `x-user-` 접두사 헤더와 `x-internal-token`을 먼저 지운다(공개 · 보호 구분 없이).
@@ -91,7 +93,7 @@ interface ApiErrorResponse {
 4. 프록시하는 모든 요청에 `x-internal-token`(env `INTERNAL_API_TOKEN`, Gateway와 서비스가 같은 값)을 붙인다. 서비스는 `/health`(정확히 일치)를 뺀 모든 핸들러에서 경로 대소문자와 무관하게 이 값을 가장 먼저 확인하고(없거나 다르면 401 `INTERNAL_TOKEN_INVALID` — `@Public()` 포함), `Authorization` 헤더는 보지 않는다. `/health`는 K8s 프로브가 직접 부르므로 검사하지 않는다. Swagger(`/docs` · `/docs-json`)는 Nest 가드를 거치지 않는 경로라 토큰 없이 열린다(API 문서만 보이고 핸들러에는 닿지 않는다). 허용 목록은 `@oneul-sai/service-kit`의 `INTERNAL_AUTH_EXEMPT_PATHS`다(SPEC-002 D10 · 12절, [ADR-010](../adr/ADR-010-platform-packages.md)).
 5. 헤더 이름 · JWT 고정값 · 에러 코드는 `@oneul-sai/contracts`(`HEADER_USER_ID`, `HEADER_USER_ROLE`, `INTERNAL_HEADER_PREFIX`, `HEADER_INTERNAL_TOKEN`, `JWT_*`, `API_ERROR_CODES`)에서 가져온다.
 
-로그인 · 로그아웃 · 정지 · 탈퇴는 남은 access token(최대 15분)에 즉시 반영되지 않는다(거부 목록 없음). 회원 · ADMIN 경로는 호출자의 상태를 다시 읽어 `WITHDRAWN` → 401 `UNAUTHENTICATED`, `SUSPENDED` → 403 `ACCOUNT_SUSPENDED`를 낸다.
+로그인 · 로그아웃 · 정지 · 탈퇴는 남은 access token(최대 15분)에 즉시 반영되지 않는다(거부 목록 없음). **member-service**의 회원 · ADMIN 경로는 호출자의 상태를 다시 읽어 `WITHDRAWN` → 401 `UNAUTHENTICATED`, `SUSPENDED` → 403 `ACCOUNT_SUSPENDED`를 낸다. event-service 등 다른 서비스의 ADMIN 경로는 계정 상태를 모른다 — 정지 · 탈퇴된 운영자의 남은 access token(최대 15분)이 통한다(SPEC-002 12절, 즉시 차단은 결정 예정 (Step 8)).
 
 ### 5.2 refresh 쿠키와 본문 `client` 필드
 
@@ -161,22 +163,35 @@ interface ApiErrorResponse {
 
 ### 9.3 엔드포인트 인덱스
 
-"인증" 열: **공개** = 토큰 없이 호출(`@Public()`), **회원** = 유효한 access token(MEMBER · ADMIN 모두, 본인 계정), **ADMIN** = `x-user-role: ADMIN`(`@Roles('ADMIN')`). Swagger 링크는 서비스를 띄운 뒤 열린다. 요청 · 응답 · 에러 코드의 상세는 Swagger와 [SPEC-001 7절](../specs/SPEC-001-member-auth.md#7-api-변경).
+"인증" 열: **공개** = 토큰 없이 호출(`@Public()`), **회원** = 유효한 access token(MEMBER · ADMIN 모두, 본인 계정), **ADMIN** = `x-user-role: ADMIN`(`@Roles('ADMIN')`). Swagger 링크는 서비스를 띄운 뒤 열린다. 요청 · 응답 · 에러 코드의 상세는 Swagger와 [SPEC-001 7절](../specs/SPEC-001-member-auth.md#7-api-변경) · [SPEC-002 7절](../specs/SPEC-002-meetup-schedule.md#7-api-변경).
 
-| 서비스         | 메서드 | 경로                         | 인증  | 설명                                                              | Swagger                                                                    | 상태 |
-| -------------- | ------ | ---------------------------- | ----- | ----------------------------------------------------------------- | -------------------------------------------------------------------------- | ---- |
-| member-service | POST   | `/api/v1/members`            | 공개  | 가입. 201 `MemberProfile`. 같은 이메일 409 `EMAIL_ALREADY_EXISTS` | [열기](http://localhost:4001/docs#/members/MembersController_signup)       | 확정 |
-| member-service | POST   | `/api/v1/auth/login`         | 공개  | 로그인. `{ email, password, client }` → 200 `AuthResponse` + 쿠키 | [열기](http://localhost:4001/docs#/auth/AuthController_login)              | 확정 |
-| member-service | POST   | `/api/v1/auth/refresh`       | 공개  | refresh 회전. `{ client }` + 쿠키 → 200 `AuthResponse` (+ 쿠키)   | [열기](http://localhost:4001/docs#/auth/AuthController_refresh)            | 확정 |
-| member-service | POST   | `/api/v1/auth/logout`        | 공개  | 로그아웃. `{ client }` + 쿠키 → 204 + 쿠키 삭제. 완전 멱등        | [열기](http://localhost:4001/docs#/auth/AuthController_logout)             | 확정 |
-| member-service | POST   | `/api/v1/auth/logout-all`    | 회원  | 모든 기기에서 로그아웃 → 204 + 쿠키 삭제                          | [열기](http://localhost:4001/docs#/auth/AuthController_logoutAll)          | 확정 |
-| member-service | POST   | `/api/v1/auth/password`      | 회원  | 비밀번호 변경. `{ currentPassword, newPassword }` → 204           | [열기](http://localhost:4001/docs#/auth/AuthController_changePassword)     | 확정 |
-| member-service | GET    | `/api/v1/members/me`         | 회원  | 내 프로필 → 200 `MemberProfile`                                   | [열기](http://localhost:4001/docs#/members/MembersController_me)           | 확정 |
-| member-service | PATCH  | `/api/v1/members/me`         | 회원  | 휴대폰(현재 비밀번호 필수) · 마케팅 수신 동의 수정 → 200          | [열기](http://localhost:4001/docs#/members/MembersController_updateMe)     | 확정 |
-| member-service | DELETE | `/api/v1/members/me`         | 회원  | 탈퇴. `{ password }` → 204 + 두 쿠키 삭제. 즉시 익명화            | [열기](http://localhost:4001/docs#/members/MembersController_withdraw)     | 확정 |
-| member-service | GET    | `/api/v1/members`            | ADMIN | 회원 목록. `MemberListQuery` → `{ items, total, page, pageSize }` | [열기](http://localhost:4001/docs#/members/MembersController_list)         | 확정 |
-| member-service | GET    | `/api/v1/members/:id`        | ADMIN | 회원 상세 → 200 `MemberDetail`. 없으면 404 `MEMBER_NOT_FOUND`     | [열기](http://localhost:4001/docs#/members/MembersController_detail)       | 확정 |
-| member-service | PATCH  | `/api/v1/members/:id/status` | ADMIN | 계정 상태 변경(ACTIVE ↔ SUSPENDED). `{ status, reason? }` → 200   | [열기](http://localhost:4001/docs#/members/MembersController_updateStatus) | 확정 |
+| 서비스         | 메서드 | 경로                                                     | 인증  | 설명                                                                                        | Swagger                                                                             | 상태 |
+| -------------- | ------ | -------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---- |
+| member-service | POST   | `/api/v1/members`                                        | 공개  | 가입. 201 `MemberProfile`. 같은 이메일 409 `EMAIL_ALREADY_EXISTS`                           | [열기](http://localhost:4001/docs#/members/MembersController_signup)                | 확정 |
+| member-service | POST   | `/api/v1/auth/login`                                     | 공개  | 로그인. `{ email, password, client }` → 200 `AuthResponse` + 쿠키                           | [열기](http://localhost:4001/docs#/auth/AuthController_login)                       | 확정 |
+| member-service | POST   | `/api/v1/auth/refresh`                                   | 공개  | refresh 회전. `{ client }` + 쿠키 → 200 `AuthResponse` (+ 쿠키)                             | [열기](http://localhost:4001/docs#/auth/AuthController_refresh)                     | 확정 |
+| member-service | POST   | `/api/v1/auth/logout`                                    | 공개  | 로그아웃. `{ client }` + 쿠키 → 204 + 쿠키 삭제. 완전 멱등                                  | [열기](http://localhost:4001/docs#/auth/AuthController_logout)                      | 확정 |
+| member-service | POST   | `/api/v1/auth/logout-all`                                | 회원  | 모든 기기에서 로그아웃 → 204 + 쿠키 삭제                                                    | [열기](http://localhost:4001/docs#/auth/AuthController_logoutAll)                   | 확정 |
+| member-service | POST   | `/api/v1/auth/password`                                  | 회원  | 비밀번호 변경. `{ currentPassword, newPassword }` → 204                                     | [열기](http://localhost:4001/docs#/auth/AuthController_changePassword)              | 확정 |
+| member-service | GET    | `/api/v1/members/me`                                     | 회원  | 내 프로필 → 200 `MemberProfile`                                                             | [열기](http://localhost:4001/docs#/members/MembersController_me)                    | 확정 |
+| member-service | PATCH  | `/api/v1/members/me`                                     | 회원  | 휴대폰(현재 비밀번호 필수) · 마케팅 수신 동의 수정 → 200                                    | [열기](http://localhost:4001/docs#/members/MembersController_updateMe)              | 확정 |
+| member-service | DELETE | `/api/v1/members/me`                                     | 회원  | 탈퇴. `{ password }` → 204 + 두 쿠키 삭제. 즉시 익명화                                      | [열기](http://localhost:4001/docs#/members/MembersController_withdraw)              | 확정 |
+| member-service | GET    | `/api/v1/members`                                        | ADMIN | 회원 목록. `MemberListQuery` → `{ items, total, page, pageSize }`                           | [열기](http://localhost:4001/docs#/members/MembersController_list)                  | 확정 |
+| member-service | GET    | `/api/v1/members/:id`                                    | ADMIN | 회원 상세 → 200 `MemberDetail`. 없으면 404 `MEMBER_NOT_FOUND`                               | [열기](http://localhost:4001/docs#/members/MembersController_detail)                | 확정 |
+| member-service | PATCH  | `/api/v1/members/:id/status`                             | ADMIN | 계정 상태 변경(ACTIVE ↔ SUSPENDED). `{ status, reason? }` → 200                             | [열기](http://localhost:4001/docs#/members/MembersController_updateStatus)          | 확정 |
+| event-service  | GET    | `/api/v1/events`                                         | 공개  | 공개 일정 목록. OPEN · CLOSED이고 시작 전 → `PublicScheduleListResponse`(`pageSize` ≤ 50)   | [열기](http://localhost:4002/docs#/events/PublicEventsController_list)              | 확정 |
+| event-service  | GET    | `/api/v1/events/:id`                                     | 공개  | 공개 일정 상세 → `PublicSchedule`. DRAFT · CANCELLED · 없음은 같은 404 `SCHEDULE_NOT_FOUND` | [열기](http://localhost:4002/docs#/events/PublicEventsController_detail)            | 확정 |
+| event-service  | GET    | `/api/v1/meetups`                                        | ADMIN | 모임 상품 목록 → `MeetupListResponse`                                                       | [열기](http://localhost:4002/docs#/meetups/MeetupsController_list)                  | 확정 |
+| event-service  | POST   | `/api/v1/meetups`                                        | ADMIN | 모임 상품 등록. `{ title, description? }` → 201 `Meetup`                                    | [열기](http://localhost:4002/docs#/meetups/MeetupsController_create)                | 확정 |
+| event-service  | GET    | `/api/v1/meetups/:meetupId`                              | ADMIN | 모임 상품 상세 → `Meetup`. 없으면 404 `MEETUP_NOT_FOUND`                                    | [열기](http://localhost:4002/docs#/meetups/MeetupsController_get)                   | 확정 |
+| event-service  | PATCH  | `/api/v1/meetups/:meetupId`                              | ADMIN | 모임 상품 수정 → `Meetup`(모든 회차 응답에 반영)                                            | [열기](http://localhost:4002/docs#/meetups/MeetupsController_update)                | 확정 |
+| event-service  | GET    | `/api/v1/meetups/:meetupId/schedules`                    | ADMIN | 회차 목록(모든 상태, `status?` · `from?` · `to?`) → `AdminScheduleListResponse`             | [열기](http://localhost:4002/docs#/schedules/AdminSchedulesController_list)         | 확정 |
+| event-service  | POST   | `/api/v1/meetups/:meetupId/schedules`                    | ADMIN | 회차 생성 → 201 `AdminSchedule`(DRAFT). 시간 규칙 400 `SCHEDULE_TIME_INVALID`               | [열기](http://localhost:4002/docs#/schedules/AdminSchedulesController_create)       | 확정 |
+| event-service  | POST   | `/api/v1/meetups/:meetupId/schedules/batch`              | ADMIN | 여러 회차 등록(1~12개, 전부 DRAFT, 전부 또는 없음) → 201 `{ items }`                        | [열기](http://localhost:4002/docs#/schedules/AdminSchedulesController_createBatch)  | 확정 |
+| event-service  | GET    | `/api/v1/meetups/:meetupId/schedules/:scheduleId`        | ADMIN | 회차 상세(장소 안내 포함) → `AdminSchedule`                                                 | [열기](http://localhost:4002/docs#/schedules/AdminSchedulesController_get)          | 확정 |
+| event-service  | PATCH  | `/api/v1/meetups/:meetupId/schedules/:scheduleId`        | ADMIN | 회차 수정(보낸 필드만, 병합 판정). CANCELLED 409 `SCHEDULE_NOT_EDITABLE`                    | [열기](http://localhost:4002/docs#/schedules/AdminSchedulesController_update)       | 확정 |
+| event-service  | PATCH  | `/api/v1/meetups/:meetupId/schedules/:scheduleId/status` | ADMIN | 상태 변경 `{ status, cancelReason? }`(SPEC-002 6절 전이 표) → `AdminSchedule`               | [열기](http://localhost:4002/docs#/schedules/AdminSchedulesController_updateStatus) | 확정 |
+| event-service  | DELETE | `/api/v1/meetups/:meetupId/schedules/:scheduleId`        | ADMIN | 회차 삭제(DRAFT만) → 204. 그 밖 409 `SCHEDULE_NOT_EDITABLE`                                 | [열기](http://localhost:4002/docs#/schedules/AdminSchedulesController_remove)       | 확정 |
 
 운영 엔드포인트(버저닝 · 인증 · 내부 토큰 대상 아님):
 
