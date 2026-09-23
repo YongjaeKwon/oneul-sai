@@ -37,6 +37,8 @@
 # 공유 패키지 — contracts 변경은 모든 소비자에 영향을 주므로 리뷰가 특히 중요
 /packages/                          @YongjaeKwon
 /packages/contracts/                @YongjaeKwon
+# service-kit — 모든 서비스의 내부 토큰 · 역할 가드가 여기 있다(ADR-010)
+/packages/service-kit/              @YongjaeKwon
 /packages/ui/                       @YongjaeKwon
 
 # 인프라

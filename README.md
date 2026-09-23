@@ -73,6 +73,7 @@ oneul-sai/
 │   ├── kafka/                # Kafka 프로듀서/컨슈머 공통 래퍼 (구조만)
 │   ├── logger/               # 구조화 로깅 공통 모듈
 │   ├── config/               # 환경 변수 로딩/검증 (Zod 기반)
+│   ├── service-kit/          # NestJS 서비스 공통 가드·파이프·에러 필터 (업무 규칙 없음)
 │   ├── types/                # 공유 TypeScript 타입
 │   ├── constants/            # 공유 상수 (포트, 헤더명 등)
 │   ├── utils/                # 공유 유틸 함수
@@ -117,19 +118,20 @@ oneul-sai/
 
 ### Shared Packages
 
-| 이름                           | 역할                                                       |
-| ------------------------------ | ---------------------------------------------------------- |
-| `@oneul-sai/contracts`         | 서비스 간 공유되는 유일한 것: API/이벤트 계약 (Zod 스키마) |
-| `@oneul-sai/api-client`        | contracts 기반 타입 안전 HTTP 클라이언트 (프론트엔드용)    |
-| `@oneul-sai/kafka`             | Kafka 연동 공통 래퍼 (현재 구조만)                         |
-| `@oneul-sai/logger`            | 구조화 로깅                                                |
-| `@oneul-sai/config`            | 환경 변수 로딩·Zod 검증                                    |
-| `@oneul-sai/types`             | 공유 타입                                                  |
-| `@oneul-sai/constants`         | 공유 상수 (포트, `x-request-id` 헤더명 등)                 |
-| `@oneul-sai/utils`             | 공유 유틸                                                  |
-| `@oneul-sai/ui`                | 공유 React 컴포넌트                                        |
-| `@oneul-sai/eslint-config`     | ESLint 9 flat config 프리셋                                |
-| `@oneul-sai/typescript-config` | tsconfig 프리셋 (base/library/nestjs/nextjs/react-library) |
+| 이름                           | 역할                                                                                                                                     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `@oneul-sai/contracts`         | 서비스 간 업무 데이터를 공유하는 유일한 곳: API/이벤트 계약 (Zod 스키마)                                                                 |
+| `@oneul-sai/api-client`        | contracts 기반 타입 안전 HTTP 클라이언트 (프론트엔드용)                                                                                  |
+| `@oneul-sai/kafka`             | Kafka 연동 공통 래퍼 (현재 구조만)                                                                                                       |
+| `@oneul-sai/logger`            | 구조화 로깅                                                                                                                              |
+| `@oneul-sai/config`            | 환경 변수 로딩·Zod 검증                                                                                                                  |
+| `@oneul-sai/service-kit`       | NestJS 서비스 플랫폼 코드: 내부 토큰·역할 가드, Zod 파이프, 에러 필터 (업무 규칙 없음, [ADR-010](docs/adr/ADR-010-platform-packages.md)) |
+| `@oneul-sai/types`             | 공유 타입                                                                                                                                |
+| `@oneul-sai/constants`         | 공유 상수 (포트, `x-request-id` 헤더명 등)                                                                                               |
+| `@oneul-sai/utils`             | 공유 유틸                                                                                                                                |
+| `@oneul-sai/ui`                | 공유 React 컴포넌트                                                                                                                      |
+| `@oneul-sai/eslint-config`     | ESLint 9 flat config 프리셋                                                                                                              |
+| `@oneul-sai/typescript-config` | tsconfig 프리셋 (base/library/nestjs/nextjs/react-library)                                                                               |
 
 ---
 

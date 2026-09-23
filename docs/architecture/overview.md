@@ -40,7 +40,7 @@
 ```
 
 - 클라이언트는 API Gateway(:4000)만 호출한다. 마이크로서비스 직접 호출은 로컬 디버깅 용도로만 허용한다(이때 `x-internal-token`을 직접 실어야 한다).
-- 인증(Step 1, [ADR-009](../adr/ADR-009-authentication.md)): 클라이언트는 `Authorization: Bearer <access token>`을 보내고, Gateway가 검증해 `x-user-id` · `x-user-role`로 바꿔 서비스에 넘긴다. Gateway는 프록시하는 모든 요청에 `x-internal-token`을 붙이고, 서비스는 이 값이 맞는 요청만 받는다. refresh token은 Gateway 호스트의 httpOnly 쿠키(`onulsai_rt_web` · `onulsai_rt_admin`)다. 규칙은 [API 규칙 5절](../api/README.md#5-인증--쿠키--cors--rate-limit-step-1).
+- 인증(Step 1, [ADR-009](../adr/ADR-009-authentication.md)): 클라이언트는 `Authorization: Bearer <access token>`을 보내고, Gateway가 검증해 `x-user-id` · `x-user-role`로 바꿔 서비스에 넘긴다. Gateway는 프록시하는 모든 요청에 `x-internal-token`을 붙이고, 서비스는 이 값이 맞는 요청만 받는다(`/health`만 예외 — 검사 코드는 `@oneul-sai/service-kit`, [ADR-010](../adr/ADR-010-platform-packages.md)). refresh token은 Gateway 호스트의 httpOnly 쿠키(`onulsai_rt_web` · `onulsai_rt_admin`)다. 규칙은 [API 규칙 5절](../api/README.md#5-인증--쿠키--cors--rate-limit-step-1).
 - payment-service는 이벤트 소비 외에 결제 요청/Webhook 처리를 위해 Gateway의 REST 라우팅(`/api/v1/payments`)도 받는다. 라우팅 테이블은 [API 규칙](../api/README.md) 참고.
 
 ## 2. 서비스별 책임
@@ -91,6 +91,7 @@ oneul-sai/
 │   ├── utils/                  # 공통 유틸 함수
 │   ├── config/                 # 환경 변수 검증 헬퍼 (zod + dotenv)
 │   ├── logger/                 # 공통 구조화(JSON) 로거
+│   ├── service-kit/            # NestJS 서비스 플랫폼 코드 — 내부 토큰 · 역할 가드, Zod 파이프, 에러 필터 (ADR-010)
 │   ├── kafka/                  # Kafka 공통 코드 자리 (구조만 준비)
 │   ├── api-client/             # 프론트엔드용 API 클라이언트
 │   ├── ui/                     # Web/Admin 공유 React 컴포넌트
@@ -105,6 +106,7 @@ oneul-sai/
 ```
 
 - 패키지 이름은 `@oneul-sai/<name>`, 앱 간 코드 공유는 반드시 `packages/`를 통해서만 한다.
+- 서비스 간 업무 데이터의 형식은 `contracts`만 공유한다. 플랫폼 패키지(`logger` · `config` · `service-kit`)는 업무 규칙 없이 공유한다 — 편입 기준은 [ADR-010](../adr/ADR-010-platform-packages.md).
 - 빌드 파이프라인은 Turborepo가 관리한다(`dev`/`build`/`lint`/`typecheck`/`test`/`db:generate`).
 
 ## 6. Request ID 전파

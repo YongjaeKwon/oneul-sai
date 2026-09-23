@@ -123,6 +123,12 @@
 - 원인: SPEC-001 12절의 파라미터(N=2^17, r=8)는 호출당 128MiB를 쓰는데 Node `maxmem` 기본값은 32MiB다. scrypt는 libuv 스레드풀(기본 4)에서 돌아 다른 비동기 작업과 스레드를 나눠 쓴다.
 - 대응: `apps/member-service/src/auth/password.ts`가 `maxmem: 256MiB`를 명시한다. 파라미터를 올리면 `maxmem`도 같이 본다. 서비스 프로세스에는 `UV_THREADPOOL_SIZE=8`(scrypt 동시 실행 상한 4 + DB 드라이버 여유)을 권고한다 — Node가 시작할 때 읽는 변수라 `.env`가 아니라 실행 환경에서 준다. CI의 `integration` 잡에는 이미 설정돼 있다.
 
+### 함정 10. 공유 Nest 패키지는 NestJS를 peerDependencies로 둔다
+
+- 증상: 앱이 부팅하면서 `RolesGuard`의 의존성(`Reflector`)을 찾지 못해 실패하거나, 필터의 `instanceof HttpException`이 거짓이 되어 모든 에러가 500이 된다.
+- 원인: `@oneul-sai/service-kit`이 `@nestjs/common` · `@nestjs/core`를 자기 `dependencies`로 따로 가지면 앱과 kit이 서로 다른 Nest 인스턴스를 로드한다. 그러면 kit의 `Reflector` · `HttpException`은 앱의 것과 다른 클래스다.
+- 대응: `@nestjs/common` · `@nestjs/core` · `reflect-metadata` · `rxjs`는 kit의 `peerDependencies`(+ 테스트용 `devDependencies`)에 앱과 **같은 버전 범위**로 둔다. Nest 메이저를 올릴 때 kit의 범위도 함께 올린다. 확인: 앱과 kit의 `node_modules/@nestjs/core`가 같은 `.pnpm` 경로를 가리키는지(`cd <pkg>/node_modules/@nestjs/core && pwd -P`). ADR-010.
+
 ## 3. 업그레이드 시 확인할 것
 
 ### 절차
@@ -141,7 +147,7 @@
 | TypeScript               | typescript-eslint가 그 버전을 지원하는지. TS 7 전환은 도구 지원 확인 뒤 ADR로 결정                                                                |
 | pnpm                     | `pnpm-workspace.yaml`의 `allowBuilds`·`minimumReleaseAge*` 스키마 변경 여부. `packageManager` 필드 갱신                                           |
 | Turborepo                | `turbo.json` 태스크 정의 형식 변경. `db:generate` 의존 연결이 유지되는지                                                                          |
-| NestJS / @nestjs/swagger | 두 패키지 메이저를 같이 올린다. ESM 플레이버 유지. vitest 호환                                                                                    |
+| NestJS / @nestjs/swagger | 두 패키지 메이저를 같이 올린다. ESM 플레이버 유지. vitest 호환. `@oneul-sai/service-kit`의 peerDependencies 범위도 함께(함정 10)                  |
 | Prisma                   | generator 이름과 출력 경로, adapter 패키지 버전을 `prisma`·`@prisma/client`·`@prisma/adapter-pg` 셋 다 같은 버전으로                              |
 | Next.js / React          | `eslint-config-next`를 같은 버전으로. Turbopack 비호환 설정 여부. `@oneul-sai/ui` transpile 확인                                                  |
 | Tailwind                 | `@source` 문법과 `@tailwindcss/postcss` 플러그인 변경 여부                                                                                        |

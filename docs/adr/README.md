@@ -18,3 +18,4 @@
 | ADR-007 | Database per Service           | [ADR-007-database-per-service.md](./ADR-007-database-per-service.md)   |
 | ADR-008 | Kubernetes Deployment Strategy | [ADR-008-kubernetes-deployment.md](./ADR-008-kubernetes-deployment.md) |
 | ADR-009 | Authentication                 | [ADR-009-authentication.md](./ADR-009-authentication.md)               |
+| ADR-010 | Platform Packages              | [ADR-010-platform-packages.md](./ADR-010-platform-packages.md)         |
