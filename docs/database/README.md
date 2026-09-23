@@ -3,7 +3,7 @@
 DB 소유권, Prisma 7 워크플로우, 마이그레이션 규칙, 그리고 실제로 있는 테이블의 인덱스다. 스키마의 원천은 `apps/<service>/prisma/schema.prisma`이고, 이 문서와 다르면 스키마가 맞다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-23 (Step 1 — member_db 첫 마이그레이션 `init_member`, 워크플로우 · seed 규칙)
+- 최종 갱신: 2026-09-23 (Step 2 — event_db 첫 마이그레이션 `init_event`, 테스트 전용 DB `event_test_db`)
 
 ## 1. Database per Service
 
@@ -12,7 +12,7 @@ DB 소유권, Prisma 7 워크플로우, 마이그레이션 규칙, 그리고 실
 | 서비스               | 논리 DB           | 기본 URL                                                  | 상태                                    |
 | -------------------- | ----------------- | --------------------------------------------------------- | --------------------------------------- |
 | member-service       | `member_db`       | `postgresql://oneul:oneul@localhost:5432/member_db`       | Step 1 — `Member` · `RefreshToken`(5절) |
-| event-service        | `event_db`        | `postgresql://oneul:oneul@localhost:5432/event_db`        | 최소 스키마(모델 없음). Step 2          |
+| event-service        | `event_db`        | `postgresql://oneul:oneul@localhost:5432/event_db`        | Step 2 — `Meetup` · `Schedule`(6절)     |
 | matching-service     | `matching_db`     | `postgresql://oneul:oneul@localhost:5432/matching_db`     | 최소 스키마(모델 없음). Step 6          |
 | notification-service | `notification_db` | `postgresql://oneul:oneul@localhost:5432/notification_db` | 최소 스키마(모델 없음). Step 7          |
 | payment-service      | `payment_db`      | `postgresql://oneul:oneul@localhost:5432/payment_db`      | 최소 스키마(모델 없음). Step 4          |
@@ -30,6 +30,7 @@ docker compose up -d
 - PostgreSQL 17 컨테이너(`oneul-sai-postgres`)가 5432 포트로 뜬다. 계정은 `oneul` / `oneul`.
 - 최초 기동 시 init 스크립트(`infra/docker/postgres/init/01-create-databases.sql`)가 위 표의 논리 DB 5개를 생성한다.
 - init 스크립트는 데이터 볼륨이 비어 있을 때만 실행된다. DB 목록을 바꿨다면 볼륨을 지우고 다시 올린다(`docker compose down -v`).
+- 테스트 전용 DB `event_test_db`(4.2절)는 init 스크립트에 없다. event-service `test:integration`의 `prisma migrate deploy`가 DB가 없으면 만든다(Prisma 7.10에서 확인) — 기존 볼륨에서도 따로 만들 필요가 없다.
 
 ## 3. Prisma 7 워크플로우
 
@@ -51,7 +52,7 @@ docker compose up -d
 
 ## 4. 마이그레이션
 
-마이그레이션은 **실제 도메인 모델을 추가하는 Step**에서 그 서비스에 시작한다. 첫 사례는 Step 1의 member-service `20260922074759_init_member`(5절)다. 나머지 서비스는 클라이언트 생성 확인용 최소 스키마이며 마이그레이션 파일이 없다 — 각 Step의 설계서 "9. DB 변경" 절과 함께 시작한다.
+마이그레이션은 **실제 도메인 모델을 추가하는 Step**에서 그 서비스에 시작한다. 첫 사례는 Step 1의 member-service `20260922074759_init_member`(5절), 다음은 Step 2의 event-service `20260923014911_init_event`(6절)다. 나머지 서비스는 클라이언트 생성 확인용 최소 스키마이며 마이그레이션 파일이 없다 — 각 Step의 설계서 "9. DB 변경" 절과 함께 시작한다.
 
 ### 4.1 개발 (`prisma migrate dev`)
 
@@ -74,7 +75,21 @@ pnpm --filter @oneul-sai/member-service exec prisma migrate deploy
 ```
 
 - `deploy`는 커밋된 마이그레이션을 순서대로 적용만 한다(생성 · drift 감지 · reset 없음). 프로덕션과 CI는 이것만 쓴다. 프로덕션 배포 절차 자체는 결정 예정 (Step 8).
-- 통합 테스트(`*.integration.spec.ts`, `pnpm --filter @oneul-sai/member-service test:integration`)는 `DATABASE_URL`의 실제 Postgres에 `migrate deploy`가 적용돼 있어야 한다. CI는 `integration` 잡의 `postgres:17` service container에 `migrate deploy` → `test:integration` 순서로 돈다(`.github/workflows/ci.yml`). 통합 테스트는 각 테스트 앞에서 테이블을 비우므로 **로컬 개발 DB에서 돌리면 회원 데이터가 지워진다** — 실행 뒤 seed를 다시 한다.
+- member-service 통합 테스트(`*.integration.spec.ts`, `pnpm --filter @oneul-sai/member-service test:integration`)는 `DATABASE_URL`의 실제 Postgres에 `migrate deploy`가 적용돼 있어야 한다. CI는 `integration` 잡의 `postgres:17` service container에 `migrate deploy` → `test:integration` 순서로 돈다(`.github/workflows/ci.yml`). 통합 테스트는 각 테스트 앞에서 테이블을 비우므로 **로컬 개발 DB에서 돌리면 회원 데이터가 지워진다** — 실행 뒤 seed를 다시 한다. 테스트 전용 DB로 옮길지는 결정 예정(SPEC-002 16절).
+
+#### 테스트 전용 DB `event_test_db` (SPEC-002 9절, D13)
+
+event-service 통합 테스트는 개발 DB `event_db`를 건드리지 않고 **테스트 전용 DB**에서 돈다.
+
+```bash
+pnpm --filter @oneul-sai/event-service test:integration
+```
+
+- URL의 원천은 env `TEST_DATABASE_URL`(기본 `postgresql://oneul:oneul@localhost:5432/event_test_db`) 하나이고, vitest `globalSetup`(`apps/event-service/src/testing/integration.global-setup.ts`)만 읽는다. 서비스 부팅과 `.env`의 `DATABASE_URL`은 관여하지 않는다.
+- `globalSetup`이 실행마다 한 번: 이름 검사(`_test_db`로 끝나지 않으면 즉시 실패 — `event_db` · `member_db` 거부) → `prisma migrate deploy`(비파괴, `DATABASE_URL`만 테스트 URL로 바꾼 자식 프로세스. DB가 없으면 Prisma가 만든다) → `provide('testDatabaseUrl')`로 워커에 넘긴다.
+- 워커는 `inject('testDatabaseUrl')`로 받은 URL로만 `PrismaService`를 만든다. 각 테스트 앞의 `resetTestDatabase`는 `SELECT current_database()`가 `_test_db`로 끝나는지 확인한 뒤에만 `TRUNCATE "Schedule", "Meetup"`을 한다.
+- `prisma migrate reset`은 쓰지 않는다. 이미 적용한 마이그레이션 파일을 고쳐 checksum이 어긋나면(`migrate deploy` 실패) 사람이 테스트 DB를 지우고 다시 실행한다: `docker compose exec postgres psql -U oneul -d oneul -c "DROP DATABASE event_test_db;"`(테스트 데이터뿐이다).
+- CI `integration` 잡은 member-service 다음에 event-service `build`(`db:generate` 포함) → `test:integration`을 단계 env `TEST_DATABASE_URL=postgresql://oneul:oneul@localhost:5432/event_test_db`로 돈다. 잡 env의 `DATABASE_URL`(member_db)은 그대로이고 event-service 테스트는 그것을 보지 않는다.
 
 ### 4.3 seed
 
@@ -87,7 +102,9 @@ pnpm --filter @oneul-sai/member-service exec prisma migrate deploy
 ```bash
 docker compose up -d
 cp apps/member-service/.env.example apps/member-service/.env
-pnpm --filter @oneul-sai/member-service exec prisma migrate dev   # 커밋된 마이그레이션 적용
+cp apps/event-service/.env.example apps/event-service/.env
+pnpm --filter @oneul-sai/member-service exec prisma migrate dev   # 커밋된 마이그레이션 적용 (member_db)
+pnpm --filter @oneul-sai/event-service exec prisma migrate dev    # 커밋된 마이그레이션 적용 (event_db)
 pnpm db:generate
 pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed
 ```
@@ -146,3 +163,62 @@ pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member
 - `LoginAttempt` 이력 테이블 — 카운터 두 열과 로그로 충분. 잠금 시각 없음(D6).
 - 약관 버전 · 동의 이력 테이블 — 약관이 실제로 개정될 때.
 - 닉네임 · 매칭용 프로필 열 — 결정 예정 (Step 5 · 6).
+
+## 6. event_db (Step 2, SPEC-002 9절)
+
+원천: `apps/event-service/prisma/schema.prisma`, 마이그레이션 `prisma/migrations/20260923014911_init_event/migration.sql`. 설계 이유는 [SPEC-002 5 · 9절](../specs/SPEC-002-meetup-schedule.md#9-db-변경). 이번 Step의 event_db는 회원을 참조하지 않는다(작성자 열 · 개인정보 열 없음). 모든 시각은 `TIMESTAMPTZ(3)`이다 — SQL `now()`와 직접 비교하는 조건 때문이며 member_db의 `TIMESTAMP(3)`과 다르다(D7). seed는 없다(운영자가 화면에서 만든다).
+
+| 마이그레이션                | 내용                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| `20260923014911_init_event` | enum `ScheduleStatus`, `Meetup`, `Schedule`, 인덱스, FK, 손으로 추가한 CHECK 6개 |
+
+### `Meetup` — 모임 상품 (회차가 함께 쓰는 제목 · 설명)
+
+| 열                        | 타입 · 제약                  | 뜻                                            |
+| ------------------------- | ---------------------------- | --------------------------------------------- |
+| `id`                      | `TEXT` PK, UUID v4           |                                               |
+| `title`                   | `TEXT` NOT NULL              | 상품 제목                                     |
+| `description`             | `TEXT` NOT NULL DEFAULT `''` | 상품 설명. 비어 있으면 `''`(null을 쓰지 않음) |
+| `createdAt` · `updatedAt` | `TIMESTAMPTZ(3)`             | 생성 · 갱신 시각                              |
+
+상태 · 삭제가 없다(SPEC-002 6절).
+
+### `Schedule` — 회차 (참가자 화면: 일정)
+
+| 열                                                               | 타입 · 제약                        | 뜻                                                                               |
+| ---------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------- |
+| `id`                                                             | `TEXT` PK, UUID v4                 | 랜덤이라 비공개 회차의 ID를 추측할 수 없다                                       |
+| `meetupId`                                                       | `TEXT` FK → `Meetup.id` (RESTRICT) | 상품. 제목 · 설명은 복사하지 않고 응답을 만들 때 상품에서 읽는다                 |
+| `startsAt` · `endsAt` · `applyDeadlineAt`                        | `TIMESTAMPTZ(3)` NOT NULL          | 시작 · 종료 · 신청 마감(필수)                                                    |
+| `priceMale` · `priceFemale`                                      | `INTEGER` NOT NULL                 | 남녀 참가비. 같아도 달라도 된다                                                  |
+| `capacityMale` · `capacityFemale`                                | `INTEGER` NOT NULL                 | 남녀 정원. 같아도 달라도 된다(차이는 화면 경고뿐)                                |
+| `maleMinBirthYear` · `maleMaxBirthYear`                          | `INTEGER` nullable                 | 남성 연령대(출생연도 범위). null = 제한 없음. 여성은 연령 조건이 없어 열도 없다  |
+| `venueArea`                                                      | `TEXT` NOT NULL                    | 지역 — 공개 화면의 유일한 장소 정보                                              |
+| `venueName` · `venueAddress` · `venueDirections` · `venueMapUrl` | `TEXT` nullable                    | **운영자 전용**. 공개 응답에 싣지 않는다(SPEC-002 12절). null = 아직 정하지 않음 |
+| `status`                                                         | `ScheduleStatus` DEFAULT `DRAFT`   | 회차 상태(SPEC-002 6절)                                                          |
+| `cancelReason`                                                   | `TEXT` nullable                    | 취소 사유. CANCELLED일 때만 값이 있다                                            |
+| `createdAt` · `updatedAt`                                        | `TIMESTAMPTZ(3)`                   | 생성 · 갱신 시각                                                                 |
+
+- 인덱스: `Schedule_meetupId_startsAt_idx`(`meetupId`, `startsAt`) — 운영자 회차 목록과 FK 조회용(PostgreSQL은 FK 열에 인덱스를 자동으로 만들지 않는다). 공개 목록용 `(status, startsAt)` 인덱스는 두지 않는다 — 공개 목록 p95가 나빠지면 더한다. `Meetup`은 인덱스 없음.
+- 유니크: 없다. 같은 상품 · 같은 시각의 회차를 DB에서 막지 않는다. 여러 회차 등록은 한 요청 안의 `(startsAt, venueArea)` 중복만 요청 검사로 막는다(D15).
+- CHECK(마이그레이션 SQL에만 있음 — drift로 잡히지 않는다. 테스트: `apps/event-service/src/prisma/schedule-checks.integration.spec.ts`):
+
+| 제약                             | 조건                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Schedule_price_valid`           | `priceMale >= 0 AND priceFemale >= 0`. 상한(1,000,000)은 요청 스키마에만 있다              |
+| `Schedule_capacity_valid`        | `capacityMale` · `capacityFemale` 각각 1~50                                                |
+| `Schedule_time_order`            | `applyDeadlineAt <= startsAt AND startsAt < endsAt`                                        |
+| `Schedule_male_birth_year_valid` | 두 출생연도 각각 null이거나 1900 이상, 둘 다 있으면 `maleMinBirthYear <= maleMaxBirthYear` |
+| `Schedule_venue_map_url_https`   | `venueMapUrl IS NULL OR venueMapUrl LIKE 'https://%'`                                      |
+| `Schedule_cancel_reason`         | `(status = 'CANCELLED') = (cancelReason IS NOT NULL)` — CANCELLED일 때만, 그리고 반드시    |
+
+### enum
+
+`ScheduleStatus`(`DRAFT` · `OPEN` · `CLOSED` · `CANCELLED`). 행사를 마친 상태는 Step 5(SPEC-005)가 더한다. Postgres enum 타입 이름도 같다.
+
+### event_db에 없는 것 (설계로 뺀 것)
+
+- 작성자 · 수정자 열 — 로그(`adminId`)가 원천이다(SPEC-002 5절).
+- 여성 연령대 열 — 여성에게는 연령 조건이 없다(D5).
+- NEXT 재참가 혜택 · "같은 금액" 여부 — 혜택 내용은 결정 예정 (Step 3 · 4), 같은 금액 여부는 두 값의 비교로 안다(D3).
+- 신청(`Application`) · 좌석 계산 — Step 3이 같은 `event_db`에 더한다. 방식은 결정 예정 (Step 3)(SPEC-002 9절).
