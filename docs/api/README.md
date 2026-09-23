@@ -22,11 +22,12 @@
 
 원천은 `apps/api-gateway/src/proxy/routes.ts`(`createProxyRoutes`). prefix 매칭은 `pathname === prefix || pathname.startsWith(prefix + '/')`이며 `POST /api/v1/members`(끝 슬래시 없음)도 잡는다. "인증" 열은 요약이고 **원천은 각 서비스의 `@Public()` · `@Roles()` 데코레이터**다 — Gateway는 경로별 인증 정책을 갖지 않는다(5.1절).
 
-| 경로 prefix            | 대상 서비스      | 포트 | 인증 (원천은 서비스, 8.3절 인덱스)                                        |
+| 경로 prefix            | 대상 서비스      | 포트 | 인증 (원천은 서비스, 9.3절 인덱스)                                        |
 | ---------------------- | ---------------- | ---- | ------------------------------------------------------------------------- |
 | `/api/v1/members`      | member-service   | 4001 | `POST /members` 공개 · `/members/me` 회원 · 목록 · 상세 · 상태 변경 ADMIN |
 | `/api/v1/auth`         | member-service   | 4001 | `login` · `refresh` · `logout` 공개 · `password` · `logout-all` 회원      |
-| `/api/v1/events`       | event-service    | 4002 | 결정 예정 (Step 2)                                                        |
+| `/api/v1/events`       | event-service    | 4002 | 공개 — 목록 · 상세(읽기 전용)                                             |
+| `/api/v1/meetups`      | event-service    | 4002 | ADMIN — 상품 · 회차 관리 전부                                             |
 | `/api/v1/applications` | event-service    | 4002 | 결정 예정 (Step 3)                                                        |
 | `/api/v1/matches`      | matching-service | 4003 | 결정 예정 (Step 6)                                                        |
 | `/api/v1/preferences`  | matching-service | 4003 | 결정 예정 (Step 6)                                                        |
@@ -34,7 +35,7 @@
 
 - notification-service(4004)는 외부 라우팅 대상이 아니다. Kafka 이벤트를 소비해 동작하는 내부 서비스다(현재는 구조만 준비).
 - 라우팅 대상 URL은 각 환경 변수(`MEMBER_SERVICE_URL` 등)로 주입한다. `.env.example` 참고.
-- Gateway가 인증 요구를 판단하지 않으므로 새 공개 엔드포인트(예: Step 2 공개 일정 조회)가 생겨도 Gateway 변경이 필요 없다. 새 prefix가 생길 때만 이 표와 `routes.ts`를 함께 고친다.
+- Gateway가 인증 요구를 판단하지 않으므로 새 공개 엔드포인트(예: Step 2 공개 일정 조회 `/api/v1/events`)가 생겨도 Gateway 변경이 필요 없다. 새 prefix가 생길 때만 이 표와 `routes.ts`를 함께 고친다(예: Step 2 운영자 경로 `/api/v1/meetups` — [SPEC-002 7절](../specs/SPEC-002-meetup-schedule.md#7-api-변경)).
 
 ## 4. 공통 응답 계약
 
@@ -210,7 +211,7 @@ interface ApiErrorResponse {
 | payment-service      | 4005 | GET    | `/health` | 서비스 상태                      | 확정 |
 | payment-service      | 4005 | GET    | `/docs`   | Swagger UI                       | 확정 |
 
-비즈니스 엔드포인트는 각 Step에서 이 표에 추가한다. 예상 prefix는 3절 라우팅 테이블을 따른다(`/api/v1/events`, `/api/v1/applications`, `/api/v1/matches`, `/api/v1/preferences`, `/api/v1/payments`).
+비즈니스 엔드포인트는 각 Step에서 이 표에 추가한다. 예상 prefix는 3절 라우팅 테이블을 따른다(`/api/v1/events`, `/api/v1/meetups`, `/api/v1/applications`, `/api/v1/matches`, `/api/v1/preferences`, `/api/v1/payments`).
 
 ### 9.4 버전 정책
 
