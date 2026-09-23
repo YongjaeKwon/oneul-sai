@@ -1,4 +1,9 @@
-import type { Gender } from '@oneul-sai/contracts';
+import { SERVICE_TIME_ZONE } from '@oneul-sai/constants';
+import {
+  ListPageSchema,
+  type Gender,
+  type PublicSchedule,
+} from '@oneul-sai/contracts';
 
 // 화면 표기는 docs/overview/glossary.md의 한국어 용어를 따른다.
 
@@ -26,4 +31,107 @@ export function formatPhone(phone: string | null): string {
 
 export function formatBirthYear(birthYear: number | null): string {
   return birthYear === null ? EMPTY : `${birthYear}년`;
+}
+
+// ----- 일정 (SPEC-002 4절 W8 · W9, 7절 "표시 도우미") -----
+// 시각은 어느 환경(서버 TZ=UTC 포함)에서도 서울 시각으로 보인다(D7). 한국은 서머타임이 없다.
+
+const dateTimeFormat = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: SERVICE_TIME_ZONE,
+  month: 'numeric',
+  day: 'numeric',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function seoulParts(iso: string) {
+  const parts: Partial<Record<Intl.DateTimeFormatPartTypes, string>> = {};
+  for (const part of dateTimeFormat.formatToParts(new Date(iso))) {
+    parts[part.type] = part.value;
+  }
+  return {
+    date: `${parts.month}/${parts.day}(${parts.weekday})`,
+    time: `${parts.hour}:${parts.minute}`,
+  };
+}
+
+/** "10/4(일) 14:00" — 운영 메시지와 같은 형식. */
+export function formatDateTime(iso: string): string {
+  const { date, time } = seoulParts(iso);
+  return `${date} ${time}`;
+}
+
+/** "10/4(일) 14:00~16:30". 서울 날짜가 바뀌면 끝에도 날짜를 붙인다. */
+export function formatTimeRange(startsAt: string, endsAt: string): string {
+  const start = seoulParts(startsAt);
+  const end = seoulParts(endsAt);
+  const endLabel =
+    end.date === start.date ? end.time : `${end.date} ${end.time}`;
+  return `${start.date} ${start.time}~${endLabel}`;
+}
+
+const won = (amount: number) => `${amount.toLocaleString('ko-KR')}원`;
+
+/** 같으면 "참가비 30,000원", 다르면 "참가비 남 30,000원 · 여 25,000원"(D3). */
+export function formatPrice(priceMale: number, priceFemale: number): string {
+  return priceMale === priceFemale
+    ? `참가비 ${won(priceMale)}`
+    : `참가비 남 ${won(priceMale)} · 여 ${won(priceFemale)}`;
+}
+
+/** "정원 남 7 · 여 7". 남은 자리는 Step 3. */
+export function formatCapacity(
+  capacityMale: number,
+  capacityFemale: number,
+): string {
+  return `정원 남 ${capacityMale} · 여 ${capacityFemale}`;
+}
+
+/** 남성 연령대(D5). 범위가 없으면 빈 문자열 — 연령 문구를 보이지 않는다. */
+export function formatMaleAgeRange(
+  min: number | null,
+  max: number | null,
+): string {
+  if (min !== null && max !== null) {
+    return `남성 ${min}~${max}년생`;
+  }
+  if (min !== null) {
+    return `남성 ${min}년생부터`;
+  }
+  if (max !== null) {
+    return `남성 ${max}년생까지`;
+  }
+  return '';
+}
+
+/** 상세 화면에서 남성 연령대가 있을 때만 덧붙인다(목록 카드에는 붙이지 않는다). */
+export const FEMALE_AGE_NOTE =
+  '여성은 원하는 일정을 골라 신청하실 수 있습니다.';
+
+// 아래 두 판정의 `now` 기본값은 요청 시각이다 — 공개 페이지는 서버 컴포넌트라 요청마다 한 번 렌더한다.
+
+/** "모집 마감" 표시: 운영자가 마감했거나(CLOSED) 신청 마감 시각이 지났다. 마감 시각에 상태를 바꾸는 배치는 없다(D8). */
+export function isRecruitmentClosed(
+  schedule: Pick<PublicSchedule, 'status' | 'applyDeadlineAt'>,
+  now: number = Date.now(),
+): boolean {
+  return (
+    schedule.status === 'CLOSED' || Date.parse(schedule.applyDeadlineAt) <= now
+  );
+}
+
+/** "지난 일정입니다." 표시: 시작 시각이 지났다. */
+export function hasStarted(
+  schedule: Pick<PublicSchedule, 'startsAt'>,
+  now: number = Date.now(),
+): boolean {
+  return Date.parse(schedule.startsAt) <= now;
+}
+
+/** `?page=`를 [1, PAGE_MAX] 정수로 고정한다. 잘못된 값은 1(`abc` · `0` · `-1` · `1.5` · `1001`). */
+export function normalizePage(value: unknown): number {
+  const result = ListPageSchema.safeParse(value);
+  return result.success ? result.data : 1;
 }

@@ -568,6 +568,9 @@ importers:
       '@oneul-sai/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@oneul-sai/constants':
+        specifier: workspace:*
+        version: link:../../packages/constants
       '@oneul-sai/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

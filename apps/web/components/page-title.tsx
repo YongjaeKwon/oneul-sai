@@ -1,7 +1,9 @@
 import { Divider } from '@oneul-sai/ui';
+import type { ReactNode } from 'react';
 
 export interface PageTitleProps {
-  title: string;
+  /** 보통 글자. `/events`처럼 한 단어에 `Highlight`를 둘 때는 노드를 넘긴다. */
+  title: ReactNode;
   description?: string;
 }
 
