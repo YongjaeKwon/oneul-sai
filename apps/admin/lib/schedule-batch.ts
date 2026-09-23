@@ -8,13 +8,19 @@ import {
 } from '@oneul-sai/contracts';
 import { z } from 'zod';
 
-import { describeError, isApiClientError } from './errors';
+import {
+  BIRTH_YEAR_RANGE_MESSAGE,
+  describeError,
+  isApiClientError,
+} from './errors';
 import { fromSeoulLocal, toSeoulLocal, weekdayOf } from './format';
 import {
   DEFAULT_START_TIME,
   ScheduleSharedFieldsShape,
   addDays,
   checkScheduleValues,
+  numberValue,
+  toFieldIssues,
   toSharedRequestInput,
   type ScheduleSharedValues,
 } from './schedule-form';
@@ -75,12 +81,15 @@ const SharedRequestSchema = CreateScheduleRequestSchema.omit({
   applyDeadlineAt: true,
 });
 
-/** A9 공통 값 검사. 참가비 · 정원 · 연령대 · 장소는 contracts 스키마 그대로, 시각은 "같은 날짜 안에서 시작 < 종료". */
+/**
+ * A9 공통 값 검사. 참가비 · 정원 · 연령대 · 장소는 contracts 스키마 그대로(+ 남성 연령대 순서), 시각은 "같은 날짜 안에서
+ * 시작 < 종료". 바탕 객체는 막지 않는다 — 막으면 Zod 4가 superRefine을 건너뛰어 다른 칸의 오류가 늦게 보인다.
+ */
 export const BatchCommonSchema = z
   .object({
     startTime: z.string(),
     endTime: z.string(),
-    hoursBefore: z.number({ error: '숫자로 입력해 주세요.' }).nullable(),
+    hoursBefore: numberValue,
     ...ScheduleSharedFieldsShape,
   })
   .superRefine((values, ctx) => {
@@ -106,15 +115,38 @@ export const BatchCommonSchema = z
         `0 이상 ${HOURS_BEFORE_MAX} 이하의 정수로 입력해 주세요.`,
       );
     }
-    const shared = SharedRequestSchema.safeParse(toSharedRequestInput(values));
-    for (const issue of shared.error?.issues ?? []) {
+    const shared = toSharedRequestInput(values);
+    const parsed = SharedRequestSchema.safeParse(shared);
+    for (const issue of toFieldIssues(parsed.error, shared)) {
       ctx.addIssue({
         code: 'custom',
         path: issue.path,
         message: issue.message,
       });
     }
+    // 서버는 병합한 값으로 판정한다(400 `BIRTH_YEAR_RANGE_INVALID`). 공통 값은 모든 회차에 같아 여기서 먼저 알린다.
+    if (
+      values.maleMinBirthYear !== null &&
+      values.maleMaxBirthYear !== null &&
+      values.maleMinBirthYear > values.maleMaxBirthYear
+    ) {
+      add('maleMinBirthYear', BIRTH_YEAR_RANGE_MESSAGE);
+    }
   });
+
+/** 미리보기가 낡았는지 비교하는 열쇠. 보낼 값만 본다 — "남녀 같은 금액"을 껐다 켜며 남은 숨은 여 참가비 칸은 무시한다. */
+export function batchFormKey(values: BatchCommonValues): string {
+  return JSON.stringify(
+    [
+      values.startTime,
+      values.endTime,
+      values.hoursBefore,
+      toSharedRequestInput(values),
+    ],
+    (_key, value: unknown) =>
+      typeof value === 'number' && Number.isNaN(value) ? 'NaN' : value,
+  );
+}
 
 /** A9 공통 값 초기값: 시작 14:00 · 종료 비움 · 신청 마감 0시간 전(= 시작) · 정원 7 · 7(D2 · D6 · D15). */
 export function batchCommonDefaults(): BatchCommonValues {
@@ -186,7 +218,10 @@ export function checkRows(
     const check: RowCheck = {
       errors: [],
       notSunday: row.startsAt !== '' && weekdayOf(row.startsAt) !== 0,
-      capacityDiffers: row.capacityMale !== row.capacityFemale,
+      capacityDiffers:
+        Number.isFinite(row.capacityMale) &&
+        Number.isFinite(row.capacityFemale) &&
+        row.capacityMale !== row.capacityFemale,
     };
     byKey[row.key] = check;
 

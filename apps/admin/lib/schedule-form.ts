@@ -40,23 +40,36 @@ export interface ScheduleFormValues extends ScheduleSharedValues {
   applyDeadlineAt: string;
 }
 
-/** number 입력의 `setValueAs`. 빈 칸은 `null`(선택 필드는 비움, 필수 필드는 스키마가 "입력해 주세요"). */
+/**
+ * 숫자 칸(`inputMode="numeric"` 텍스트 칸)의 `setValueAs`. 빈 칸만 `null`(선택 필드는 비움, 필수 필드는 "입력해 주세요"),
+ * 그 밖에는 숫자로 바꾼다 — 전각 숫자('１２')는 반각으로 읽고, "19-9" · "Infinity"처럼 유한한 숫자가 아니면 `NaN`이 되어
+ * 빈 값으로 저장되지 않고 "숫자로 입력해 주세요."가 뜬다. `setValue`로 옮긴 값(숫자 · `null`)은 그대로 둔다.
+ */
 export function toNumberOrNull(value: unknown): number | null {
-  return value === '' || value === null || value === undefined
-    ? null
-    : Number(value);
+  if (typeof value !== 'string') {
+    return typeof value === 'number' ? value : null;
+  }
+  const text = value.normalize('NFKC').trim();
+  if (text === '') {
+    return null;
+  }
+  const number = Number(text);
+  return Number.isFinite(number) ? number : Number.NaN;
 }
 
-const nullableNumber = z.number({ error: '숫자로 입력해 주세요.' }).nullable();
+export const NOT_A_NUMBER_MESSAGE = '숫자로 입력해 주세요.';
+
+/** 숫자 칸 값(`NaN` 포함). 여기서는 막지 않고 contracts 검사에서 칸 오류로 알린다 — 모든 칸의 오류가 한 번에 보이게. */
+export const numberValue = z.union([z.number(), z.nan()]).nullable();
 
 export const ScheduleSharedFieldsShape = {
   samePrice: z.boolean(),
-  priceMale: nullableNumber,
-  priceFemale: nullableNumber,
-  capacityMale: nullableNumber,
-  capacityFemale: nullableNumber,
-  maleMinBirthYear: nullableNumber,
-  maleMaxBirthYear: nullableNumber,
+  priceMale: numberValue,
+  priceFemale: numberValue,
+  capacityMale: numberValue,
+  capacityFemale: numberValue,
+  maleMinBirthYear: numberValue,
+  maleMaxBirthYear: numberValue,
   venueArea: z.string(),
   venueName: z.string(),
   venueAddress: z.string(),
@@ -64,12 +77,12 @@ export const ScheduleSharedFieldsShape = {
   venueMapUrl: z.string(),
 };
 
-const localDateTime = (error: string) => z.string().min(1, { error });
-
+// 시각 칸은 여기서 막지 않는다 — 앞선 이슈가 있으면 Zod 4가 transform을 건너뛰어 다른 칸의 오류가 늦게 보인다.
+// 빈 칸 문구는 `checkScheduleValues`가 붙인다.
 const ScheduleFormFieldsSchema = z.object({
-  startsAt: localDateTime('시작 시각을 입력해 주세요.'),
-  endsAt: localDateTime('종료 시각을 입력해 주세요.'),
-  applyDeadlineAt: localDateTime('신청 마감을 입력해 주세요.'),
+  startsAt: z.string(),
+  endsAt: z.string(),
+  applyDeadlineAt: z.string(),
   ...ScheduleSharedFieldsShape,
 });
 
@@ -94,12 +107,16 @@ export function toSharedRequestInput(values: ScheduleSharedValues) {
   };
 }
 
+/** 빈 시각 칸은 빈 문자열 그대로 둔다(`checkScheduleValues`가 "입력해 주세요"로 알린다). */
+const toApiTime = (local: string): string =>
+  local === '' ? '' : fromSeoulLocal(local);
+
 /** 폼 값 → `CreateScheduleRequest` 모양(검사 전). 시각은 서울로 해석해 `+09:00`을 붙인다(A7). */
 export function toScheduleRequestInput(values: ScheduleFormValues) {
   return {
-    startsAt: fromSeoulLocal(values.startsAt),
-    endsAt: fromSeoulLocal(values.endsAt),
-    applyDeadlineAt: fromSeoulLocal(values.applyDeadlineAt),
+    startsAt: toApiTime(values.startsAt),
+    endsAt: toApiTime(values.endsAt),
+    applyDeadlineAt: toApiTime(values.applyDeadlineAt),
     ...toSharedRequestInput(values),
   };
 }
@@ -110,6 +127,16 @@ const TIME_FIELDS: readonly TimeField[] = [
   'endsAt',
   'applyDeadlineAt',
 ];
+
+const TIME_REQUIRED_MESSAGES: Record<TimeField, string> = {
+  startsAt: '시작 시각을 입력해 주세요.',
+  endsAt: '종료 시각을 입력해 주세요.',
+  applyDeadlineAt: '신청 마감을 입력해 주세요.',
+};
+
+/** 폼이 다루는 분 단위로 같은 시각인지(저장된 값에 초가 있어도 손대지 않은 칸은 같다). */
+const sameMinute = (a: string, b: string): boolean =>
+  toSeoulLocal(a) === toSeoulLocal(b);
 
 export interface TimeIssue {
   field: TimeField;
@@ -149,10 +176,10 @@ export function scheduleTimeIssues(
     });
   }
   for (const field of TIME_FIELDS) {
-    const time = Date.parse(request[field]);
-    if (original !== undefined && Date.parse(original[field]) === time) {
+    if (original !== undefined && sameMinute(original[field], request[field])) {
       continue;
     }
+    const time = Date.parse(request[field]);
     if (time < now) {
       issues.push({ field, message: '지난 시각으로는 바꿀 수 없습니다.' });
     } else if (time > now + SCHEDULE_MAX_LEAD_DAYS * DAY_MS) {
@@ -167,9 +194,22 @@ export interface FieldIssue {
   message: string;
 }
 
+/** contracts 이슈 → 칸 오류. 숫자가 아닌 칸(`NaN`)은 contracts의 "…입력해 주세요." 대신 "숫자로 입력해 주세요."로 알린다. */
+export function toFieldIssues(
+  error: z.ZodError | undefined,
+  input: Record<string, unknown>,
+): FieldIssue[] {
+  return (error?.issues ?? []).map(({ path, message }) => ({
+    path,
+    message: Number.isNaN(input[String(path[0])])
+      ? NOT_A_NUMBER_MESSAGE
+      : message,
+  }));
+}
+
 /**
- * 폼 값 → 요청으로 바꿔 contracts 스키마로 검사하고(필드 이름이 같아 오류가 그 칸에 붙는다), 시각 칸의 형식이 맞으면
- * 다른 칸의 오류와 상관없이 시간 규칙도 확인한다. 모두 통과해야 `request`가 있다.
+ * 폼 값 → 요청으로 바꿔 contracts 스키마로 검사하고(필드 이름이 같아 오류가 그 칸에 붙는다), 빈 시각 칸은 "입력해 주세요"로
+ * 알린다. 시각 칸이 모두 맞으면 다른 칸의 오류와 상관없이 시간 규칙도 확인한다. 모두 통과해야 `request`가 있다.
  */
 export function checkScheduleValues(
   values: ScheduleFormValues,
@@ -178,8 +218,16 @@ export function checkScheduleValues(
 ): { request: CreateScheduleRequest | null; issues: FieldIssue[] } {
   const input = toScheduleRequestInput(values);
   const parsed = CreateScheduleRequestSchema.safeParse(input);
-  const issues: FieldIssue[] =
-    parsed.error?.issues.map(({ path, message }) => ({ path, message })) ?? [];
+  const missing = TIME_FIELDS.filter((field) => values[field] === '');
+  const issues: FieldIssue[] = [
+    ...missing.map((field) => ({
+      path: [field],
+      message: TIME_REQUIRED_MESSAGES[field],
+    })),
+    ...toFieldIssues(parsed.error, input).filter(
+      (issue) => !missing.some((field) => field === issue.path[0]),
+    ),
+  ];
   const timesWellFormed = !issues.some((issue) =>
     TIME_FIELDS.some((field) => field === issue.path[0]),
   );
@@ -286,14 +334,14 @@ const VALUE_FIELDS = [
   'venueMapUrl',
 ] as const;
 
-/** A8 PATCH 본문: 저장된 값과 다른 필드만(시각은 같은 순간인지로 비교). 비운 선택 필드는 `null`. */
+/** A8 PATCH 본문: 저장된 값과 다른 필드만(시각은 폼과 같은 분 단위로 비교). 비운 선택 필드는 `null`. */
 export function scheduleChanges(
   request: CreateScheduleRequest,
   schedule: AdminSchedule,
 ): UpdateScheduleRequest {
   const changes: Partial<Record<keyof CreateScheduleRequest, unknown>> = {};
   for (const field of TIME_FIELDS) {
-    if (Date.parse(request[field]) !== Date.parse(schedule[field])) {
+    if (!sameMinute(request[field], schedule[field])) {
       changes[field] = request[field];
     }
   }

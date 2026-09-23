@@ -1,12 +1,6 @@
 'use client';
 
 import {
-  BIRTH_YEAR_RANGE_MAX,
-  BIRTH_YEAR_RANGE_MIN,
-  CAPACITY_MAX,
-  CAPACITY_MIN,
-  PRICE_MAX,
-  PRICE_MIN,
   VENUE_ADDRESS_MAX_LENGTH,
   VENUE_AREA_MAX_LENGTH,
   VENUE_DIRECTIONS_MAX_LENGTH,
@@ -20,6 +14,7 @@ import { textareaClasses } from '@/lib/form-styles';
 import { toNumberOrNull, type ScheduleSharedValues } from '@/lib/schedule-form';
 import { FormField } from './form-field';
 
+// 숫자 칸은 텍스트 칸(`inputMode="numeric"`)이다 — `type="number"`는 "19-9" 같은 입력을 빈 값으로 넘겨 조용히 지운다.
 const numberInput = { setValueAs: toNumberOrNull } as const;
 
 /** 칸 묶음. 제목(명조)이 그룹 이름이 된다. */
@@ -75,7 +70,11 @@ export function ScheduleSharedFields() {
               // 끌 때 두 칸을 한 칸의 값으로 채워 둔다(A7).
               onChange: (event: { target: { checked: boolean } }) => {
                 if (!event.target.checked) {
-                  setValue('priceFemale', getValues('priceMale'));
+                  const price = getValues('priceMale');
+                  setValue(
+                    'priceFemale',
+                    price === null || Number.isNaN(price) ? null : price,
+                  );
                 }
               },
             })}
@@ -91,11 +90,7 @@ export function ScheduleSharedFields() {
             {(control) => (
               <Input
                 {...control}
-                type="number"
                 inputMode="numeric"
-                min={PRICE_MIN}
-                max={PRICE_MAX}
-                step={1}
                 className="tabular-nums"
                 {...register('priceMale', numberInput)}
               />
@@ -110,11 +105,7 @@ export function ScheduleSharedFields() {
               {(control) => (
                 <Input
                   {...control}
-                  type="number"
                   inputMode="numeric"
-                  min={PRICE_MIN}
-                  max={PRICE_MAX}
-                  step={1}
                   className="tabular-nums"
                   {...register('priceFemale', numberInput)}
                 />
@@ -134,11 +125,7 @@ export function ScheduleSharedFields() {
             {(control) => (
               <Input
                 {...control}
-                type="number"
                 inputMode="numeric"
-                min={CAPACITY_MIN}
-                max={CAPACITY_MAX}
-                step={1}
                 className="tabular-nums"
                 {...register('capacityMale', numberInput)}
               />
@@ -152,11 +139,7 @@ export function ScheduleSharedFields() {
             {(control) => (
               <Input
                 {...control}
-                type="number"
                 inputMode="numeric"
-                min={CAPACITY_MIN}
-                max={CAPACITY_MAX}
-                step={1}
                 className="tabular-nums"
                 {...register('capacityFemale', numberInput)}
               />
@@ -177,11 +160,7 @@ export function ScheduleSharedFields() {
             {(control) => (
               <Input
                 {...control}
-                type="number"
                 inputMode="numeric"
-                min={BIRTH_YEAR_RANGE_MIN}
-                max={BIRTH_YEAR_RANGE_MAX}
-                step={1}
                 placeholder="예: 1990"
                 className="tabular-nums"
                 {...register('maleMinBirthYear', numberInput)}
@@ -195,11 +174,7 @@ export function ScheduleSharedFields() {
             {(control) => (
               <Input
                 {...control}
-                type="number"
                 inputMode="numeric"
-                min={BIRTH_YEAR_RANGE_MIN}
-                max={BIRTH_YEAR_RANGE_MAX}
-                step={1}
                 placeholder="예: 1995"
                 className="tabular-nums"
                 {...register('maleMaxBirthYear', numberInput)}

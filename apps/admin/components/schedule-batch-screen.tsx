@@ -9,7 +9,8 @@ import {
 } from '@oneul-sai/contracts';
 import { Button, Input, Label } from '@oneul-sai/ui';
 import { useRouter } from 'next/navigation';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { FormProvider, useForm } from 'react-hook-form';
 
 import { useEndSessionOn401 } from '@/lib/auth-provider';
@@ -29,6 +30,7 @@ import {
   BATCH_LIMIT_MESSAGE,
   BatchCommonSchema,
   batchCommonDefaults,
+  batchFormKey,
   buildRows,
   checkRows,
   extractItemIndexes,
@@ -37,6 +39,7 @@ import {
   type BatchRow,
 } from '@/lib/schedule-batch';
 import {
+  NOT_A_NUMBER_MESSAGE,
   nextSunday,
   toNumberOrNull,
   type ScheduleSharedValues,
@@ -58,9 +61,20 @@ interface PreviewTable {
   checkedAt: number;
   /** 행에서 고친 적이 있는지 — 다시 만들기 전에 묻는다. */
   edited: boolean;
-  /** 표를 만들 때의 공통 값 입력 그대로. 지금 입력과 다르면 표가 낡은 것이다(남성 연령대 · 장소 안내는 표에 안 보인다). */
+  /** 표를 만들 때 보낼 공통 값(`batchFormKey`). 지금 입력과 다르면 표가 낡은 것이다(남성 연령대 · 장소 안내는 표에 안 보인다). */
   formKey: string;
 }
+
+/** 날짜 칸 오류와 그 오류가 가리키는 칸. */
+interface DateError {
+  field: 'firstDate' | 'weeks' | 'pickDate';
+  message: string;
+}
+
+const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_INVALID_MESSAGE = '날짜를 확인해 주세요.';
+/** 날짜 칸의 연도를 네 자리로 막는다(다섯 자리 연도는 날짜 계산에서 RangeError). */
+const DATE_INPUT_MAX = '9999-12-31';
 
 // 여러 회차 등록의 400 `SCHEDULE_TIME_INVALID`는 저장과 같은 문구 대신 "새로 고침" 없이 행을 고치게 안내한다(표가 사라지지 않게).
 const ROW_ERROR_OVERRIDES = {
@@ -104,6 +118,8 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
   const firstDateId = useId();
   const weeksId = useId();
   const pickDateId = useId();
+  const dateErrorId = useId();
+  const tableRef = useRef<HTMLDivElement>(null);
 
   const meetups = useMeetupList({ pageSize: ADMIN_LIST_MAX_PAGE_SIZE });
   const [targetId, setTargetId] = useState(meetup.id);
@@ -113,7 +129,12 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
   const [weeks, setWeeks] = useState('');
   const [pickDate, setPickDate] = useState('');
   const [manualDates, setManualDates] = useState<string[]>([]);
-  const [dateError, setDateError] = useState<string | null>(null);
+  const [dateError, setDateError] = useState<DateError | null>(null);
+  /** 오류가 가리키는 날짜 칸에 붙일 속성. */
+  const dateErrorProps = (field: DateError['field']) =>
+    dateError?.field === field
+      ? { invalid: true, 'aria-describedby': dateErrorId }
+      : {};
 
   const form = useForm<BatchCommonValues>({
     resolver: zodResolver(BatchCommonSchema),
@@ -126,8 +147,8 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
     formState: { errors },
   } = form;
 
-  // 공통 값 입력이 바뀔 때마다 다시 그린다 — 미리보기 뒤에 바뀌었는지 알아야 한다
-  const formKey = JSON.stringify(form.watch());
+  // 공통 값 입력이 바뀔 때마다 다시 그린다 — 미리보기 뒤에 보낼 값이 바뀌었는지 알아야 한다
+  const formKey = batchFormKey(form.watch());
 
   const [table, setTable] = useState<PreviewTable | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -136,10 +157,12 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
 
   const mutation = useCreateSchedulesBatch();
   useEndSessionOn401(mutation.error);
+  // 등록에 성공하면 화면을 떠날 때까지 잠근다 — 이동 전에 다시 누르면 같은 회차가 한 번 더 등록된다
+  const locked = mutation.isPending || mutation.isSuccess;
 
   // 등록 요청 중에는 표를 바꾸지 않는다 — reset()이 요청의 onSuccess를 떼어 내 이동 없이 버튼이 다시 켜지고, 다시 누르면 중복 등록된다
   const applyTable = (next: PreviewTable | null) => {
-    if (mutation.isPending) {
+    if (locked) {
       return;
     }
     setTable(next);
@@ -152,8 +175,12 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
     if (pickDate === '' || manualDates.includes(pickDate)) {
       return;
     }
+    if (!LOCAL_DATE.test(pickDate)) {
+      setDateError({ field: 'pickDate', message: DATE_INVALID_MESSAGE });
+      return;
+    }
     if (manualDates.length >= SCHEDULE_BATCH_MAX) {
-      setDateError(BATCH_LIMIT_MESSAGE);
+      setDateError({ field: 'pickDate', message: BATCH_LIMIT_MESSAGE });
       return;
     }
     setDateError(null);
@@ -163,18 +190,30 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
   const pickedDates = (): string[] | null => {
     if (mode === 'manual') {
       if (manualDates.length === 0) {
-        setDateError('날짜를 하나 이상 추가해 주세요.');
+        setDateError({
+          field: 'pickDate',
+          message: '날짜를 하나 이상 추가해 주세요.',
+        });
         return null;
       }
       return manualDates;
     }
     if (firstDate === '') {
-      setDateError('첫 날짜를 골라 주세요.');
+      setDateError({ field: 'firstDate', message: '첫 날짜를 골라 주세요.' });
       return null;
     }
-    const dates = weeklyDates(firstDate, toNumberOrNull(weeks));
+    if (!LOCAL_DATE.test(firstDate)) {
+      setDateError({ field: 'firstDate', message: DATE_INVALID_MESSAGE });
+      return null;
+    }
+    const weekCount = toNumberOrNull(weeks);
+    if (weekCount !== null && Number.isNaN(weekCount)) {
+      setDateError({ field: 'weeks', message: NOT_A_NUMBER_MESSAGE });
+      return null;
+    }
+    const dates = weeklyDates(firstDate, weekCount);
     if (dates === null) {
-      setDateError(BATCH_LIMIT_MESSAGE);
+      setDateError({ field: 'weeks', message: BATCH_LIMIT_MESSAGE });
     }
     return dates;
   };
@@ -190,7 +229,7 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
       shared: common,
       checkedAt: now,
       edited: false,
-      formKey: JSON.stringify(form.getValues()),
+      formKey: batchFormKey(form.getValues()),
     };
     if (table?.edited === true) {
       setPendingTable(next);
@@ -200,7 +239,7 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
   };
 
   const changeRows = (rows: BatchRow[]) => {
-    if (table === null || mutation.isPending) {
+    if (table === null || locked) {
       return;
     }
     setTable({ ...table, rows, edited: true });
@@ -213,6 +252,23 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
         row.key === key ? { ...row, ...patch } : row,
       ),
     );
+
+  /** 행을 빼고 포커스를 다음 행의 "빼기"로(없으면 앞 행, 그것도 없으면 표) 옮긴다 — 누른 버튼이 사라져 포커스를 잃지 않게. */
+  const removeRow = (index: number) => {
+    if (table === null || locked) {
+      return;
+    }
+    const rest = table.rows.filter((_, i) => i !== index);
+    const target = rest[index] ?? rest[index - 1];
+    flushSync(() => changeRows(rest));
+    const button =
+      target === undefined
+        ? null
+        : tableRef.current?.querySelector<HTMLElement>(
+            `[data-remove-key="${target.key}"]`,
+          );
+    (button ?? tableRef.current)?.focus();
+  };
 
   const check =
     table === null
@@ -227,7 +283,7 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
 
   const send = () => {
     setConfirmSubmit(false);
-    if (table === null || stale) {
+    if (table === null || stale || locked) {
       return;
     }
     // 제출 직전의 "지금"으로 다시 확인한다(표를 만든 뒤 시간이 흘렀을 수 있다).
@@ -336,8 +392,10 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
                 <Input
                   id={firstDateId}
                   type="date"
+                  max={DATE_INPUT_MAX}
                   value={firstDate}
                   className="mt-1.5 tabular-nums"
+                  {...dateErrorProps('firstDate')}
                   onChange={(event) => setFirstDate(event.target.value)}
                 />
               </div>
@@ -347,13 +405,10 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
                 </Label>
                 <Input
                   id={weeksId}
-                  type="number"
                   inputMode="numeric"
-                  min={1}
-                  max={SCHEDULE_BATCH_MAX}
-                  step={1}
                   value={weeks}
                   className="mt-1.5 tabular-nums"
+                  {...dateErrorProps('weeks')}
                   onChange={(event) => setWeeks(event.target.value)}
                 />
                 <p className="mt-1.5 text-xs text-ink-soft">
@@ -369,8 +424,10 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
                   <Input
                     id={pickDateId}
                     type="date"
+                    max={DATE_INPUT_MAX}
                     value={pickDate}
                     className="mt-1.5 tabular-nums"
+                    {...dateErrorProps('pickDate')}
                     onChange={(event) => setPickDate(event.target.value)}
                   />
                 </div>
@@ -410,8 +467,8 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
             </div>
           )}
           {dateError !== null ? (
-            <p role="alert" className="text-sm text-danger">
-              {dateError}
+            <p id={dateErrorId} role="alert" className="text-sm text-danger">
+              {dateError.message}
             </p>
           ) : null}
         </div>
@@ -471,10 +528,7 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
                 {(control) => (
                   <Input
                     {...control}
-                    type="number"
                     inputMode="numeric"
-                    min={0}
-                    step={1}
                     className="tabular-nums"
                     {...register('hoursBefore', { setValueAs: toNumberOrNull })}
                   />
@@ -485,16 +539,12 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
             <ScheduleSharedFields />
 
             <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="submit"
-                variant="secondary"
-                disabled={mutation.isPending}
-              >
+              <Button type="submit" variant="secondary" disabled={locked}>
                 미리보기 만들기
               </Button>
               {/* 날짜 칸은 위에 있어 여기서도 한 번 더 알린다(스크린 리더에는 위의 alert만). */}
               {dateError !== null ? (
-                <p className="text-sm text-danger">{dateError}</p>
+                <p className="text-sm text-danger">{dateError.message}</p>
               ) : null}
             </div>
           </form>
@@ -515,7 +565,12 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
                   : describeEventError(failure)}
               </Notice>
             ) : null}
-            <div className="overflow-x-auto rounded-card border border-line bg-surface">
+            {/* 카드(Section) 안이라 표에는 테두리 · 배경을 다시 두지 않는다(디자인 파운데이션 4절 6). 행을 모두 빼면 여기로 포커스 */}
+            <div
+              ref={tableRef}
+              tabIndex={-1}
+              className="relative overflow-x-auto"
+            >
               <table className="w-full min-w-max text-left text-sm">
                 <thead className="border-b border-line text-xs text-ink-muted">
                   <tr>
@@ -575,17 +630,13 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
                               : []),
                           ]}
                           editing={editingKey === row.key}
-                          disabled={mutation.isPending}
+                          disabled={locked}
                           onEdit={() =>
                             setEditingKey(
                               editingKey === row.key ? null : row.key,
                             )
                           }
-                          onRemove={() =>
-                            changeRows(
-                              table.rows.filter((r) => r.key !== row.key),
-                            )
-                          }
+                          onRemove={() => removeRow(index)}
                           onChange={(patch) => updateRow(row.key, patch)}
                         />
                       );
@@ -596,7 +647,7 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button
-                disabled={check.items === null || stale || mutation.isPending}
+                disabled={check.items === null || stale || locked}
                 onClick={() => (hasWarnings ? setConfirmSubmit(true) : send())}
               >
                 {mutation.isPending ? '등록 중…' : `${rowCount}개 회차 등록`}
@@ -624,7 +675,12 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
         <p>행에서 고친 내용이 사라집니다. 다시 만들까요?</p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => applyTable(pendingTable)}>다시 만들기</Button>
-          <Button variant="ghost" onClick={() => setPendingTable(null)}>
+          {/* 행에서 고친 내용을 버리는 동작이라 처음 포커스는 "닫기" */}
+          <Button
+            variant="ghost"
+            data-autofocus
+            onClick={() => setPendingTable(null)}
+          >
             닫기
           </Button>
         </div>
@@ -639,7 +695,9 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
           남녀 정원이 다르거나 일요일이 아닌 회차가 있습니다. 이대로 등록할까요?
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={send}>등록</Button>
+          <Button disabled={locked} onClick={send}>
+            등록
+          </Button>
           <Button variant="ghost" onClick={() => setConfirmSubmit(false)}>
             다시 고치기
           </Button>
@@ -670,15 +728,16 @@ function BatchPreviewRow({
   onRemove: () => void;
   onChange: (patch: Partial<BatchRow>) => void;
 }) {
-  const priced = row.priceMale !== null && row.priceFemale !== null;
-  const staffed = row.capacityMale !== null && row.capacityFemale !== null;
+  // 비었거나 숫자가 아닌(NaN) 값은 "—"로 둔다 — 문제는 확인 칸이 알린다
+  const priced =
+    Number.isFinite(row.priceMale) && Number.isFinite(row.priceFemale);
+  const staffed =
+    Number.isFinite(row.capacityMale) && Number.isFinite(row.capacityFemale);
 
   return (
     <>
       <tr className="align-top">
-        <td className="px-4 py-3 font-display text-ink-soft tabular-nums">
-          {index + 1}
-        </td>
+        <td className="px-4 py-3 text-ink-soft tabular-nums">{index + 1}</td>
         <td className="px-4 py-3 font-display whitespace-nowrap text-ink tabular-nums">
           {rowWhen(row)}
         </td>
@@ -712,10 +771,22 @@ function BatchPreviewRow({
           ) : null}
         </td>
         <td className="px-4 py-3 text-right whitespace-nowrap">
-          <Button variant="ghost" disabled={disabled} onClick={onEdit}>
+          <Button
+            variant="ghost"
+            disabled={disabled}
+            aria-label={`${index + 1}번째 회차 고치기`}
+            aria-expanded={editing}
+            onClick={onEdit}
+          >
             {editing ? '고치기 끝' : '고치기'}
           </Button>
-          <Button variant="ghost" disabled={disabled} onClick={onRemove}>
+          <Button
+            variant="ghost"
+            disabled={disabled}
+            aria-label={`${index + 1}번째 회차 빼기`}
+            data-remove-key={row.key}
+            onClick={onRemove}
+          >
             빼기
           </Button>
         </td>
@@ -733,7 +804,10 @@ function BatchPreviewRow({
   );
 }
 
-/** 행 고치기: 시작 · 종료 · 신청 마감 · 참가비 · 정원 · 지역을 그 자리에서 바꾼다(A9). */
+/**
+ * 행 고치기: 시작 · 종료 · 신청 마감 · 참가비 · 정원 · 지역을 그 자리에서 바꾼다(A9). 행 값은 이 편집기에서만 바뀌므로
+ * 칸을 제어하지 않는다 — 숫자 칸에 입력한 글자가 그대로 남고, 숫자가 아니면 행 확인 칸에 "숫자로 입력해 주세요."가 뜬다.
+ */
 function RowEditor({
   row,
   index,
@@ -756,12 +830,12 @@ function RowEditor({
         <Label htmlFor={id}>{label}</Label>
         <Input
           id={id}
-          type={type}
-          step={
-            type === 'datetime-local' ? 60 : type === 'number' ? 1 : undefined
-          }
+          type={type === 'datetime-local' ? type : 'text'}
+          step={type === 'datetime-local' ? 60 : undefined}
           inputMode={type === 'number' ? 'numeric' : undefined}
-          value={value ?? ''}
+          defaultValue={
+            value === null || Number.isNaN(value) ? '' : String(value)
+          }
           className="mt-1.5 tabular-nums"
           onChange={(event) =>
             onChange({
