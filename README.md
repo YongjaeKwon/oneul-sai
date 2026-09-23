@@ -16,7 +16,7 @@
 - 서비스가 무엇인지 처음 알아보려면 [개요 소개서](docs/overview/project-overview.md)를 읽으세요. 개발자가 아니어도 읽을 수 있게 썼습니다.
 - 어떤 문서가 어디에 있고 언제 고치는지는 [문서 지도](docs/README.md)에 있습니다. 코드를 바꾸는 PR을 열기 전에 판단표를 확인하세요.
 - 기능을 만들기 전에는 [기능 설계서](docs/specs/README.md)를, 기술 선택의 이유는 [기술 스택](docs/architecture/tech-stack.md)과 [ADR](docs/adr/README.md)을 보세요.
-- 함께 일하는 규칙(브랜치·커밋·PR·Definition of Done)은 [CONTRIBUTING.md](CONTRIBUTING.md)에, AI 에이전트용 작업 규칙은 [CLAUDE.md](CLAUDE.md)에 있습니다.
+- 함께 일하는 규칙(브랜치·커밋·PR·Definition of Done)은 [CONTRIBUTING.md](CONTRIBUTING.md)에, AI 에이전트용 작업 규칙은 [AGENTS.md](AGENTS.md)에 있습니다(Claude Code는 CLAUDE.md가 불러옵니다).
 
 ---
 

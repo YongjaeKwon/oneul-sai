@@ -26,7 +26,7 @@
 | 디자인 파운데이션           | [docs/design/design-foundation.md](../design/design-foundation.md), [브랜드 원본 자산](../design/brand/README.md) | 브랜드 · 색 · 글꼴 · 컴포넌트 · 문구 톤                       | 디자인 담당 (UI 변경 시 협의) |
 | 협업 가이드                 | `docs/guides/`                                                                                                    | 어떻게 같이 일하나                                            | 규칙을 바꾸는 사람            |
 | README                      | 루트 · `apps/*` · `packages/*` · `infra/*`                                                                        | 이 디렉토리는 무엇이고 어떻게 실행하나                        | 그 디렉토리를 바꾸는 사람     |
-| CONTRIBUTING.md / CLAUDE.md | 루트                                                                                                              | 사람 / AI 에이전트를 위한 규칙 요약                           | 규칙을 바꾸는 사람            |
+| CONTRIBUTING.md / AGENTS.md | 루트                                                                                                              | 사람 / AI 에이전트를 위한 규칙 요약                           | 규칙을 바꾸는 사람            |
 | 진행 상황판                 | 외부 아티팩트 (6절)                                                                                               | 각 Step이 어디까지 왔나                                       | PR 작성자                     |
 
 ## 2. 변경 유형별 갱신 표
@@ -37,7 +37,7 @@ PR을 올리기 전 자기 변경이 어느 줄에 해당하는지 찾고, "반�
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | **새 비즈니스 기능 착수** (Step 시작)            | `docs/specs/SPEC-00N-<slug>.md` 초안을 **먼저** 작성 · 리뷰 · 머지, 상황판 "진행 중"                                                                                                      | 용어 사전, 기능 소개서 초안                                       |
 | **비즈니스 기능 구현 완료**                      | 설계서의 "17. 실제 구현과의 차이" 절, 기능 소개서(`docs/overview/features/`), 상황판                                                                                                      | 루트 README와 아키텍처 개요의 "현재 구현 범위" 표                 |
-| **Step 종료** (Definition of Done 충족)          | 개요 소개서 5장 로드맵 표의 상태(Step 상태의 원천), `CLAUDE.md` 5절 로드맵 표, 상황판 "완료". 전체 목록은 [docs/README.md 4절](../README.md#4-한-기능이-끝났다의-정의-definition-of-done) | 루트 README "현재 상태와 Roadmap", 아키텍처 개요 "현재 구현 범위" |
+| **Step 종료** (Definition of Done 충족)          | 개요 소개서 5장 로드맵 표의 상태(Step 상태의 원천), `AGENTS.md` 5절 로드맵 표, 상황판 "완료". 전체 목록은 [docs/README.md 4절](../README.md#4-한-기능이-끝났다의-정의-definition-of-done) | 루트 README "현재 상태와 Roadmap", 아키텍처 개요 "현재 구현 범위" |
 | **API 엔드포인트 추가 · 변경 · 삭제**            | 컨트롤러 Swagger 데코레이터, `docs/api/README.md`(라우팅 표 · 엔드포인트 인덱스), `packages/contracts`, `packages/api-client`                                                             | 설계서 "7. API 변경" 절, `apps/api-gateway/README.md`             |
 | **Gateway 라우팅 · 미들웨어 변경**               | `docs/api/README.md` 라우팅 표, `apps/api-gateway/src/proxy/routes.ts`, `apps/api-gateway/README.md`                                                                                      | `docs/architecture/overview.md` (Request ID 절)                   |
 | **Prisma 스키마 · 마이그레이션**                 | `docs/database/README.md`, 설계서 "9. DB 변경" 절                                                                                                                                         | ADR-007 위반 여부                                                 |

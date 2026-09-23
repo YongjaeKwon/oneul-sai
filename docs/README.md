@@ -31,7 +31,7 @@
 | ADR               | [docs/adr/](./adr/README.md)                                                                                                                                                              | 개발자, 리뷰어              | 되돌리기 어려운 결정을 내리는 시점                                    | 이 문서. 뒤집히면 새 ADR로 대체하고 옛 문서는 상태만 바꾼다                                                               |
 | 디자인 파운데이션 | [docs/design/design-foundation.md](./design/design-foundation.md)                                                                                                                         | 프론트 개발자, 디자이너     | 브랜드·색·폰트·컴포넌트 규칙이 바뀔 때                                | 이 문서(디자인 담당이 작성·관리)                                                                                          |
 | 협업 가이드       | `docs/guides/` — [온보딩](./guides/onboarding.md), [브랜치와 커밋](./guides/branching-and-commits.md), [PR](./guides/pull-requests.md), [문서 갱신 규칙](./guides/documentation-rules.md) | 모든 개발자                 | 브랜치·커밋·리뷰·문서 갱신 절차가 바뀔 때                             | 이 문서. 문서 갱신 규칙은 판단표(5절)의 원천                                                                              |
-| 규칙 요약         | 루트 [CONTRIBUTING.md](../CONTRIBUTING.md)(사람), [CLAUDE.md](../CLAUDE.md)(AI 에이전트)                                                                                                  | 모든 개발자, AI 에이전트    | 협업 가이드가 바뀔 때 함께                                            | `docs/guides/`. 요약이 어긋나면 가이드를 따른다                                                                           |
+| 규칙 요약         | 루트 [CONTRIBUTING.md](../CONTRIBUTING.md)(사람), [AGENTS.md](../AGENTS.md)(AI 에이전트 — Codex가 읽고 Claude Code는 [CLAUDE.md](../CLAUDE.md)가 불러옴)                                  | 모든 개발자, AI 에이전트    | 협업 가이드가 바뀔 때 함께                                            | `docs/guides/`. 요약이 어긋나면 가이드를 따른다                                                                           |
 | 진행 상황판       | [아티팩트](https://claude.ai/artifact/M3foVY7pn38tXo5QguZvXa)                                                                                                                             | 모두                        | Step 시작·종료 시                                                     | 저장소 밖 아티팩트. 문서와 어긋나면 문서가 원천([문서 갱신 규칙 6절](./guides/documentation-rules.md#6-상황판-갱신-시점)) |
 | 앱·패키지 README  | `apps/*/README.md`, `packages/*/README.md`                                                                                                                                                | 그 디렉토리를 만지는 개발자 | 실행 방법·환경 변수·구조가 바뀔 때                                    | 해당 디렉토리의 코드                                                                                                      |
 
@@ -78,7 +78,7 @@ docs/
 - [ ] **기능 소개서**: 사용자 관점 문서를 쓰거나 갱신했다. 규칙 문구는 팜플렛 문구를 그대로 쓴다.
 - [ ] **용어 사전**: 새 용어가 생겼다면 추가했다.
 - [ ] **ADR**: 되돌리기 어려운 결정이 있었다면 기록했다.
-- [ ] **현재 상태**: [개요 소개서 5장](./overview/project-overview.md#5-지금-어디까지-왔나) 로드맵 표의 상태(원천), `CLAUDE.md` 5절 로드맵 표, 루트 README의 "현재 상태와 Roadmap", `docs/architecture/overview.md`의 "현재 구현 범위" 표, 진행 상황판을 갱신했다.
+- [ ] **현재 상태**: [개요 소개서 5장](./overview/project-overview.md#5-지금-어디까지-왔나) 로드맵 표의 상태(원천), `AGENTS.md` 5절 로드맵 표, 루트 README의 "현재 상태와 Roadmap", `docs/architecture/overview.md`의 "현재 구현 범위" 표, 진행 상황판을 갱신했다.
 
 ## 5. PR에서 어떤 문서를 고치나 — 판단표
 
