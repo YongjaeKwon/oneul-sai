@@ -111,7 +111,7 @@ oneul-sai/
 | --------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@oneul-sai/api-gateway`          | 4000 | 단일 진입점. 라우팅·프록시, 요청 ID(`x-request-id`) 부여·전파, access token(JWT) 검증 → `x-user-*` 내부 헤더, 내부 토큰 부착, `Origin` 확인, IP rate limit, CORS, 공통 로깅·에러 정책. 비즈니스 로직 없음 |
 | `@oneul-sai/member-service`       | 4001 | 회원 (가입/로그인/refresh 회전/비밀번호 변경/프로필/탈퇴/계정 상태/운영자 조회) 도메인. DB: `member_db`. Step 1 구현됨                                                                                    |
-| `@oneul-sai/event-service`        | 4002 | 소개팅 상품·일정·참가 신청·체크인·로테이션 도메인. DB: `event_db`                                                                                                                                         |
+| `@oneul-sai/event-service`        | 4002 | 소개팅 상품·일정·참가 신청·체크인·로테이션 도메인. DB: `event_db`. Step 2 상품 · 회차 구현됨                                                                                                              |
 | `@oneul-sai/matching-service`     | 4003 | 호감 선택/상호 선택/매칭 도메인. DB: `matching_db`                                                                                                                                                        |
 | `@oneul-sai/notification-service` | 4004 | 알림 (알림톡/Push/SMS/Email) 도메인. DB: `notification_db`                                                                                                                                                |
 | `@oneul-sai/payment-service`      | 4005 | 결제 도메인. DB: `payment_db`                                                                                                                                                                             |
@@ -173,9 +173,13 @@ pnpm db:generate
 cp apps/member-service/.env.example apps/member-service/.env
 pnpm --filter @oneul-sai/member-service exec prisma migrate dev
 pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed
+
+# 5. event_db 마이그레이션 적용 (apps/event-service/.env 필요)
+cp apps/event-service/.env.example apps/event-service/.env
+pnpm --filter @oneul-sai/event-service exec prisma migrate dev
 ```
 
-Gateway · web · admin도 각 `.env.example`을 복사한다(인증 시크릿은 Gateway와 member-service가 같은 값이어야 한다 — 예시 파일의 개발용 값이 이미 같다).
+Gateway · web · admin도 각 `.env.example`을 복사한다(인증 시크릿은 Gateway와 member-service가, 내부 토큰 `INTERNAL_API_TOKEN`은 Gateway와 두 서비스가 같은 값이어야 한다 — 예시 파일의 개발용 값이 이미 같다).
 
 ---
 
@@ -199,6 +203,7 @@ pnpm --filter @oneul-sai/admin dev            # Admin         http://localhost:3
 pnpm --filter @oneul-sai/mobile start         # Mobile (Expo)
 pnpm --filter @oneul-sai/api-gateway dev      # Gateway       http://localhost:4000
 pnpm --filter @oneul-sai/member-service dev   # Member        http://localhost:4001
+pnpm --filter @oneul-sai/event-service dev    # Event         http://localhost:4002
 ```
 
 각 백엔드 서비스는 다음 엔드포인트를 제공합니다.
@@ -247,14 +252,15 @@ docker build -f apps/member-service/Dockerfile -t oneul-sai/member-service .
 
 ## 현재 상태와 Roadmap
 
-**Step 0 기반 마무리는 완료**됐고, **Step 1 회원/인증도 완료**됐습니다. Step 2 소개팅 상품/일정은 설계가 확정되어 구현 중입니다([SPEC-001](docs/specs/SPEC-001-member-auth.md), [SPEC-002](docs/specs/SPEC-002-meetup-schedule.md), [기능 소개서](docs/overview/features/README.md)).
+**Step 0 기반 마무리는 완료**됐고, **Step 1 회원/인증도 완료**됐습니다. **Step 2 소개팅 상품/일정은 구현을 마치고 검증하고 있습니다**([SPEC-001](docs/specs/SPEC-001-member-auth.md), [SPEC-002](docs/specs/SPEC-002-meetup-schedule.md), [기능 소개서](docs/overview/features/README.md)).
 
-| 상태            | 항목                                                                                                                                                                                                                                                                                                                                                                                                          |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 구현됨          | pnpm workspace + Turborepo, 앱/서비스 스캐폴드, Health 엔드포인트, Prisma DB 연결, CI (GitHub Actions — `ci` 잡 + Postgres 통합 테스트 `integration` 잡)                                                                                                                                                                                                                                                      |
-| 구현됨 (Step 1) | member-service: 가입 · 로그인 · refresh 회전 · 로그아웃 · 모든 기기 로그아웃 · 비밀번호 변경 · 프로필 · 탈퇴(즉시 익명화) · 운영자 회원 목록 · 상세 · 정지, 로그인 백오프, `member_db` 첫 마이그레이션 · seed. api-gateway: JWT 검증 · 내부 헤더 · 내부 토큰 · `Origin` 확인 · IP rate limit · CORS. web: 가입 · 로그인 · 내 프로필 · 비밀번호 변경 · 탈퇴. admin: 로그인 · 회원 목록 · 상세 · 계정 상태 변경 |
-| 구조만 준비     | Kafka, Kubernetes/Helm, Monitoring                                                                                                                                                                                                                                                                                                                                                                            |
-| 미구현          | 참가 신청, 소개팅 상품/일정, 결제, 체크인/로테이션, 매칭, 알림, 참가자 앱 로그인(SPEC-005)                                                                                                                                                                                                                                                                                                                    |
+| 상태            | 항목                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 구현됨          | pnpm workspace + Turborepo, 앱/서비스 스캐폴드, Health 엔드포인트, Prisma DB 연결, CI (GitHub Actions — `ci` 잡 + Postgres 통합 테스트 `integration` 잡)                                                                                                                                                                                                                                                                                                                                                          |
+| 구현됨 (Step 1) | member-service: 가입 · 로그인 · refresh 회전 · 로그아웃 · 모든 기기 로그아웃 · 비밀번호 변경 · 프로필 · 탈퇴(즉시 익명화) · 운영자 회원 목록 · 상세 · 정지, 로그인 백오프, `member_db` 첫 마이그레이션 · seed. api-gateway: JWT 검증 · 내부 헤더 · 내부 토큰 · `Origin` 확인 · IP rate limit · CORS. web: 가입 · 로그인 · 내 프로필 · 비밀번호 변경 · 탈퇴. admin: 로그인 · 회원 목록 · 상세 · 계정 상태 변경                                                                                                     |
+| 구현됨 (Step 2) | event-service: 모임 상품 · 회차 등록 · 수정 · 공개 · 모집 마감 · 다시 열기 · 취소 · 삭제(비공개만), 여러 회차 등록(최대 12개, 전부 또는 없음), 공개 일정 목록 · 상세(정확한 장소는 운영자 응답에만), `event_db` 첫 마이그레이션 `init_event` · 테스트 전용 DB `event_test_db`. `@oneul-sai/service-kit`(내부 토큰 예외를 `/health` 정확히 일치로). api-gateway: `/api/v1/meetups` 라우팅. web: 다가오는 일정 목록 · 상세(서버 렌더, 30초 데이터 캐시). admin: 모임 상품 · 회차 관리, 여러 회차 등록 · 골라서 공개 |
+| 구조만 준비     | Kafka, Kubernetes/Helm, Monitoring                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 미구현          | 참가 신청, 결제, 체크인/로테이션, 매칭, 알림, 참가자 앱 로그인(SPEC-005)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ### Roadmap (Step 0~8)
 
