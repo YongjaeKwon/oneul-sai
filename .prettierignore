@@ -7,3 +7,6 @@ build/
 coverage/
 pnpm-lock.yaml
 **/src/generated/
+# 외부 스킬 사본 — 원본과 같은 바이트로 둔다(skills-lock.json)
+.claude/skills/
+.agents/skills/
