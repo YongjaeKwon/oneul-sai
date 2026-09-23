@@ -14,7 +14,7 @@
 - **CORS**: `CORS_ORIGINS` 목록만 허용, `credentials: true`(refresh 쿠키), `x-request-id` 노출.
 - **공통 로깅/에러 정책**: 요청 완료 로그(method, path, statusCode, durationMs, requestId)와 전역 예외 필터(`ApiErrorResponse` 계약). 로그 · 에러 응답의 경로는 query string을 뗀 pathname이며 헤더는 어떤 것도 남기지 않는다(`Cookie` · `Authorization` · `x-internal-token`이 지나간다).
 
-Gateway가 하지 **않는** 것: 경로별 인증 정책 · 역할 판단. 어느 엔드포인트가 인증을 요구하는지는 서비스의 `@Public()` 데코레이터가 원천이다. Bearer가 없는 요청은 헤더 없이 그대로 프록시되고 보호 경로면 서비스가 401을 낸다 — 그래서 Step 2에서 공개 일정 조회가 생겨도 Gateway PR이 필요 없다.
+Gateway가 하지 **않는** 것: 경로별 인증 정책 · 역할 판단. 어느 엔드포인트가 인증을 요구하는지는 서비스의 `@Public()` 데코레이터가 원천이다. Bearer가 없는 요청은 헤더 없이 그대로 프록시되고 보호 경로면 서비스가 401을 낸다 — 그래서 Step 2의 공개 일정 조회(`/api/v1/events`)는 Gateway 변경 없이 열렸고, 운영자 경로는 새 prefix `/api/v1/meetups` 한 줄만 라우팅 표에 더했다([SPEC-002 7절](../../docs/specs/SPEC-002-meetup-schedule.md#7-api-변경)).
 
 헤더 이름(`x-user-id` · `x-user-role` · `x-user-` 접두사 · `x-internal-token`), JWT 고정값(`HS256` · `iss` · `aud` · `typ`) · 클레임 스키마, 에러 코드는 member-service와 같은 값을 봐야 하므로 `@oneul-sai/contracts`에서 가져온다. Gateway만 아는 값(`clockTolerance` 30초, 시크릿 디코드)은 `src/auth/jwt.ts`에 있다.
 
@@ -28,17 +28,18 @@ request-id → 요청 로거 → CORS → Origin 확인 → rate limit → auth(
 
 ## 라우팅 테이블
 
-`src/proxy/routes.ts`의 `createProxyRoutes(env)`. prefix 매칭은 함수 `pathFilter`(`pathname === prefix || pathname.startsWith(prefix + '/')`)다 — http-proxy-middleware v3는 일반 문자열과 글롭을 섞은 배열(`['/api/v1/members', '/api/v1/members/**']`)을 거부하고, 단일 문자열은 `indexOf === 0`이라 `/api/v1/membersX`까지 잡기 때문이다. `POST /api/v1/members`(끝 슬래시 없음)가 프록시되는 것은 `src/proxy/proxy-req.spec.ts`가 실제 http-proxy-middleware로 확인한다.
+`src/proxy/routes.ts`의 `createProxyRoutes(env)`. prefix 매칭은 함수 `pathFilter`(`pathname === prefix || pathname.startsWith(prefix + '/')`)다 — http-proxy-middleware v3는 일반 문자열과 글롭을 섞은 배열(`['/api/v1/members', '/api/v1/members/**']`)을 거부하고, 단일 문자열은 `indexOf === 0`이라 `/api/v1/membersX`까지 잡기 때문이다. `POST /api/v1/members`(끝 슬래시 없음)와 `/api/v1/meetups` · `/api/v1/meetups/<id>/schedules` · `/api/v1/meetups/<id>/schedules/batch`가 프록시되고 `/api/v1/meetupsX`는 프록시되지 않는 것을 `src/proxy/proxy-req.spec.ts`가 실제 http-proxy-middleware로, 경로별 대상 서비스는 `src/proxy/path-filter.spec.ts`가 확인한다.
 
-| Path prefix            | 대상 서비스             | 인증 필요 (SPEC-001 기준 · 원천은 서비스의 `@Public()`)                   |
-| ---------------------- | ----------------------- | ------------------------------------------------------------------------- |
-| `/api/v1/members`      | member-service (4001)   | `POST /members` 공개 · `/members/me` 회원 · 목록 · 상세 · 상태 변경 ADMIN |
-| `/api/v1/auth`         | member-service (4001)   | `login` · `refresh` · `logout` 공개 · `password` · `logout-all` 회원      |
-| `/api/v1/events`       | event-service (4002)    | 결정 예정 (Step 2)                                                        |
-| `/api/v1/applications` | event-service (4002)    | 결정 예정 (Step 3)                                                        |
-| `/api/v1/matches`      | matching-service (4003) | 결정 예정 (Step 6)                                                        |
-| `/api/v1/preferences`  | matching-service (4003) | 결정 예정 (Step 6)                                                        |
-| `/api/v1/payments`     | payment-service (4005)  | 결정 예정 (Step 4)                                                        |
+| Path prefix            | 대상 서비스             | 인증 필요 (SPEC-001 · SPEC-002 기준 · 원천은 서비스의 `@Public()` · `@Roles()`) |
+| ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
+| `/api/v1/members`      | member-service (4001)   | `POST /members` 공개 · `/members/me` 회원 · 목록 · 상세 · 상태 변경 ADMIN       |
+| `/api/v1/auth`         | member-service (4001)   | `login` · `refresh` · `logout` 공개 · `password` · `logout-all` 회원            |
+| `/api/v1/events`       | event-service (4002)    | 공개 — 목록 · 상세(읽기 전용)                                                   |
+| `/api/v1/meetups`      | event-service (4002)    | ADMIN — 상품 · 회차 관리 전부                                                   |
+| `/api/v1/applications` | event-service (4002)    | 결정 예정 (Step 3)                                                              |
+| `/api/v1/matches`      | matching-service (4003) | 결정 예정 (Step 6)                                                              |
+| `/api/v1/preferences`  | matching-service (4003) | 결정 예정 (Step 6)                                                              |
+| `/api/v1/payments`     | payment-service (4005)  | 결정 예정 (Step 4)                                                              |
 
 notification-service는 외부 API를 노출하지 않는다(이벤트 기반).
 
@@ -102,7 +103,7 @@ pnpm --filter @oneul-sai/api-gateway test
 | `PORT`                       | `4000`                                        | 게이트웨이 포트                                                                                                                                                                                         |
 | `NODE_ENV`                   | `development`                                 | `development` · `test` · `production`. 프로덕션은 아래 CORS 규칙이 엄격해진다                                                                                                                           |
 | `MEMBER_SERVICE_URL`         | `http://localhost:4001`                       | member-service 주소 (`/api/v1/members`, `/api/v1/auth`)                                                                                                                                                 |
-| `EVENT_SERVICE_URL`          | `http://localhost:4002`                       | event-service 주소                                                                                                                                                                                      |
+| `EVENT_SERVICE_URL`          | `http://localhost:4002`                       | event-service 주소 (`/api/v1/events`, `/api/v1/meetups`)                                                                                                                                                |
 | `MATCHING_SERVICE_URL`       | `http://localhost:4003`                       | matching-service 주소                                                                                                                                                                                   |
 | `NOTIFICATION_SERVICE_URL`   | `http://localhost:4004`                       | notification-service 주소(외부 라우팅 없음)                                                                                                                                                             |
 | `PAYMENT_SERVICE_URL`        | `http://localhost:4005`                       | payment-service 주소                                                                                                                                                                                    |

@@ -3,10 +3,11 @@ import type { AddressInfo } from 'node:net';
 import { HEADER_REQUEST_ID } from '@oneul-sai/constants';
 import { HEADER_INTERNAL_TOKEN, HEADER_USER_ID } from '@oneul-sai/contracts';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { createPrefixPathFilter } from './path-filter.js';
 import { attachInternalHeaders } from './proxy-req.js';
+import { createProxyRoutes } from './routes.js';
 
 const INTERNAL_TOKEN = 'test-internal-token-test-internal-token';
+const MEETUP_ID = '11111111-1111-4111-8111-111111111111';
 
 describe('attachInternalHeaders', () => {
   it('x-internal-token과 x-request-id를 붙인다', () => {
@@ -59,22 +60,36 @@ describe('proxy through http-proxy-middleware v3', () => {
     );
     const target = `http://127.0.0.1:${(upstream.address() as AddressInfo).port}`;
 
-    const proxy = createProxyMiddleware({
-      target,
-      changeOrigin: true,
-      pathFilter: createPrefixPathFilter('/api/v1/members'),
-      on: {
-        proxyReq: (proxyReq, req) => {
-          attachInternalHeaders(proxyReq, req, INTERNAL_TOKEN);
+    // app.ts처럼 라우팅 표의 prefix마다 프록시를 하나씩 두고 차례로 거친다. 대상은 모두 이 upstream이다.
+    const proxies = createProxyRoutes({
+      MEMBER_SERVICE_URL: target,
+      EVENT_SERVICE_URL: target,
+      MATCHING_SERVICE_URL: target,
+      PAYMENT_SERVICE_URL: target,
+    }).map((route) =>
+      createProxyMiddleware({
+        target: route.target,
+        changeOrigin: true,
+        pathFilter: route.pathFilter,
+        on: {
+          proxyReq: (proxyReq, req) => {
+            attachInternalHeaders(proxyReq, req, INTERNAL_TOKEN);
+          },
         },
-      },
-    });
+      }),
+    );
     gateway = createServer((req, res) => {
       req.headers[HEADER_REQUEST_ID] = 'req-e2e';
-      void proxy(req, res, () => {
-        res.statusCode = 404;
-        res.end('not proxied');
-      });
+      const next = (index: number): void => {
+        const proxy = proxies[index];
+        if (!proxy) {
+          res.statusCode = 404;
+          res.end('not proxied');
+          return;
+        }
+        void proxy(req, res, () => next(index + 1));
+      };
+      next(0);
     });
     await new Promise<void>((resolve) =>
       gateway.listen(0, '127.0.0.1', resolve),
@@ -116,9 +131,32 @@ describe('proxy through http-proxy-middleware v3', () => {
     ]);
   });
 
-  it('prefix 밖(/api/v1/membersx, /health)은 프록시하지 않고 next()로 넘긴다', async () => {
+  it('prefix 밖(/api/v1/membersx, /api/v1/meetupsX, /health)은 프록시하지 않고 next()로 넘긴다', async () => {
     expect((await fetch(`${gatewayUrl}/api/v1/membersx`)).status).toBe(404);
+    expect((await fetch(`${gatewayUrl}/api/v1/meetupsX`)).status).toBe(404);
     expect((await fetch(`${gatewayUrl}/health`)).status).toBe(404);
     expect(received).toHaveLength(0);
   });
+
+  it.each([
+    ['GET', '/api/v1/meetups?page=1'],
+    ['POST', '/api/v1/meetups'],
+    ['GET', `/api/v1/meetups/${MEETUP_ID}/schedules?status=OPEN`],
+    ['POST', `/api/v1/meetups/${MEETUP_ID}/schedules`],
+    ['POST', `/api/v1/meetups/${MEETUP_ID}/schedules/batch`],
+  ])(
+    '%s %s 가 경로 · query 그대로 내부 토큰과 함께 프록시된다',
+    async (method, path) => {
+      const response = await fetch(`${gatewayUrl}${path}`, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: method === 'POST' ? '{}' : null,
+      });
+
+      expect(response.status).toBe(200);
+      expect(received).toHaveLength(1);
+      expect(received[0]?.url).toBe(path);
+      expect(received[0]?.headers[HEADER_INTERNAL_TOKEN]).toBe(INTERNAL_TOKEN);
+    },
+  );
 });
