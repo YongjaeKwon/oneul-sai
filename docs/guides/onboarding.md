@@ -4,7 +4,7 @@
 위에서부터 순서대로 따라가면 첫날 안에 로컬 환경이 돌아가고, 무엇을 읽어야 하는지 알게 됩니다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-22
+- 최종 갱신: 2026-09-23 (seed 전 빌드를 `turbo run build`로 — 워크스페이스 의존 패키지까지 빌드해야 clone 직후에도 seed가 된다)
 
 > 막히면 이 문서의 [4. 자주 겪는 문제](#4-자주-겪는-문제)를 먼저 보세요.
 > 거기에도 없으면 [버그 이슈](../../.github/ISSUE_TEMPLATE/bug.md) 형식으로 남겨 주세요. 다음 사람을 위해 이 문서에 추가합니다.
@@ -54,7 +54,7 @@ cp apps/event-service/.env.example apps/event-service/.env
 # 7) DB 마이그레이션과 운영자 계정
 pnpm --filter @oneul-sai/member-service exec prisma migrate dev
 pnpm --filter @oneul-sai/event-service exec prisma migrate dev
-pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed
+pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-sai/member-service db:seed
 
 # 8) 전체 실행
 pnpm dev
