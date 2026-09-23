@@ -318,6 +318,9 @@ importers:
       '@oneul-sai/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@oneul-sai/service-kit':
+        specifier: workspace:*
+        version: link:../../packages/service-kit
       '@prisma/adapter-pg':
         specifier: 7.10.0
         version: 7.10.0
@@ -740,6 +743,52 @@ importers:
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
+
+  packages/service-kit:
+    dependencies:
+      '@oneul-sai/config':
+        specifier: workspace:*
+        version: link:../config
+      '@oneul-sai/constants':
+        specifier: workspace:*
+        version: link:../constants
+      '@oneul-sai/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@nestjs/common':
+        specifier: ^12.0.1
+        version: 12.0.3(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+      '@nestjs/core':
+        specifier: ^12.0.1
+        version: 12.0.3(@nestjs/common@12.0.3(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/platform-express@12.0.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@oneul-sai/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@oneul-sai/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.6
+      eslint:
+        specifier: ^9
+        version: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: ^7.8.2
+        version: 7.8.2
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.2
+        version: 4.1.11(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
 
   packages/types:
     devDependencies:

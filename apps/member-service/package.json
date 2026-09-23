@@ -23,6 +23,7 @@
     "@oneul-sai/constants": "workspace:*",
     "@oneul-sai/contracts": "workspace:*",
     "@oneul-sai/logger": "workspace:*",
+    "@oneul-sai/service-kit": "workspace:*",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "cookie-parser": "^1.4.7",

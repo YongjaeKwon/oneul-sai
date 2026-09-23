@@ -12,14 +12,13 @@ import {
   type WithdrawRequest,
 } from '@oneul-sai/contracts';
 import { createLogger, type Logger } from '@oneul-sai/logger';
+import { apiError, type CallerUser } from '@oneul-sai/service-kit';
 import {
   CURRENT_PASSWORD_MISMATCH_MESSAGE,
   WITHDRAWN_PASSWORD_HASH,
 } from '../auth/auth.constants.js';
-import type { CallerUser } from '../auth/decorators/current-user.js';
 import type { LoginBackoffService } from '../auth/login-backoff.service.js';
 import type { PasswordService } from '../auth/password.service.js';
-import { apiError } from '../common/api-error.js';
 import { assertCallerUsable } from '../common/caller-status.js';
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js';
 import type { TokenService } from '../tokens/token.service.js';

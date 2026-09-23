@@ -1,4 +1,4 @@
-import type { ApiHttpException } from '../common/api-error.js';
+import type { ApiHttpException } from '@oneul-sai/service-kit';
 import { fakeLogger } from '../testing/fakes.js';
 import { PasswordService } from './password.service.js';
 

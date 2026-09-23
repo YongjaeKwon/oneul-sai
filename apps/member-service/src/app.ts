@@ -2,9 +2,9 @@ import type { NestApplicationOptions } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { HttpExceptionFilter } from '@oneul-sai/service-kit';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module.js';
-import { HttpExceptionFilter } from './filters/http-exception.filter.js';
 
 export interface CreateAppOptions {
   logger?: NestApplicationOptions['logger'];
@@ -32,7 +32,7 @@ export async function createApp(
     const swaggerConfig = new DocumentBuilder()
       .setTitle('오늘사이 Member Service')
       .setDescription(
-        '회원, 로그인, 인증, 프로필, 계정 상태를 담당하는 서비스. /api/v1/** 는 Gateway의 x-internal-token이 있어야 한다.',
+        '회원, 로그인, 인증, 프로필, 계정 상태를 담당하는 서비스. /health를 뺀 모든 경로는 Gateway의 x-internal-token이 있어야 한다.',
       )
       .setVersion('0.1.0')
       .build();

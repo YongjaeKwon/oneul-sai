@@ -1,0 +1,46 @@
+{
+  "name": "@oneul-sai/service-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "오늘사이 NestJS 서비스 플랫폼 코드 — 내부 토큰 · 호출자 헤더 · 역할 가드, Zod 파이프, 에러 응답 필터 (업무 규칙 없음, ADR-010)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@oneul-sai/config": "workspace:*",
+    "@oneul-sai/constants": "workspace:*",
+    "@oneul-sai/contracts": "workspace:*"
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^12.0.1",
+    "@nestjs/core": "^12.0.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/common": "^12.0.1",
+    "@nestjs/core": "^12.0.1",
+    "@oneul-sai/eslint-config": "workspace:*",
+    "@oneul-sai/typescript-config": "workspace:*",
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.2"
+  }
+}

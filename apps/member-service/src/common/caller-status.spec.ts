@@ -1,4 +1,4 @@
-import { ApiHttpException } from './api-error.js';
+import { ApiHttpException } from '@oneul-sai/service-kit';
 import { assertCallerUsable } from './caller-status.js';
 
 function failure(

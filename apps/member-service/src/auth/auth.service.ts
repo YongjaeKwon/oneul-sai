@@ -9,7 +9,7 @@ import {
   type RefreshRequest,
 } from '@oneul-sai/contracts';
 import { createLogger, type Logger } from '@oneul-sai/logger';
-import { apiError } from '../common/api-error.js';
+import { apiError, type CallerUser } from '@oneul-sai/service-kit';
 import { assertCallerUsable } from '../common/caller-status.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import {
@@ -23,7 +23,6 @@ import {
   CURRENT_PASSWORD_MISMATCH_MESSAGE,
   INVALID_CREDENTIALS_MESSAGE,
 } from './auth.constants.js';
-import type { CallerUser } from './decorators/current-user.js';
 import type { LoginBackoffService } from './login-backoff.service.js';
 import type { PasswordService } from './password.service.js';
 

@@ -1,7 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { API_PREFIX } from '@oneul-sai/constants';
 import {
   API_ERROR_CODES,
   HEADER_INTERNAL_TOKEN,
@@ -11,12 +10,27 @@ import {
   MemberRoleSchema,
 } from '@oneul-sai/contracts';
 import type { IncomingHttpHeaders } from 'node:http';
-import { apiError, requestPathname } from '../../common/api-error.js';
-import type {
-  CallerUser,
-  RequestWithUser,
-} from '../decorators/current-user.js';
-import { IS_PUBLIC_KEY } from '../decorators/public.js';
+import { apiError } from './api-error.js';
+import type { CallerUser, RequestWithUser } from './current-user.js';
+import { IS_PUBLIC_KEY } from './public.js';
+
+/**
+ * 내부 토큰 검사를 건너뛰는 경로 — K8s 프로브가 서비스를 직접 부른다 (SPEC-002 12절 "내부 토큰 검사의 예외").
+ * 요청 경로(query 앞)가 이 값과 **글자 그대로 같을 때만** 건너뛴다. 대소문자 · 끝 `/` · 점 세그먼트가 하나라도 다르면
+ * 검사한다(fail closed).
+ */
+export const INTERNAL_AUTH_EXEMPT_PATHS: readonly string[] = Object.freeze([
+  '/health',
+]);
+
+/**
+ * 요청 대상에서 query 앞부분만 뗀 경로. URL 정규화(점 세그먼트 해석, 절대 형식의 호스트 제거)를 하지 않는다 —
+ * 정규화한 값으로 판정하면 라우터가 실제로 매칭한 경로와 다른 경로를 보고 예외를 줄 수 있다.
+ */
+function rawPath(originalUrl: string): string {
+  const query = originalUrl.indexOf('?');
+  return query === -1 ? originalUrl : originalUrl.slice(0, query);
+}
 
 /** 길이가 달라도 시간이 같도록 두 값의 SHA-256을 비교한다. */
 export function safeEqual(a: string, b: string): boolean {
@@ -36,9 +50,9 @@ export function parseCallerHeaders(
 }
 
 /**
- * SPEC-001 7절 "내부 신뢰 규칙" (전역 가드).
- * (1) `/api/**`의 모든 핸들러(`@Public()` 포함)에서 `x-internal-token`을 가장 먼저 확인한다 — 실패 → 401 INTERNAL_TOKEN_INVALID.
- *     `/health` · `/docs`는 `/api/v1` 밖이며 검사하지 않는다(K8s 프로브가 서비스를 직접 부른다).
+ * SPEC-001 7절 "내부 신뢰 규칙" (전역 가드). 내부 토큰 값은 앱이 넘긴다 — 이 패키지는 env를 읽지 않는다.
+ * (1) `INTERNAL_AUTH_EXEMPT_PATHS`를 뺀 모든 핸들러(`@Public()` 포함, 경로 대소문자 · 형식과 무관)에서
+ *     `x-internal-token`을 가장 먼저 확인한다 — 실패 → 401 INTERNAL_TOKEN_INVALID (SPEC-002 D10).
  * (2) `@Public()`이 아닌 핸들러는 `x-user-id`(UUID) · `x-user-role`(MemberRole)이 있을 때만 통과 — 아니면 401 UNAUTHENTICATED.
  *     서비스는 `Authorization` 헤더를 보지 않는다.
  */
@@ -46,11 +60,18 @@ export class InternalAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly internalToken: string,
-  ) {}
+  ) {
+    // 빈 토큰이면 빈 헤더를 보낸 요청이 통과한다 — env 검증을 거치지 않은 소비자를 막는다.
+    if (internalToken.length < 32) {
+      throw new Error(
+        'InternalAuthGuard: internalToken must be at least 32 characters',
+      );
+    }
+  }
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<RequestWithUser>();
-    if (!requestPathname(request).startsWith(`${API_PREFIX}/`)) {
+    if (INTERNAL_AUTH_EXEMPT_PATHS.includes(rawPath(request.originalUrl))) {
       return true;
     }
 

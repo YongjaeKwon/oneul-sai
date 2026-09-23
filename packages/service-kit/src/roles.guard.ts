@@ -5,9 +5,9 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { API_ERROR_CODES, type MemberRole } from '@oneul-sai/contracts';
-import { apiError } from '../../common/api-error.js';
-import type { RequestWithUser } from '../decorators/current-user.js';
-import { ROLES_KEY } from '../decorators/roles.js';
+import { apiError } from './api-error.js';
+import type { RequestWithUser } from './current-user.js';
+import { ROLES_KEY } from './roles.js';
 
 /** `@Roles('ADMIN')` 핸들러에서 역할이 맞지 않으면 403 `FORBIDDEN` (SPEC-001 12절 인가 매트릭스). `InternalAuthGuard` 뒤에 돈다. */
 @Injectable()

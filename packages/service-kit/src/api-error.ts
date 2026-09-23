@@ -4,7 +4,7 @@ import type { ApiErrorCode } from '@oneul-sai/contracts';
 import type { Request } from 'express';
 
 // SPEC-001 7절 "에러 코드 표". 서비스가 내는 에러는 항상 기계용 `code`를 갖는다.
-// 예외 필터(src/filters)가 이 예외를 `ApiErrorResponse`(+code)로 바꾼다.
+// `HttpExceptionFilter`가 이 예외를 `ApiErrorResponse`(+code)로 바꾼다.
 
 const STATUS_TEXT: Record<number, string> = {
   400: 'Bad Request',
@@ -47,7 +47,7 @@ export function apiError(
 
 /** query string을 뗀 pathname (SPEC-001 7절 · 12절) — 운영자 검색어(PII)가 응답 · 로그에 남지 않게. */
 export function requestPathname(req: Pick<Request, 'originalUrl'>): string {
-  return new URL(req.originalUrl, 'http://member-service').pathname;
+  return new URL(req.originalUrl, 'http://localhost').pathname;
 }
 
 export function requestIdOf(req: Pick<Request, 'headers'>): string {

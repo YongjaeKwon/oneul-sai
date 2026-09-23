@@ -1,6 +1,6 @@
 import { API_ERROR_CODES } from '@oneul-sai/contracts';
+import type { ApiHttpException } from '@oneul-sai/service-kit';
 import { vi } from 'vitest';
-import type { ApiHttpException } from '../common/api-error.js';
 import type { RefreshToken } from '../generated/prisma/client.js';
 import type { MemberWithSecret } from '../members/member-select.js';
 import { fakeLogger } from '../testing/fakes.js';

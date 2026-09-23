@@ -1,7 +1,7 @@
 import { SERVICE_NAMES } from '@oneul-sai/constants';
 import { API_ERROR_CODES } from '@oneul-sai/contracts';
 import { createLogger, type Logger } from '@oneul-sai/logger';
-import { apiError } from '../common/api-error.js';
+import { apiError } from '@oneul-sai/service-kit';
 import { SCRYPT_MAX_CONCURRENCY, SCRYPT_MAX_QUEUE } from './auth.constants.js';
 import {
   hashPassword,
