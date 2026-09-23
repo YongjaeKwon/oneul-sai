@@ -12,6 +12,7 @@
 #   - HyperFrames CLI 사용 통계 끄기
 #
 # 실행: bash scripts/setup-agent-tools.sh   (Git Bash / macOS / Linux)
+#       PowerShell: & "C:Program FilesGitbinbash.exe" scripts/setup-agent-tools.sh  (그냥 bash는 WSL로 잡힌다)
 set -u
 
 have() { command -v "$1" >/dev/null 2>&1; }

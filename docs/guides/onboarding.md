@@ -136,4 +136,10 @@ pnpm dev
 bash scripts/setup-agent-tools.sh
 ```
 
+Windows PowerShell에서는 `bash`가 WSL용 `bash.exe`로 잡혀 실패할 수 있다(`execvpe(/bin/bash) failed`). Git Bash 창에서 위 명령을 쓰거나, PowerShell에서는 경로를 지정한다:
+
+```powershell
+& "C:\Program Files\Gitinash.exe" scripts/setup-agent-tools.sh
+```
+
 처음 여는 PC에서는 Claude Code와 Codex 모두 이 폴더를 신뢰해야 저장소 설정(`.claude/settings.json`)이 적용된다. 외부 스킬 사용 규칙은 CLAUDE.md 6장 "외부 스킬".
