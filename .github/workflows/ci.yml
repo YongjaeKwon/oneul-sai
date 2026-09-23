@@ -36,7 +36,8 @@ jobs:
       - name: Lint, typecheck, test, build
         run: pnpm turbo run lint typecheck test build
 
-  # 실제 Postgres 위에서 member-service 통합 테스트를 돈다 (SPEC-001 13절 · 15절 5번 PR, ★A 승인).
+  # 실제 Postgres 위에서 member-service · event-service 통합 테스트를 돈다 (SPEC-001 13절 · 15절 5번 PR, ★A 승인 / SPEC-002 9절 · 15절 4번 PR, D13).
+  # event-service는 잡 env의 DATABASE_URL(member_db)을 보지 않고 단계 env TEST_DATABASE_URL(event_test_db)만 쓴다.
   # 아래 시크릿 값은 CI 전용 더미다 — 어떤 환경의 실제 값과도 같지 않다.
   integration:
     needs: ci
@@ -99,3 +100,13 @@ jobs:
 
       - name: Integration tests
         run: pnpm --filter @oneul-sai/member-service test:integration
+
+      # build가 db:generate(Prisma 클라이언트)와 워크스페이스 의존 패키지 빌드를 함께 한다
+      - name: Build event-service
+        run: pnpm turbo run build --filter=@oneul-sai/event-service
+
+      # globalSetup이 이름 검사 → prisma migrate deploy(DB가 없으면 만든다) → provide. 별도 DB 생성 단계는 필요 없다
+      - name: Integration tests (event-service)
+        run: pnpm --filter @oneul-sai/event-service test:integration
+        env:
+          TEST_DATABASE_URL: postgresql://oneul:oneul@localhost:5432/event_test_db
