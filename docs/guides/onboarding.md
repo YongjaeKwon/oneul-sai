@@ -124,7 +124,7 @@ pnpm dev
 - [ ] `pnpm typecheck && pnpm lint && pnpm test` 통과
 - [ ] VS Code 권장 확장 설치, 저장 시 Prettier 포맷 동작 확인
 - [ ] 개요 소개서와 아키텍처 개요 읽음
-- [ ] [CONTRIBUTING.md](../../CONTRIBUTING.md)와 [CLAUDE.md](../../CLAUDE.md) 읽음
+- [ ] [CONTRIBUTING.md](../../CONTRIBUTING.md)와 [AGENTS.md](../../AGENTS.md) 읽음(Claude Code는 CLAUDE.md가 이 파일을 불러온다)
 - [ ] 진행 상황판 접근 확인 (링크는 [문서 갱신 규칙](./documentation-rules.md#6-상황판-갱신-시점) 참고)
 - [ ] 첫 작업 브랜치 생성 (`<type>/<step>-<topic>`)
 
@@ -142,4 +142,4 @@ Windows PowerShell에서는 `bash`가 WSL용 `bash.exe`로 잡혀 실패할 수 
 & "C:\Program Files\Git\bin\bash.exe" scripts/setup-agent-tools.sh
 ```
 
-처음 여는 PC에서는 Claude Code와 Codex 모두 이 폴더를 신뢰해야 저장소 설정(`.claude/settings.json`)이 적용된다. 외부 스킬 사용 규칙은 CLAUDE.md 6장 "외부 스킬".
+처음 여는 PC에서는 Claude Code와 Codex 모두 이 폴더를 신뢰해야 저장소 설정(`.claude/settings.json`)이 적용된다. 외부 스킬 사용 규칙은 AGENTS.md 6장 "외부 스킬".

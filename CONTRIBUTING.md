@@ -82,4 +82,4 @@ docs: README, 아키텍처 개요, ADR 8건, API/DB/이벤트 가이드
 ## AI 에이전트와 함께 일할 때
 
 Claude Code 같은 AI 코딩 에이전트도 위 규칙을 똑같이 따릅니다.
-에이전트용 작업 규칙은 [CLAUDE.md](CLAUDE.md)에 있으며, 사람이 읽어도 그대로 유용합니다.
+에이전트용 작업 규칙은 [AGENTS.md](AGENTS.md)에 있으며(Codex가 읽고, Claude Code는 CLAUDE.md가 불러옵니다), 사람이 읽어도 그대로 유용합니다.
