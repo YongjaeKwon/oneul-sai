@@ -73,3 +73,38 @@ describe('HttpExceptionFilter', () => {
     expect(response.headers['retry-after']).toBe('1');
   });
 });
+
+describe('HttpExceptionFilter logging', () => {
+  it('logs unhandled errors with request id and path, never the query', () => {
+    const logged: Array<[string, Record<string, unknown> | undefined]> = [];
+    const filter = new HttpExceptionFilter({
+      error: (message, fields) => logged.push([message, fields]),
+    });
+    const { argumentsHost } = host('/api/v1/members?query=010', {
+      'x-request-id': 'req-9',
+    });
+
+    filter.catch(new TypeError('boom'), argumentsHost);
+
+    expect(logged).toHaveLength(1);
+    expect(logged[0]?.[0]).toBe('unhandled_error');
+    expect(logged[0]?.[1]).toMatchObject({
+      requestId: 'req-9',
+      path: '/api/v1/members',
+      errorName: 'TypeError',
+    });
+  });
+
+  it('does not log HttpExceptions (expected 4xx)', () => {
+    const logged: string[] = [];
+    const filter = new HttpExceptionFilter({ error: (m) => logged.push(m) });
+    filter.catch(new NotFoundException(), host('/x').argumentsHost);
+    expect(logged).toHaveLength(0);
+  });
+
+  it('reports protocol-relative targets as the raw path', () => {
+    const { argumentsHost, response } = host('//evil.example/x?y=1');
+    new HttpExceptionFilter().catch(new NotFoundException(), argumentsHost);
+    expect((response.body as ApiErrorResponse).path).toBe('//evil.example/x');
+  });
+});
