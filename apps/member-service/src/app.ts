@@ -2,6 +2,8 @@ import type { NestApplicationOptions } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SERVICE_NAMES } from '@oneul-sai/constants';
+import { createLogger } from '@oneul-sai/logger';
 import { HttpExceptionFilter } from '@oneul-sai/service-kit';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module.js';
@@ -26,7 +28,11 @@ export async function createApp(
 
   app.useBodyParser('json');
   app.use(cookieParser());
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(
+    new HttpExceptionFilter(
+      createLogger({ service: SERVICE_NAMES.memberService }),
+    ),
+  );
 
   if (options.swagger !== false) {
     const swaggerConfig = new DocumentBuilder()

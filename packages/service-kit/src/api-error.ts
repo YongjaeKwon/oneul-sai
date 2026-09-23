@@ -12,6 +12,8 @@ const STATUS_TEXT: Record<number, string> = {
   403: 'Forbidden',
   404: 'Not Found',
   409: 'Conflict',
+  429: 'Too Many Requests',
+  500: 'Internal Server Error',
   503: 'Service Unavailable',
 };
 
@@ -47,7 +49,8 @@ export function apiError(
 
 /** query string을 뗀 pathname (SPEC-001 7절 · 12절) — 운영자 검색어(PII)가 응답 · 로그에 남지 않게. */
 export function requestPathname(req: Pick<Request, 'originalUrl'>): string {
-  return new URL(req.originalUrl, 'http://localhost').pathname;
+  // URL로 해석하지 않는다 — `//host/x` 같은 대상이 다른 호스트 · 경로로 읽힌다.
+  return req.originalUrl.split('?', 1)[0] ?? '';
 }
 
 export function requestIdOf(req: Pick<Request, 'headers'>): string {

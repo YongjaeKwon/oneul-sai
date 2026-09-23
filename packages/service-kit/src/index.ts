@@ -10,7 +10,10 @@ export {
   type CallerUser,
   type RequestWithUser,
 } from './current-user.js';
-export { HttpExceptionFilter } from './http-exception.filter.js';
+export {
+  HttpExceptionFilter,
+  type ErrorLogger,
+} from './http-exception.filter.js';
 export {
   INTERNAL_AUTH_EXEMPT_PATHS,
   InternalAuthGuard,

@@ -32,11 +32,13 @@ function rawPath(originalUrl: string): string {
   return query === -1 ? originalUrl : originalUrl.slice(0, query);
 }
 
+function sha256(value: string): Buffer {
+  return createHash('sha256').update(value, 'utf8').digest();
+}
+
 /** 길이가 달라도 시간이 같도록 두 값의 SHA-256을 비교한다. */
 export function safeEqual(a: string, b: string): boolean {
-  const ha = createHash('sha256').update(a, 'utf8').digest();
-  const hb = createHash('sha256').update(b, 'utf8').digest();
-  return timingSafeEqual(ha, hb);
+  return timingSafeEqual(sha256(a), sha256(b));
 }
 
 /** `x-user-id`가 UUID이고 `x-user-role`이 `MemberRole`일 때만 호출자를 돌려준다. */
@@ -57,9 +59,11 @@ export function parseCallerHeaders(
  *     서비스는 `Authorization` 헤더를 보지 않는다.
  */
 export class InternalAuthGuard implements CanActivate {
+  private readonly tokenDigest: Buffer;
+
   constructor(
     private readonly reflector: Reflector,
-    private readonly internalToken: string,
+    internalToken: string,
   ) {
     // 빈 토큰이면 빈 헤더를 보낸 요청이 통과한다 — env 검증을 거치지 않은 소비자를 막는다.
     if (internalToken.length < 32) {
@@ -67,6 +71,7 @@ export class InternalAuthGuard implements CanActivate {
         'InternalAuthGuard: internalToken must be at least 32 characters',
       );
     }
+    this.tokenDigest = sha256(internalToken);
   }
 
   canActivate(context: ExecutionContext): boolean {
@@ -78,7 +83,7 @@ export class InternalAuthGuard implements CanActivate {
     const presented = request.headers[HEADER_INTERNAL_TOKEN];
     if (
       typeof presented !== 'string' ||
-      !safeEqual(presented, this.internalToken)
+      !timingSafeEqual(sha256(presented), this.tokenDigest)
     ) {
       throw apiError(
         401,
