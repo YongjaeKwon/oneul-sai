@@ -172,6 +172,9 @@ importers:
       '@oneul-sai/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@oneul-sai/service-kit':
+        specifier: workspace:*
+        version: link:../../packages/service-kit
       '@prisma/adapter-pg':
         specifier: 7.10.0
         version: 7.10.0
