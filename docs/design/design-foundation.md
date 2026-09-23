@@ -100,7 +100,7 @@
 | `Divider`       | 짧은 로즈 구분선(가운데, `accent`) / 긴 회색 구분선(`line`)                                                                                                | 구현됨                                     |
 | `Badge`         | 상태 배지: 확정(`success`), 입금 대기(`warning`), 취소(`danger`), 대기자(`mauve`), 그 밖의 중립 상태(`neutral`). 글자는 `ink`, 색은 테두리 · 점으로만 보조 | 구현됨 (Step 1, 계정 상태 배지)            |
 | `StepIndicator` | "1 / 5" 세리프 숫자 + 밑줄                                                                                                                                 | 예정 (Step 3)                              |
-| `Highlight`     | 브러시 하이라이트 텍스트                                                                                                                                   | 예정 (Step 2)                              |
+| `Highlight`     | 브러시 하이라이트 텍스트                                                                                                                                   | 구현됨 (Step 2, `/events` 제목의 한 단어)  |
 | 폼 입력         | `Input` · `Label` · `FieldError` — `ivory` 배경, 포커스 시 `rose` 2px 외곽선, 오류는 `danger` 글자 + 아이콘. 글자 16px(모바일 포커스 확대 방지)            | 구현됨 (Step 1, 가입 · 로그인 · 프로필 폼) |
 
 컴포넌트 색은 항상 토큰 유틸리티(`bg-ink`, `text-rose-deep`, `border-line`)로 쓰고 `rose-500`·`zinc-500` 같은 Tailwind 기본 팔레트는 쓰지 않는다.

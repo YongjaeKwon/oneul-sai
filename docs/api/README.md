@@ -119,6 +119,13 @@ interface ApiErrorResponse {
 - 인메모리 · 단일 인스턴스다. 분산(Redis) 제한과 로드밸런서 뒤의 클라이언트 IP(`trust proxy`)는 결정 예정 (Step 8).
 - 계정 단위 제한은 Gateway가 아니라 member-service의 로그인 백오프가 맡는다(15분 안 4회 실패 뒤 5번째 시도부터 검증 전 지연, 계정 단위 직렬화, 잠금 없음 — SPEC-001 12절). 지연을 알리는 별도 코드 · 헤더는 없다.
 
+### 5.5 공개 조회와 서버 컴포넌트
+
+- `@Public()` 조회는 Next 서버 컴포넌트에서 **토큰 없이** 불러도 된다. 예: 참가자 웹 `/events` · `/events/[id]`가 `GET /api/v1/events` · `GET /api/v1/events/:id`를 서버에서 부른다(SPEC-002 D11). 토큰 없이 부르는 공개 조회는 BFF가 아니다.
+- 보호 데이터(토큰이 필요한 경로)는 여전히 클라이언트 컴포넌트에서만 조회한다. 서버 컴포넌트 · Route Handler는 보호 경로를 부르지 않는다([ADR-009](../adr/ADR-009-authentication.md) 결정 5).
+- 서버용 클라이언트는 `server-only` 모듈 안에 두고 인스턴스를 내보내지 않는다. 그 모듈은 공개 조회 함수만 내보내고 항상 `auth: false`로 부른다 — 서버 프로세스의 토큰 저장소가 방문자 사이에 섞일 경로를 없앤다(참가자 웹 `apps/web/lib/public-api.ts`).
+- 서버 쪽 캐시는 요청 헤더가 키에 들어가지 않는 **데이터 단위 캐시**로 한다(키 = 함수 · `page` 또는 `id`). `fetch`의 `next.revalidate`로 캐시하면 api-client가 호출마다 붙이는 무작위 `x-request-id`가 키에 들어가 적중하지 않는다. 키가 되는 값은 캐시 앞에서 좁힌다(`page`는 [1, `PAGE_MAX`] 정수, `id`가 UUID가 아니면 부르지 않는다).
+
 ## 6. Request ID
 
 - 헤더 이름: `x-request-id`
