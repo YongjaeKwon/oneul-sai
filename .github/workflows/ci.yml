@@ -93,8 +93,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @oneul-sai/member-service db:generate
 
+      # 워크스페이스 의존 패키지(contracts · service-kit 등)는 exports가 dist를 가리킨다 — turbo가 ^build로 먼저 빌드한다
       - name: Build member-service
-        run: pnpm --filter @oneul-sai/member-service build
+        run: pnpm turbo run build --filter=@oneul-sai/member-service
 
       - name: Integration tests
         run: pnpm --filter @oneul-sai/member-service test:integration
