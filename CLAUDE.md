@@ -100,6 +100,8 @@ Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md`
 
 **프론트엔드.** Next 16(Turbopack) + Tailwind 4 + TanStack Query + React Hook Form + Zod. API 호출은 `@oneul-sai/api-client`만 통해 Gateway(4000)로. 공용 UI는 `packages/ui`(웹 전용, 소스 소비). 디자인 토큰 · 폰트 · 컴포넌트 원칙은 `docs/design/design-foundation.md`를 따른다 — 임의 색 · 폰트 금지.
 
+**외부 스킬.** 설치된 스킬(Ponytail, Taste, Hyperframes, Graphify 등)은 이 파일과 `docs/`의 규칙 안에서만 쓴다. 충돌하면 이 파일이 이긴다. 디자인 스킬(`design-taste-frontend` 등)은 `docs/design/design-foundation.md`의 토큰 · 글꼴 · 문구 톤을 바꾸지 않으며, 랜딩 · 마케팅 페이지에만 쓰고 운영자 웹 · 신청 · 폼 화면에는 쓰지 않는다. Hyperframes는 마케팅 영상용이라 이 저장소가 아닌 별도 폴더에서 쓴다. Graphify 출력(`graphify-out/`)은 커밋하지 않는다.
+
 **포맷.** Prettier(single quote, trailing comma all), ESLint 9 flat(`@oneul-sai/eslint-config/base`; Next 앱은 `eslint-config-next`). 커밋 전 `pnpm format:check && pnpm lint`.
 
 ## 7. 문서 갱신 의무

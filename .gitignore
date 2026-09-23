@@ -41,3 +41,6 @@ next-env.d.ts
 
 # Claude Code 로컬 프리뷰 설정
 .claude/launch.json
+
+# Graphify 지식 그래프(개인 로컬 탐색용, 커밋하지 않음)
+graphify-out/
