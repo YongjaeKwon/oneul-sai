@@ -65,6 +65,7 @@ http://localhost:3000 에서 확인. Gateway(4000)와 member-service(4001)가 �
 pnpm --filter @oneul-sai/web build      # next build
 pnpm --filter @oneul-sai/web typecheck  # tsc --noEmit
 pnpm --filter @oneul-sai/web lint       # eslint (eslint-config-next)
+pnpm --filter @oneul-sai/web test       # vitest — lib/ 표시 도우미 · 서버 공개 조회(TZ=UTC)
 ```
 
 ## 환경 변수
