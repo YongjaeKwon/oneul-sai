@@ -43,6 +43,7 @@
 
 ```bash
 pnpm --filter @oneul-sai/admin dev
+pnpm --filter @oneul-sai/admin test    # lib/ 화면 도우미 단위 테스트(vitest, TZ=UTC)
 ```
 
 - 개발 서버: http://localhost:3001
@@ -80,8 +81,9 @@ lib/
   schedule-form.ts  회차 폼 값 ↔ 요청, 시간 규칙, 다음 일요일, 바꾼 필드(PATCH), 확인 문구
   schedule-batch.ts 매주 반복 날짜, "행사 N시간 전", 미리보기 행 검사, items.<순번> 추출, 여러 회차 차례로 공개
   member-list-filters.ts  URL query string ↔ 검색 조건
+  *.spec.ts         위 도우미의 단위 테스트
 ```
 
 ## 기타
 
-- `lint` / `typecheck` / `build` 스크립트는 루트 turbo 태스크로도 실행됩니다.
+- `lint` / `typecheck` / `build` / `test` 스크립트는 루트 turbo 태스크로도 실행됩니다.
