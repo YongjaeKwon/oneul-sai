@@ -54,6 +54,9 @@ export function MeetupForm({ meetup }: { meetup?: Meetup }) {
   const update = useUpdateMeetup(meetup?.id ?? '');
   const mutation = meetup === undefined ? create : update;
   useEndSessionOn401(mutation.error);
+  // 등록은 성공하면 상세로 떠나므로 그때까지 잠근다(다시 누르면 한 번 더 등록된다). 수정은 이 화면에 남아 다시 저장할 수 있다.
+  const locked =
+    mutation.isPending || (meetup === undefined && mutation.isSuccess);
   const [notice, setNotice] = useState<{
     tone: 'info' | 'success';
     text: string;
@@ -73,6 +76,9 @@ export function MeetupForm({ meetup }: { meetup?: Meetup }) {
   });
 
   const onSubmit = handleSubmit((values) => {
+    if (locked) {
+      return;
+    }
     setNotice(null);
     if (meetup === undefined) {
       create.mutate(values, {
@@ -147,7 +153,7 @@ export function MeetupForm({ meetup }: { meetup?: Meetup }) {
         <Notice tone={notice.tone}>{notice.text}</Notice>
       ) : null}
       <div>
-        <Button type="submit" disabled={mutation.isPending}>
+        <Button type="submit" disabled={locked}>
           {mutation.isPending
             ? '저장 중…'
             : meetup === undefined

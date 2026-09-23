@@ -51,6 +51,8 @@ export function ScheduleForm({
   const update = useUpdateSchedule(meetupId, schedule?.id ?? '');
   const mutation = creating ? create : update;
   useEndSessionOn401(mutation.error);
+  // 만들기는 성공하면 상세로 떠나므로 그때까지 잠근다(다시 누르면 한 번 더 만들어진다). 수정은 이 화면에 남아 다시 저장할 수 있다.
+  const locked = mutation.isPending || (creating && mutation.isSuccess);
 
   const [pending, setPending] = useState<Pending | null>(null);
   const [notice, setNotice] = useState<{
@@ -58,8 +60,11 @@ export function ScheduleForm({
     text: string;
   } | null>(null);
 
-  const schema = useMemo(() => scheduleFormSchema(schedule), [schedule]);
-  const [defaults] = useState(() => scheduleFormDefaults(schedule, Date.now()));
+  // 폼이 보여 주는 저장본. 다시 불러온 `schedule`(캐시 갱신)로 바꾸지 않는다 — 그러면 손대지 않은 칸이 "바뀜"으로 보내진다.
+  // 저장에 성공하면 응답으로 바꾼다.
+  const [baseline, setBaseline] = useState(schedule);
+  const schema = useMemo(() => scheduleFormSchema(baseline), [baseline]);
+  const [defaults] = useState(() => scheduleFormDefaults(baseline, Date.now()));
   const form = useForm<ScheduleFormValues, unknown, CreateScheduleRequest>({
     resolver: zodResolver(schema),
     defaultValues: defaults,
@@ -76,6 +81,9 @@ export function ScheduleForm({
   } = form;
 
   const send = ({ request, changes }: Pending) => {
+    if (locked) {
+      return;
+    }
     if (creating) {
       create.mutate(request, {
         onSuccess: (created) =>
@@ -86,6 +94,7 @@ export function ScheduleForm({
     if (changes !== null) {
       update.mutate(changes, {
         onSuccess: (saved) => {
+          setBaseline(saved);
           reset(scheduleFormDefaults(saved, Date.now()));
           setNotice({ tone: 'success', text: '저장했습니다.' });
         },
@@ -96,7 +105,7 @@ export function ScheduleForm({
   const onSubmit = handleSubmit((request) => {
     setNotice(null);
     const changes =
-      schedule === undefined ? null : scheduleChanges(request, schedule);
+      baseline === undefined ? null : scheduleChanges(request, baseline);
     if (changes !== null && Object.keys(changes).length === 0) {
       setNotice({ tone: 'info', text: '바뀐 내용이 없습니다.' });
       return;
@@ -204,7 +213,7 @@ export function ScheduleForm({
           </Notice>
         ) : null}
         <div>
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button type="submit" disabled={locked}>
             {mutation.isPending
               ? '처리 중…'
               : creating
