@@ -9,6 +9,7 @@
 # 이 스크립트가 PC에 설치하는 것:
 #   - Ponytail: Claude Code 플러그인 + Codex 플러그인
 #   - Graphify: CLI + 두 에이전트용 사용자 스킬(훅 없이)
+#   - main 직접 push를 막는 git 훅 켜기(core.hooksPath)
 #   - HyperFrames CLI 사용 통계 끄기
 #
 # 실행: bash scripts/setup-agent-tools.sh   (Git Bash / macOS / Linux)
@@ -52,6 +53,13 @@ if have uv; then
   fi
 else
   skip "uv를 설치하지 못했다"
+fi
+
+step "main 직접 push 막기 (git 훅)"
+if git rev-parse --show-toplevel >/dev/null 2>&1; then
+  git config core.hooksPath .githooks && echo "   core.hooksPath = .githooks"
+else
+  skip "git 저장소 안에서 실행하지 않았다"
 fi
 
 step "HyperFrames CLI 사용 통계 끄기"
