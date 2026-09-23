@@ -45,7 +45,7 @@ export function MeetupListScreen() {
           <div
             aria-busy={isFetching}
             className={[
-              'overflow-x-auto rounded-card border border-line bg-surface transition-opacity',
+              'relative overflow-x-auto rounded-card border border-line bg-surface transition-opacity',
               isFetching ? 'opacity-60' : '',
             ].join(' ')}
           >
@@ -82,7 +82,7 @@ export function MeetupListScreen() {
                       <td className="px-4 py-3 font-medium text-ink">
                         {meetup.title}
                       </td>
-                      <td className="px-4 py-3 font-display whitespace-nowrap text-ink-soft tabular-nums">
+                      <td className="px-4 py-3 whitespace-nowrap text-ink-soft tabular-nums">
                         {formatDate(meetup.createdAt)}
                       </td>
                       <td className="px-4 py-3 text-right">

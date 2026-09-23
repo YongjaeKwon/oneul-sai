@@ -196,10 +196,11 @@ export function ScheduleStatusActions({
           >
             {deleteMutation.isPending ? '처리 중…' : '삭제'}
           </Button>
-          {/* 처음 포커스는 "닫기" — Enter 한 번에 삭제되지 않게 */}
+          {/* 처음 포커스는 "닫기" — Enter 한 번에 삭제되지 않게. `autoFocus`는 showModal() 뒤에 남지 않아 Dialog가 data-autofocus로 옮긴다.
+              취소 창은 첫 칸인 사유 입력(textarea — Enter는 줄바꿈)에서 시작해 바로 제출되지 않는다 */}
           <Button
             variant="ghost"
-            autoFocus
+            data-autofocus
             disabled={deleteMutation.isPending}
             onClick={closeDialog}
           >

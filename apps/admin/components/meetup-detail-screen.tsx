@@ -44,7 +44,7 @@ export function MeetupDetailScreen({ meetupId }: { meetupId: string }) {
           <PageHeader title={meetup.title}>
             <p>
               등록일{' '}
-              <span className="font-display tabular-nums">
+              <span className="tabular-nums">
                 {formatDate(meetup.createdAt)}
               </span>
             </p>

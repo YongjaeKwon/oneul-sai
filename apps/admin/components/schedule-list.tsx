@@ -235,10 +235,11 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
         </p>
       ) : (
         <>
+          {/* 상세의 카드(Section) 안이라 표에는 테두리 · 배경을 다시 두지 않는다(디자인 파운데이션 4절 6) */}
           <div
             aria-busy={isFetching || running}
             className={[
-              'overflow-x-auto rounded-card border border-line bg-surface transition-opacity',
+              'relative overflow-x-auto transition-opacity',
               isFetching ? 'opacity-60' : '',
             ].join(' ')}
           >
@@ -285,6 +286,8 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
                       schedule.startsAt,
                       schedule.endsAt,
                     );
+                    // 같은 일시의 회차가 지역만 달리 있을 수 있어 지역까지 읽어 준다
+                    const rowName = `${when} · ${schedule.venueArea}`;
                     const result = results[schedule.id];
                     return (
                       <tr
@@ -295,7 +298,7 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
                           {schedule.status === 'DRAFT' ? (
                             <input
                               type="checkbox"
-                              aria-label={`${when} 고르기`}
+                              aria-label={`${rowName} 고르기`}
                               checked={chosen.includes(schedule.id)}
                               disabled={running}
                               className="size-4 accent-ink"
@@ -349,7 +352,7 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
                           <Link
                             href={`/meetups/${meetupId}/schedules/${schedule.id}`}
                             className="whitespace-nowrap text-ink underline decoration-line-strong underline-offset-4 hover:decoration-rose"
-                            aria-label={`${when} 상세`}
+                            aria-label={`${rowName} 상세`}
                           >
                             상세
                           </Link>
@@ -385,7 +388,12 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
         </p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => void publishChosen()}>공개</Button>
-          <Button variant="ghost" onClick={() => setConfirming(false)}>
+          {/* 공개한 회차는 비공개로 되돌릴 수 없다 — 처음 포커스는 "닫기"(Dialog가 showModal 뒤 옮긴다) */}
+          <Button
+            variant="ghost"
+            data-autofocus
+            onClick={() => setConfirming(false)}
+          >
             닫기
           </Button>
         </div>

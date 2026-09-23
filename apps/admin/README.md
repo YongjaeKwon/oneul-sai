@@ -37,7 +37,7 @@
 - access token은 `lib/api.ts`의 `ApiClient` 인스턴스 메모리에만 있다. refresh 토큰은 httpOnly 쿠키 `onulsai_rt_admin`이며 화면 코드는 읽지 않는다.
 - 보호 데이터는 모두 클라이언트 컴포넌트에서 TanStack Query(`lib/queries.ts`)로 가져온다. 서버 컴포넌트 · Route Handler는 Gateway를 부르지 않는다.
 - 에러 문구는 `lib/errors.ts`가 `ApiErrorResponse.code`로만 고른다(서버 `message`는 쓰지 않는다 — 여러 회차 등록이 `items.<순번>`으로 행을 찾는 것만 예외이고, 문구는 그때도 `code`로 고른다).
-- 상태 배지(`Badge`) · 구분선(`Divider`) · 입력(`Input` · `Label` · `FieldError`)은 `@oneul-sai/ui`. 색 · 글꼴은 `docs/design/design-foundation.md`의 토큰만 쓴다. 화면 제목 아래에는 짧은 로즈 구분선(왼쪽 정렬), 날짜 숫자는 명조(`font-display tabular-nums`).
+- 상태 배지(`Badge`) · 구분선(`Divider`) · 입력(`Input` · `Label` · `FieldError`)은 `@oneul-sai/ui`. 색 · 글꼴은 `docs/design/design-foundation.md`의 토큰만 쓴다. 화면 제목 아래에는 짧은 로즈 구분선(왼쪽 정렬), 회차 일시는 명조(`font-display tabular-nums`).
 
 ## 실행
 
