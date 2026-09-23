@@ -8,7 +8,7 @@ import { ApiClient } from '@oneul-sai/api-client';
  * - `credentials: 'include'` — httpOnly refresh 쿠키가 Gateway로 실린다.
  *
  * access token은 이 인스턴스의 메모리에만 있다(D4). 새로 고침 뒤에는 `AuthProvider`가 `refresh()`로 다시 채운다.
- * `NEXT_PUBLIC_*`는 빌드 시점에 인라인되므로 여기서만 `process.env`를 읽는다.
+ * `NEXT_PUBLIC_*`는 빌드 시점에 인라인되므로 여기와 서버 공개 조회(`lib/public-api.ts`)만 `process.env`를 읽는다.
  */
 export const apiClient = new ApiClient({
   baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000',
