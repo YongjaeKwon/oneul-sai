@@ -1,0 +1,90 @@
+import { z } from 'zod';
+
+import { PublicScheduleStatusSchema, ScheduleStatusSchema } from './enums.js';
+
+// SPEC-002 7절 응답 스키마. 응답은 `z.object`(모르는 키를 떼어 낸다) — `strictObject`는 요청용이다(12절).
+// 요청 규칙(범위 · 길이 · 지도 링크 호스트)을 재사용하지 않는다 — 규칙이 바뀌어도 저장된 값 때문에 조회가 500이 되지 않게.
+// 시각은 UTC `Z`(`toISOString()`).
+
+const IsoDateTime = z.iso.datetime();
+
+const listOf = <T extends z.ZodType>(item: T) =>
+  z.object({
+    items: z.array(item),
+    total: z.number().int().min(0),
+    page: z.number().int().min(1),
+    pageSize: z.number().int().min(1),
+  });
+
+/** 모임 상품(운영자 응답). */
+export const MeetupSchema = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  description: z.string(),
+  createdAt: IsoDateTime,
+  updatedAt: IsoDateTime,
+});
+export type Meetup = z.infer<typeof MeetupSchema>;
+
+/** `GET /api/v1/meetups`. */
+export const MeetupListResponseSchema = listOf(MeetupSchema);
+export type MeetupListResponse = z.infer<typeof MeetupListResponseSchema>;
+
+/**
+ * 공개 응답(`/api/v1/events`) — 이 필드뿐이다. 제목 · 설명은 상품에서 읽는다.
+ * `meetupId` · 장소 안내 넷 · `cancelReason` · `createdAt` · `updatedAt`은 없다(D4 · D9).
+ */
+export const PublicScheduleSchema = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  description: z.string(),
+  startsAt: IsoDateTime,
+  endsAt: IsoDateTime,
+  applyDeadlineAt: IsoDateTime,
+  priceMale: z.number().int(),
+  priceFemale: z.number().int(),
+  capacityMale: z.number().int(),
+  capacityFemale: z.number().int(),
+  maleMinBirthYear: z.number().int().nullable(),
+  maleMaxBirthYear: z.number().int().nullable(),
+  venueArea: z.string(),
+  status: PublicScheduleStatusSchema,
+});
+export type PublicSchedule = z.infer<typeof PublicScheduleSchema>;
+
+/** `GET /api/v1/events`. */
+export const PublicScheduleListResponseSchema = listOf(PublicScheduleSchema);
+export type PublicScheduleListResponse = z.infer<
+  typeof PublicScheduleListResponseSchema
+>;
+
+/**
+ * 운영자 응답(`/api/v1/meetups/:meetupId/schedules/**`). 공개 스키마를 **넓힌다** — 그 반대(`omit`)로 만들면
+ * 운영자 쪽에 새 비공개 필드를 더할 때 omit 목록을 빠뜨리는 순간 공개 응답에 새어 나간다(7절).
+ */
+export const AdminScheduleSchema = PublicScheduleSchema.extend({
+  status: ScheduleStatusSchema,
+  meetupId: z.uuid(),
+  venueName: z.string().nullable(),
+  venueAddress: z.string().nullable(),
+  venueDirections: z.string().nullable(),
+  venueMapUrl: z.string().nullable(),
+  cancelReason: z.string().nullable(),
+  createdAt: IsoDateTime,
+  updatedAt: IsoDateTime,
+});
+export type AdminSchedule = z.infer<typeof AdminScheduleSchema>;
+
+/** `GET /api/v1/meetups/:meetupId/schedules`. */
+export const AdminScheduleListResponseSchema = listOf(AdminScheduleSchema);
+export type AdminScheduleListResponse = z.infer<
+  typeof AdminScheduleListResponseSchema
+>;
+
+/** `POST .../schedules/batch` 201(D15). 요청 `items`와 같은 순서, 전부 DRAFT. 페이지 필드 없음. */
+export const BatchCreateSchedulesResponseSchema = z.object({
+  items: z.array(AdminScheduleSchema),
+});
+export type BatchCreateSchedulesResponse = z.infer<
+  typeof BatchCreateSchedulesResponseSchema
+>;

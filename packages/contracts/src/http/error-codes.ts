@@ -1,4 +1,4 @@
-// SPEC-001 7절 "에러 코드 표". `ApiErrorResponse.code`에 실리는 기계용 코드.
+// SPEC-001 · SPEC-002 7절 "에러 코드 표". `ApiErrorResponse.code`에 실리는 기계용 코드.
 // 사람이 읽는 `message`와 별개이며, 클라이언트는 이 값으로만 분기한다.
 
 export const API_ERROR_CODES = {
@@ -7,6 +7,10 @@ export const API_ERROR_CODES = {
   AGE_NOT_ALLOWED: 'AGE_NOT_ALLOWED',
   CONSENT_REQUIRED: 'CONSENT_REQUIRED',
   SELF_STATUS_CHANGE: 'SELF_STATUS_CHANGE',
+  /** 회차 시각 규칙 위반(순서 · 진행 상한 · 바뀐 시각의 미래 · 선행 상한, → OPEN인데 신청 마감 지남). SPEC-002 */
+  SCHEDULE_TIME_INVALID: 'SCHEDULE_TIME_INVALID',
+  /** 병합한 남성 연령대가 `maleMinBirthYear > maleMaxBirthYear`. SPEC-002 */
+  BIRTH_YEAR_RANGE_INVALID: 'BIRTH_YEAR_RANGE_INVALID',
   // 401
   UNAUTHENTICATED: 'UNAUTHENTICATED',
   /** access token 만료(Gateway). 클라이언트는 refresh 후 1회 재시도한다. */
@@ -24,9 +28,14 @@ export const API_ERROR_CODES = {
   ACCOUNT_SUSPENDED: 'ACCOUNT_SUSPENDED',
   // 404
   MEMBER_NOT_FOUND: 'MEMBER_NOT_FOUND',
+  MEETUP_NOT_FOUND: 'MEETUP_NOT_FOUND',
+  /** 공개: 없음 · DRAFT · CANCELLED(같은 본문). 운영자: 없음 또는 `scheduleId`가 `meetupId`에 속하지 않음. SPEC-002 */
+  SCHEDULE_NOT_FOUND: 'SCHEDULE_NOT_FOUND',
   // 409
   EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
   INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
+  /** CANCELLED 회차의 필드 수정, DRAFT가 아닌 회차의 삭제. SPEC-002 */
+  SCHEDULE_NOT_EDITABLE: 'SCHEDULE_NOT_EDITABLE',
   // 429 (Gateway)
   TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
   // 503

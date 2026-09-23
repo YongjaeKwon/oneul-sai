@@ -1,19 +1,35 @@
 import { HEADER_REQUEST_ID } from '@oneul-sai/constants';
 import {
   API_ERROR_CODES,
+  type AdminSchedule,
+  type AdminScheduleListQuery,
+  type AdminScheduleListResponse,
   type AuthResponse,
+  type BatchCreateSchedulesRequest,
+  type BatchCreateSchedulesResponse,
   type ChangePasswordRequest,
   type ClientType,
+  type CreateMeetupRequest,
+  type CreateScheduleRequest,
   type LoginRequest,
   type LogoutRequest,
+  type Meetup,
+  type MeetupListQuery,
+  type MeetupListResponse,
   type MemberDetail,
   type MemberListQuery,
   type MemberListResponse,
   type MemberProfile,
+  type PublicSchedule,
+  type PublicScheduleListQuery,
+  type PublicScheduleListResponse,
   type RefreshRequest,
   type SignupRequest,
+  type UpdateMeetupRequest,
   type UpdateMemberStatusRequest,
   type UpdateMyProfileRequest,
+  type UpdateScheduleRequest,
+  type UpdateScheduleStatusRequest,
   type WithdrawRequest,
 } from '@oneul-sai/contracts';
 import { randomId } from '@oneul-sai/utils';
@@ -23,7 +39,12 @@ import {
   type AccessTokenListener,
 } from './access-token-store.js';
 import { ApiClientError, isApiErrorResponse } from './error.js';
-import { AUTH_PATHS, MEMBER_PATHS } from './paths.js';
+import {
+  AUTH_PATHS,
+  EVENT_PATHS,
+  MEETUP_PATHS,
+  MEMBER_PATHS,
+} from './paths.js';
 
 export interface ApiClientOptions {
   /** Gateway origin. 예: `http://localhost:4000` */
@@ -51,7 +72,7 @@ export interface ApiRequestInit {
   body?: unknown;
   query?: Record<string, string | number | undefined>;
   /**
-   * `false`면 `Authorization`을 붙이지 않고 만료 재시도도 하지 않는다 — 공개 경로(가입 · 로그인 · refresh · 로그아웃).
+   * `false`면 `Authorization`을 붙이지 않고 만료 재시도도 하지 않는다 — 공개 경로(가입 · 로그인 · refresh · 로그아웃 · 공개 일정 조회).
    * 만료 토큰이 공개 경로에서 401을 만들지 않게 한다(SPEC-001 7절). 기본 `true`.
    */
   auth?: boolean;
@@ -62,6 +83,15 @@ export type LoginInput = Omit<LoginRequest, 'client'>;
 
 /** `listMembers` 검색 조건. 생략한 값은 서버 기본값(page 1, pageSize 20). */
 export type MemberListParams = Partial<MemberListQuery>;
+
+/** `listPublicEvents` 조건. 생략한 값은 서버 기본값(page 1, pageSize 20). */
+export type PublicScheduleListParams = Partial<PublicScheduleListQuery>;
+
+/** `listMeetups` 조건. 생략한 값은 서버 기본값(page 1, pageSize 20). */
+export type MeetupListParams = Partial<MeetupListQuery>;
+
+/** `listSchedules` 조건. `from` · `to`는 ISO 8601 + offset. 생략한 값은 서버 기본값(page 1, pageSize 20). */
+export type AdminScheduleListParams = Partial<AdminScheduleListQuery>;
 
 async function parseResponseBody(response: Response): Promise<unknown> {
   const text = await response.text();
@@ -287,6 +317,129 @@ export class ApiClient {
     return this.request<MemberDetail>('PATCH', MEMBER_PATHS.memberStatus(id), {
       body: input,
     });
+  }
+
+  // ----- 일정 (공개, SPEC-002) — 만료 토큰이 공개 조회를 401로 만들지 않게 `auth: false` -----
+
+  /** `GET /api/v1/events?page=&pageSize=` (공개) */
+  listPublicEvents(
+    params: PublicScheduleListParams = {},
+  ): Promise<PublicScheduleListResponse> {
+    return this.request<PublicScheduleListResponse>('GET', EVENT_PATHS.events, {
+      query: params,
+      auth: false,
+    });
+  }
+
+  /** `GET /api/v1/events/:id` (공개). DRAFT · CANCELLED · 없음은 모두 404 `SCHEDULE_NOT_FOUND`. */
+  getPublicEvent(id: string): Promise<PublicSchedule> {
+    return this.request<PublicSchedule>('GET', EVENT_PATHS.event(id), {
+      auth: false,
+    });
+  }
+
+  // ----- 모임 상품 · 회차 (운영자, SPEC-002) -----
+
+  /** `GET /api/v1/meetups?page=&pageSize=` (ADMIN) */
+  listMeetups(params: MeetupListParams = {}): Promise<MeetupListResponse> {
+    return this.request<MeetupListResponse>('GET', MEETUP_PATHS.meetups, {
+      query: params,
+    });
+  }
+
+  /** `POST /api/v1/meetups` (ADMIN) */
+  createMeetup(input: CreateMeetupRequest): Promise<Meetup> {
+    return this.request<Meetup>('POST', MEETUP_PATHS.meetups, { body: input });
+  }
+
+  /** `GET /api/v1/meetups/:meetupId` (ADMIN) */
+  getMeetup(meetupId: string): Promise<Meetup> {
+    return this.request<Meetup>('GET', MEETUP_PATHS.meetup(meetupId));
+  }
+
+  /** `PATCH /api/v1/meetups/:meetupId` (ADMIN). 바꾼 필드만 보낸다. */
+  updateMeetup(meetupId: string, input: UpdateMeetupRequest): Promise<Meetup> {
+    return this.request<Meetup>('PATCH', MEETUP_PATHS.meetup(meetupId), {
+      body: input,
+    });
+  }
+
+  /** `GET /api/v1/meetups/:meetupId/schedules?status=&from=&to=&page=&pageSize=` (ADMIN) */
+  listSchedules(
+    meetupId: string,
+    params: AdminScheduleListParams = {},
+  ): Promise<AdminScheduleListResponse> {
+    return this.request<AdminScheduleListResponse>(
+      'GET',
+      MEETUP_PATHS.schedules(meetupId),
+      { query: params },
+    );
+  }
+
+  /** `POST /api/v1/meetups/:meetupId/schedules` (ADMIN). 201 DRAFT. */
+  createSchedule(
+    meetupId: string,
+    input: CreateScheduleRequest,
+  ): Promise<AdminSchedule> {
+    return this.request<AdminSchedule>(
+      'POST',
+      MEETUP_PATHS.schedules(meetupId),
+      { body: input },
+    );
+  }
+
+  /** `POST /api/v1/meetups/:meetupId/schedules/batch` (ADMIN, D15). 전부 또는 없음, 응답은 요청 순서 · 전부 DRAFT. */
+  createSchedulesBatch(
+    meetupId: string,
+    input: BatchCreateSchedulesRequest,
+  ): Promise<BatchCreateSchedulesResponse> {
+    return this.request<BatchCreateSchedulesResponse>(
+      'POST',
+      MEETUP_PATHS.scheduleBatch(meetupId),
+      { body: input },
+    );
+  }
+
+  /** `GET /api/v1/meetups/:meetupId/schedules/:scheduleId` (ADMIN) */
+  getSchedule(meetupId: string, scheduleId: string): Promise<AdminSchedule> {
+    return this.request<AdminSchedule>(
+      'GET',
+      MEETUP_PATHS.schedule(meetupId, scheduleId),
+    );
+  }
+
+  /** `PATCH /api/v1/meetups/:meetupId/schedules/:scheduleId` (ADMIN). 바꾼 필드만, 선택 필드는 `null`로 비운다. */
+  updateSchedule(
+    meetupId: string,
+    scheduleId: string,
+    input: UpdateScheduleRequest,
+  ): Promise<AdminSchedule> {
+    return this.request<AdminSchedule>(
+      'PATCH',
+      MEETUP_PATHS.schedule(meetupId, scheduleId),
+      { body: input },
+    );
+  }
+
+  /** `PATCH /api/v1/meetups/:meetupId/schedules/:scheduleId/status` (ADMIN). 같은 상태는 200 no-op. */
+  updateScheduleStatus(
+    meetupId: string,
+    scheduleId: string,
+    input: UpdateScheduleStatusRequest,
+  ): Promise<AdminSchedule> {
+    return this.request<AdminSchedule>(
+      'PATCH',
+      MEETUP_PATHS.scheduleStatus(meetupId, scheduleId),
+      { body: input },
+    );
+  }
+
+  /** `DELETE /api/v1/meetups/:meetupId/schedules/:scheduleId` (ADMIN). DRAFT만, 204. */
+  deleteSchedule(meetupId: string, scheduleId: string): Promise<void> {
+    return this.request<void>(
+      'DELETE',
+      MEETUP_PATHS.schedule(meetupId, scheduleId),
+    );
   }
 
   // ----- internals -----
