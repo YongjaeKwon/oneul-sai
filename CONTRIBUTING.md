@@ -14,6 +14,8 @@ pnpm db:generate       # Prisma Client 생성 — clone 직후 반드시 한 번
 pnpm dev               # 모든 앱/서비스를 dev 모드로 실행
 ```
 
+처음 한 번은 서비스 `.env` 복사와 DB 마이그레이션이 필요합니다(비밀 값이 없으면 서비스가 뜨지 않습니다) — [온보딩 가이드](docs/guides/onboarding.md) 2절 6 · 7번.
+
 확인: `http://localhost:4000/health`가 `"status":"ok"`를 돌려주면 성공입니다.
 처음이라면 [온보딩 가이드](docs/guides/onboarding.md)를 순서대로 따라가세요.
 

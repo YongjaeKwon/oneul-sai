@@ -46,12 +46,22 @@ pnpm install       # "build 스크립트 허용" 프롬프트가 뜨면 목록�
 # 5) Prisma Client 생성 — clone 직후 한 번은 꼭
 pnpm db:generate
 
-# 6) 전체 실행
+# 6) 서비스 .env 복사 — 개발용 비밀 값(JWT 서명 키 · 내부 토큰)이 파일끼리 이미 맞춰져 있습니다
+cp apps/api-gateway/.env.example apps/api-gateway/.env
+cp apps/member-service/.env.example apps/member-service/.env
+cp apps/event-service/.env.example apps/event-service/.env
+
+# 7) DB 마이그레이션과 운영자 계정
+pnpm --filter @oneul-sai/member-service exec prisma migrate dev
+pnpm --filter @oneul-sai/event-service exec prisma migrate dev
+pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed
+
+# 8) 전체 실행
 pnpm dev
 ```
 
 - 환경 변수는 각 앱/서비스의 `.env.example`을 `.env`(Next.js는 `.env.local`)로 복사해 사용합니다.
-  로컬 기본값이 코드에 들어 있어 **복사하지 않아도 일단 실행은 됩니다.** 값을 바꿀 때만 복사하세요.
+  Gateway · member-service · event-service는 비밀 값(`JWT_ACCESS_SECRET` · `INTERNAL_API_TOKEN`)에 기본값이 없어 **`.env`가 없으면 뜨지 않습니다.** 나머지는 코드의 로컬 기본값으로 뜹니다.
 - `.env`는 절대 커밋하지 않습니다. `.gitignore`가 막고 있지만, `git status`에서 한 번 더 확인하는 습관을 권합니다.
 
 ## 3. 확인 커맨드
