@@ -127,3 +127,13 @@ pnpm dev
 - [ ] [CONTRIBUTING.md](../../CONTRIBUTING.md)와 [CLAUDE.md](../../CLAUDE.md) 읽음
 - [ ] 진행 상황판 접근 확인 (링크는 [문서 갱신 규칙](./documentation-rules.md#6-상황판-갱신-시점) 참고)
 - [ ] 첫 작업 브랜치 생성 (`<type>/<step>-<topic>`)
+
+## 선택: AI 에이전트 도구 (Claude Code · Codex)
+
+규칙(`AGENTS.md`, `CLAUDE.md`)과 프로젝트 스킬(`.claude/skills/`, `.agents/skills/`)은 저장소에 들어 있어 clone만 하면 된다. Ponytail · Graphify 같은 개인 도구와 HyperFrames 사용 통계 끄기는 PC마다 한 번 실행한다:
+
+```bash
+bash scripts/setup-agent-tools.sh
+```
+
+처음 여는 PC에서는 Claude Code와 Codex 모두 이 폴더를 신뢰해야 저장소 설정(`.claude/settings.json`)이 적용된다. 외부 스킬 사용 규칙은 CLAUDE.md 6장 "외부 스킬".
