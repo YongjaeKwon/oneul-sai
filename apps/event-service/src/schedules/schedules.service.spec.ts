@@ -75,6 +75,16 @@ function build(options: BuildOptions = {}) {
   const stored = options.stored ?? row();
   let createCount = 0;
 
+  const createRow = async ({ data }: { data: Record<string, unknown> }) => {
+    createCount += 1;
+    if (createCount === options.failCreateAt) {
+      throw new Error('connection lost');
+    }
+    return row({
+      ...(data as Partial<AdminScheduleRow>),
+      id: randomUUID(),
+    });
+  };
   const tx = {
     $queryRaw: vi.fn(async (strings: TemplateStringsArray) => {
       calls.push(`lock:${strings.join('?')}`);
@@ -93,16 +103,7 @@ function build(options: BuildOptions = {}) {
         calls.push('delete');
         return stored;
       }),
-      create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
-        createCount += 1;
-        if (createCount === options.failCreateAt) {
-          throw new Error('connection lost');
-        }
-        return row({
-          ...(data as Partial<AdminScheduleRow>),
-          id: randomUUID(),
-        });
-      }),
+      create: vi.fn(createRow),
     },
   };
   const prisma = {
@@ -111,8 +112,9 @@ function build(options: BuildOptions = {}) {
         options.meetupExists === false ? null : { id: MEETUP_ID },
       ),
     },
+    // 트랜잭션 밖 create와 안 create를 따로 센다 — 여러 회차 등록이 tx만 쓰는지(전부 또는 없음) 확인하려고
     schedule: {
-      create: tx.schedule.create,
+      create: vi.fn(createRow),
       findFirst: vi.fn(async () => null),
     },
     $transaction: vi.fn(async (fn: (client: typeof tx) => Promise<unknown>) =>
@@ -136,7 +138,7 @@ const messageOf = (error: ApiHttpException) =>
 
 describe('SchedulesService.createBatch (D15)', () => {
   it('reads now once and creates in request order without status, logging each after commit', async () => {
-    const { service, tx, logger, now } = build();
+    const { service, prisma, tx, logger, now } = build();
     const items = [input(4), input(11), input(18)];
     const response = await service.createBatch(
       ADMIN,
@@ -146,6 +148,8 @@ describe('SchedulesService.createBatch (D15)', () => {
     );
 
     expect(now).toHaveBeenCalledTimes(1);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.schedule.create).not.toHaveBeenCalled();
     const datas = tx.schedule.create.mock.calls.map(([args]) => args.data);
     expect(datas.map((data) => (data.startsAt as Date).toISOString())).toEqual([
       '2026-10-04T05:00:00.000Z',
