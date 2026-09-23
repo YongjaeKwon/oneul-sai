@@ -41,7 +41,8 @@
 
 - 클라이언트는 API Gateway(:4000)만 호출한다. 마이크로서비스 직접 호출은 로컬 디버깅 용도로만 허용한다(이때 `x-internal-token`을 직접 실어야 한다).
 - 인증(Step 1, [ADR-009](../adr/ADR-009-authentication.md)): 클라이언트는 `Authorization: Bearer <access token>`을 보내고, Gateway가 검증해 `x-user-id` · `x-user-role`로 바꿔 서비스에 넘긴다. Gateway는 프록시하는 모든 요청에 `x-internal-token`을 붙이고, 서비스는 이 값이 맞는 요청만 받는다(`/health`만 예외 — 검사 코드는 `@oneul-sai/service-kit`, [ADR-010](../adr/ADR-010-platform-packages.md)). refresh token은 Gateway 호스트의 httpOnly 쿠키(`onulsai_rt_web` · `onulsai_rt_admin`)다. 규칙은 [API 규칙 5절](../api/README.md#5-인증--쿠키--cors--rate-limit-step-1).
-- payment-service는 이벤트 소비 외에 결제 요청/Webhook 처리를 위해 Gateway의 REST 라우팅(`/api/v1/payments`)도 받는다. 라우팅 테이블은 [API 규칙](../api/README.md) 참고.
+- event-service는 Gateway에서 공개 일정 조회(`/api/v1/events`)와 운영자 상품 · 회차 관리(`/api/v1/meetups`, ADMIN)를 받는다([SPEC-002](../specs/SPEC-002-meetup-schedule.md) 7절). 공개 · ADMIN 구분은 서비스의 데코레이터가 정하고 Gateway는 prefix만 안다.
+- payment-service는 이벤트 소비 외에 결제 요청/Webhook 처리를 위해 Gateway의 REST 라우팅(`/api/v1/payments`)도 받는다. 라우팅 테이블은 [API 규칙 3절](../api/README.md#3-gateway-라우팅-테이블) 참고.
 
 ## 2. 서비스별 책임
 

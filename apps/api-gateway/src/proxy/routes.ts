@@ -28,6 +28,7 @@ export function createProxyRoutes(urls: ServiceUrls): ProxyRoute[] {
     route('/api/v1/members', urls.MEMBER_SERVICE_URL),
     route('/api/v1/auth', urls.MEMBER_SERVICE_URL),
     route('/api/v1/events', urls.EVENT_SERVICE_URL),
+    route('/api/v1/meetups', urls.EVENT_SERVICE_URL),
     route('/api/v1/applications', urls.EVENT_SERVICE_URL),
     route('/api/v1/matches', urls.MATCHING_SERVICE_URL),
     route('/api/v1/preferences', urls.MATCHING_SERVICE_URL),
