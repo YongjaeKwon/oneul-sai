@@ -58,3 +58,38 @@ export function describeError(
   }
   return error.status >= 500 ? SERVER_ERROR_MESSAGE : FALLBACK_MESSAGE;
 }
+
+// ----- 모임 상품 · 회차 (SPEC-002 4절 "운영자 화면 오류 문구") -----
+
+const STATE_CHANGED_MESSAGE =
+  '지금 상태에서는 할 수 없는 작업입니다. 화면을 새로 고쳐 주세요.';
+
+const EVENT_MESSAGES_BY_CODE: Partial<Record<string, string>> = {
+  [API_ERROR_CODES.VALIDATION_FAILED]: '입력한 내용을 확인해 주세요.',
+  // 폼 검사를 통과했는데 서버가 거절한 저장(다른 운영자의 동시 수정 등). 상태 요청은 STATUS_TIME_INVALID_MESSAGE.
+  [API_ERROR_CODES.SCHEDULE_TIME_INVALID]:
+    '일시가 맞지 않습니다. 화면을 새로 고친 뒤 다시 저장해 주세요.',
+  [API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID]:
+    '남성 연령대의 앞 연도가 뒤 연도보다 클 수 없습니다.',
+  [API_ERROR_CODES.MEETUP_NOT_FOUND]:
+    '찾을 수 없는 모임 상품입니다. 목록에서 다시 골라 주세요.',
+  [API_ERROR_CODES.SCHEDULE_NOT_FOUND]:
+    '찾을 수 없는 회차입니다. 이미 삭제되었을 수 있습니다.',
+  [API_ERROR_CODES.INVALID_STATUS_TRANSITION]: STATE_CHANGED_MESSAGE,
+  [API_ERROR_CODES.SCHEDULE_NOT_EDITABLE]: STATE_CHANGED_MESSAGE,
+};
+
+/** 공개 · 다시 열기(→ OPEN)가 신청 마감이 지나 400 `SCHEDULE_TIME_INVALID`일 때. */
+export const STATUS_TIME_INVALID_MESSAGE =
+  '신청 마감이 지나 공개할 수 없습니다. 신청 마감을 바꾼 뒤 다시 눌러 주세요.';
+
+/** 모임 상품 · 회차 화면의 에러 문구. 401 · 403은 SPEC-001 admin 규칙 그대로, 5xx · 네트워크는 한 문구. */
+export function describeEventError(
+  error: unknown,
+  overrides: Partial<Record<string, string>> = {},
+): string {
+  if (!isApiClientError(error) || error.status >= 500) {
+    return FALLBACK_MESSAGE;
+  }
+  return describeError(error, { ...EVENT_MESSAGES_BY_CODE, ...overrides });
+}

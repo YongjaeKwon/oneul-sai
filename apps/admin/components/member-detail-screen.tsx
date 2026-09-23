@@ -2,8 +2,7 @@
 
 import { MemberIdSchema, type MemberDetail } from '@oneul-sai/contracts';
 import { Badge } from '@oneul-sai/ui';
-import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 
 import { useAuth, useEndSessionOn401 } from '@/lib/auth-provider';
 import { describeError } from '@/lib/errors';
@@ -15,30 +14,12 @@ import {
   formatPhone,
 } from '@/lib/format';
 import { useMember } from '@/lib/queries';
+import { BackLink } from './back-link';
 import { DetailList } from './detail-list';
 import { MemberStatusForm } from './member-status-form';
 import { Notice } from './notice';
+import { Section } from './section';
 import { StatusBadge } from './status-badge';
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="rounded-card border border-line bg-surface px-6 py-5">
-      <h2 className="text-lg font-semibold text-ink">{title}</h2>
-      <div className="mt-2">{children}</div>
-    </section>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      href="/members"
-      className="self-start text-sm text-ink-soft transition-colors hover:text-ink"
-    >
-      ← 회원 목록
-    </Link>
-  );
-}
 
 const UPDATED_MESSAGES: Record<MemberDetail['status'], string> = {
   ACTIVE: '정지를 해제했습니다. 이 회원은 다시 로그인할 수 있습니다.',
@@ -57,7 +38,7 @@ export function MemberDetailScreen({ id }: { id: string }) {
   if (!validId) {
     return (
       <div className="flex flex-col gap-6">
-        <BackLink />
+        <BackLink href="/members">회원 목록</BackLink>
         <Notice tone="danger">회원 ID 형식이 아닙니다.</Notice>
       </div>
     );
@@ -66,7 +47,7 @@ export function MemberDetailScreen({ id }: { id: string }) {
   if (error) {
     return (
       <div className="flex flex-col gap-6">
-        <BackLink />
+        <BackLink href="/members">회원 목록</BackLink>
         <Notice tone="danger">{describeError(error)}</Notice>
       </div>
     );
@@ -75,7 +56,7 @@ export function MemberDetailScreen({ id }: { id: string }) {
   if (member === undefined) {
     return (
       <div className="flex flex-col gap-6">
-        <BackLink />
+        <BackLink href="/members">회원 목록</BackLink>
         <p className="py-12 text-center text-sm text-ink-muted" role="status">
           불러오고 있습니다…
         </p>
@@ -88,7 +69,7 @@ export function MemberDetailScreen({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <BackLink />
+      <BackLink href="/members">회원 목록</BackLink>
 
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
