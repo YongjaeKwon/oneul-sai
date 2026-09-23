@@ -38,9 +38,12 @@ function checkViolation(): Prisma.PrismaClientKnownRequestError {
 
 function fakeHost() {
   const sent: { status?: number; body?: unknown } = {};
+  // Express처럼 status()가 statusCode도 바꾼다 — 필터가 최종 상태로 로그 여부를 정한다
   const response = {
+    statusCode: 200,
     status(code: number) {
       sent.status = code;
+      response.statusCode = code;
       return response;
     },
     json(body: unknown) {
@@ -126,5 +129,21 @@ describe('LoggingHttpExceptionFilter', () => {
       message: 'Internal server error',
     });
     expect(JSON.stringify(sent.body)).not.toContain(MARKER);
+  });
+
+  it('does not log body-parser client errors — the kit answers their own 4xx', () => {
+    const logger = fakeLogger();
+    const { host, sent } = fakeHost();
+    // http-errors 모양(PayloadTooLargeError): 로그인 없이 공개 경로에 큰 본문을 보내면 난다
+    const tooLarge = Object.assign(new Error('request entity too large'), {
+      name: 'PayloadTooLargeError',
+      statusCode: 413,
+      expose: true,
+    });
+
+    new LoggingHttpExceptionFilter(logger).catch(tooLarge, host);
+
+    expect(sent.status).toBe(413);
+    expect(logger.error).not.toHaveBeenCalled();
   });
 });
