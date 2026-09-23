@@ -199,9 +199,10 @@ export class SchedulesService {
     body: UpdateScheduleRequest,
     requestId: string,
   ): Promise<AdminSchedule> {
-    const now = this.now();
     const { row, fields } = await this.prisma.$transaction(async (tx) => {
       const current = await this.lock(tx, meetupId, scheduleId);
+      // 잠금을 기다린 뒤의 시각으로 판정한다
+      const now = this.now();
       this.assertAllowed(current, 'PATCH', now);
 
       const patch = withDates(body);
@@ -245,10 +246,9 @@ export class SchedulesService {
     body: UpdateScheduleStatusRequest,
     requestId: string,
   ): Promise<AdminSchedule> {
-    const now = this.now();
     const { row, from } = await this.prisma.$transaction(async (tx) => {
       const current = await this.lock(tx, meetupId, scheduleId);
-      if (this.assertAllowed(current, body.status, now) === 'noop') {
+      if (this.assertAllowed(current, body.status, this.now()) === 'noop') {
         return { row: current, from: null };
       }
       const row = await tx.schedule.update({
@@ -278,10 +278,9 @@ export class SchedulesService {
     scheduleId: string,
     requestId: string,
   ): Promise<void> {
-    const now = this.now();
     await this.prisma.$transaction(async (tx) => {
       const current = await this.lock(tx, meetupId, scheduleId);
-      this.assertAllowed(current, 'DELETE', now);
+      this.assertAllowed(current, 'DELETE', this.now());
       await tx.schedule.delete({ where: { id: current.id } });
     });
     this.logger.info('schedule.deleted', {

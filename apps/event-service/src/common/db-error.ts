@@ -11,7 +11,7 @@ import {
   requestIdOf,
   requestPathname,
 } from '@oneul-sai/service-kit';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 // SPEC-002 12절 "로그 규칙 — DB 에러". PostgreSQL은 CHECK 위반(23514) 등의 DETAIL에 "Failing row contains (...)"로
 // 행 전체(비공개 장소 · 취소 사유 포함)를 싣고, 그 값이 Prisma 에러의 message · meta · cause에도 실린다.
@@ -85,15 +85,21 @@ export class LoggingHttpExceptionFilter implements ExceptionFilter {
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    if (!(exception instanceof HttpException)) {
-      const request = host.switchToHttp().getRequest<Request>();
-      this.logger.error('request.failed', {
-        ...dbErrorFields(exception),
-        method: request.method,
-        path: requestPathname(request),
-        requestId: requestIdOf(request),
-      });
-    }
     this.inner.catch(exception, host);
+    const http = host.switchToHttp();
+    // kit 필터가 5xx로 답한 예상 밖 에러만 남긴다. 본문 파서의 4xx(413 · 415 등)는 클라이언트 몫이라 남기지 않는다
+    if (
+      exception instanceof HttpException ||
+      http.getResponse<Response>().statusCode < 500
+    ) {
+      return;
+    }
+    const request = http.getRequest<Request>();
+    this.logger.error('request.failed', {
+      ...dbErrorFields(exception),
+      method: request.method,
+      path: requestPathname(request),
+      requestId: requestIdOf(request),
+    });
   }
 }

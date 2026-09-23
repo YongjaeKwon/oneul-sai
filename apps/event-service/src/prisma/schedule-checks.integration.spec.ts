@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { inject } from 'vitest';
+import { dbErrorFields } from '../common/db-error.js';
 import { resetTestDatabase } from '../testing/test-database.js';
 import { PrismaService } from './prisma.service.js';
 
@@ -129,6 +130,33 @@ describe('Schedule CHECK constraints (integration)', () => {
     const id = randomUUID();
     await insert({}, id);
     await expect(update(id, row)).rejects.toThrow(constraint);
+  });
+
+  // 로그 필터(common/db-error.ts)가 실제 Prisma 7 + PrismaPg 에러에서 식별자를 꺼내는지 — 가짜 에러 모양이 어긋나면 여기서 깨진다
+  it('dbErrorFields reads SQLSTATE and the constraint name from a real CHECK violation', async () => {
+    const error = await prisma.schedule
+      .create({
+        data: {
+          meetupId,
+          startsAt,
+          endsAt: valid.endsAt,
+          applyDeadlineAt: startsAt,
+          priceMale: -1,
+          priceFemale: 0,
+          capacityMale: 7,
+          capacityFemale: 7,
+          venueArea: '성수',
+          venueName: 'SECRET-VENUE',
+        },
+      })
+      .catch((e: unknown) => e);
+
+    const fields = dbErrorFields(error);
+    expect(fields).toMatchObject({
+      sqlState: '23514',
+      constraint: 'Schedule_price_valid',
+    });
+    expect(JSON.stringify(fields)).not.toContain('SECRET-VENUE');
   });
 
   // 제약이 과하지 않은지 — 경계값과 선택 필드는 통과한다
