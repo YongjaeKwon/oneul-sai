@@ -1,5 +1,5 @@
 // 단위 테스트용 최소 가짜 객체. 빌드에서 제외된다(tsconfig.build.json의 exclude는 *.spec.ts뿐이므로 이 파일은 dist에 남지만 import되지 않는다).
-import type { ExecutionContext } from '@nestjs/common';
+// 가드 · 필터용 가짜 객체(fakeExecutionContext 등)는 @oneul-sai/service-kit의 테스트와 함께 있다.
 import type { Logger } from '@oneul-sai/logger';
 import type { CookieOptions, Request, Response } from 'express';
 import { vi, type Mock } from 'vitest';
@@ -64,30 +64,6 @@ export function fakeResponse(): FakeResponse {
   };
   state.res = res as unknown as Response;
   return state;
-}
-
-/** 가드 테스트용. `handler` · `controller`에 붙은 메타데이터를 Reflector가 읽는다. */
-export function fakeExecutionContext(input: {
-  request: Request;
-  handler?: () => unknown;
-  controller?: new (...args: never[]) => unknown;
-}): ExecutionContext {
-  const handler = input.handler ?? function handler() {};
-  const controller = input.controller ?? class Controller {};
-  return {
-    switchToHttp: () => ({
-      getRequest: () => input.request,
-      getResponse: () => undefined,
-      getNext: () => undefined,
-    }),
-    getHandler: () => handler,
-    getClass: () => controller,
-    getArgs: () => [],
-    getArgByIndex: () => undefined,
-    switchToRpc: () => undefined,
-    switchToWs: () => undefined,
-    getType: () => 'http',
-  } as unknown as ExecutionContext;
 }
 
 type LogFn = Logger['warn'];

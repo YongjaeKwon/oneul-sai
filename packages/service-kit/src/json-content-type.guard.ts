@@ -9,7 +9,7 @@ import { apiError } from './api-error.js';
 
 /**
  * 본문을 받는 경로는 `Content-Type: application/json`만 받는다 (SPEC-001 7절 공통 규칙, 12절 "로그인 CSRF").
- * 다른 사이트의 HTML form은 이 content-type을 preflight 없이 보낼 수 없다. urlencoded 파서는 켜지 않으므로(app.ts)
+ * 다른 사이트의 HTML form은 이 content-type을 preflight 없이 보낼 수 없다. 앱은 urlencoded 파서를 켜지 않으므로
  * 다른 content-type의 본문은 파싱되지 않은 채 여기서 400으로 끝난다.
  */
 export function isJsonContentType(header: string | undefined): boolean {

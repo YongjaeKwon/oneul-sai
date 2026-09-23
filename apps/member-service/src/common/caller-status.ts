@@ -1,6 +1,6 @@
 import { API_ERROR_CODES } from '@oneul-sai/contracts';
+import { apiError } from '@oneul-sai/service-kit';
 import type { AccountStatus } from '../generated/prisma/enums.js';
-import { apiError } from './api-error.js';
 
 /**
  * 모든 "회원" · "ADMIN" 경로는 x-user-id의 회원 상태를 함께 읽어 (SPEC-001 7절 엔드포인트 요약)

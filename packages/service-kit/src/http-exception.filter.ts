@@ -7,11 +7,12 @@ import {
 } from '@nestjs/common';
 import { API_ERROR_CODES, type ApiErrorResponse } from '@oneul-sai/contracts';
 import type { Request, Response } from 'express';
-import { requestIdOf, requestPathname } from '../common/api-error.js';
+import { requestIdOf, requestPathname } from './api-error.js';
 
 /**
- * Gateway의 필터를 복사해 `code`를 얹은 것 (SPEC-001 10절 내부 구조). 서비스가 늘면 공용 패키지로 뺄지 결정 예정 (Step 2).
+ * Gateway의 필터를 복사해 `code`를 얹은 것 (SPEC-001 10절 내부 구조). 서비스가 전역 필터로 등록한다.
  * `message`에 입력값을 되돌려 주지 않고, `path`는 query string을 뗀 pathname이다 (12절).
+ * HttpException이 아닌 에러는 고정 문구의 500이다 — 원문 · 원인을 응답에 싣지 않는다.
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {

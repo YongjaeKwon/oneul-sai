@@ -299,6 +299,17 @@ describe('auth flow (integration)', () => {
     });
     expect(wrongToken.status).toBe(401);
 
+    // Express 5 라우팅은 대소문자를 구분하지 않는다 — 대문자 경로도 내부 토큰을 검사한다 (SPEC-002 D10).
+    const upperCase = await t.call({
+      method: 'GET',
+      path: '/API/V1/members/me',
+      internalToken: null,
+    });
+    expect(upperCase.status).toBe(401);
+    expect(errorOf(upperCase).code).toBe(
+      API_ERROR_CODES.INTERNAL_TOKEN_INVALID,
+    );
+
     const health = await t.call({
       method: 'GET',
       path: '/health',

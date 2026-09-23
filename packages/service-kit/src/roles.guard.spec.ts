@@ -1,10 +1,10 @@
 import 'reflect-metadata';
 import { Reflector } from '@nestjs/core';
-import type { ApiHttpException } from '../../common/api-error.js';
-import { fakeExecutionContext, fakeRequest } from '../../testing/fakes.js';
-import type { CallerUser } from '../decorators/current-user.js';
-import { ROLES_KEY } from '../decorators/roles.js';
+import type { ApiHttpException } from './api-error.js';
+import type { CallerUser } from './current-user.js';
+import { ROLES_KEY } from './roles.js';
 import { RolesGuard } from './roles.guard.js';
+import { fakeExecutionContext, fakeRequest } from './testing/fakes.js';
 
 function adminOnly() {}
 Reflect.defineMetadata(ROLES_KEY, ['ADMIN'], adminOnly);

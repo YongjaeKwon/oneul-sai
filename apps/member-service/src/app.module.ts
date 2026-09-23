@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
+import { InternalAuthGuard, RolesGuard } from '@oneul-sai/service-kit';
 import { AuthModule } from './auth/auth.module.js';
-import { InternalAuthGuard } from './auth/guards/internal-auth.guard.js';
-import { RolesGuard } from './auth/guards/roles.guard.js';
 import { env } from './env.js';
 import { HealthModule } from './health/health.module.js';
 import { MembersModule } from './members/members.module.js';

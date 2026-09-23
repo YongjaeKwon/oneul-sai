@@ -46,7 +46,7 @@
 
 ## API (SPEC-001 7절)
 
-모든 경로는 Gateway(:4000) 경유가 원칙이다. 서비스는 `/api/v1/**`의 모든 요청에서 `x-internal-token`을 먼저 확인하고(없거나 다르면 401 `INTERNAL_TOKEN_INVALID`), 보호 경로에서는 Gateway가 채운 `x-user-id` · `x-user-role`만 믿는다. `Authorization` 헤더는 보지 않는다. `/health` · `/docs`는 `/api/v1` 밖이며 내부 토큰 검사도 하지 않는다.
+모든 경로는 Gateway(:4000) 경유가 원칙이다. 서비스는 `/health`(정확히 일치)를 뺀 모든 핸들러에서 경로 대소문자와 무관하게 `x-internal-token`을 먼저 확인하고(없거나 다르면 401 `INTERNAL_TOKEN_INVALID`), 보호 경로에서는 Gateway가 채운 `x-user-id` · `x-user-role`만 믿는다. `Authorization` 헤더는 보지 않는다. Swagger(`/docs`)는 Nest 가드를 거치지 않는다. 가드 · 파이프 · 필터는 `@oneul-sai/service-kit`에 있다(SPEC-002 D10, ADR-010).
 
 | 메서드 | 경로                         | 인증  | 요청                                                                       | 응답                                                      |
 | ------ | ---------------------------- | ----- | -------------------------------------------------------------------------- | --------------------------------------------------------- |
@@ -117,21 +117,20 @@
 
 ## 구조 (`src/`)
 
-| 경로                                                                        | 역할                                                                                                                                                        |
-| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app.ts` · `main.ts`                                                        | `createApp()`(JSON 본문 파서만, cookie-parser, 전역 예외 필터, Swagger) / 부팅. 통합 테스트는 `createApp`을 임시 포트로 띄운다                              |
-| `app.module.ts`                                                             | 전역 가드 등록 순서: `InternalAuthGuard`(내부 토큰 → `x-user-*`) → `RolesGuard`(`@Roles('ADMIN')`)                                                          |
-| `auth/auth.controller.ts` · `auth.service.ts`                               | login · refresh · logout · logout-all · password. 본문 `client` → 읽을 쿠키 선택, ADMIN `Origin` 판정, refresh 판정(FOR UPDATE 한 트랜잭션)                 |
-| `auth/password.ts` · `password.service.ts`                                  | scrypt 해시 · 검증 · 더미 검증(순수 함수) / 동시 실행 4 · 대기 큐 32 · 503 `SERVICE_BUSY`                                                                   |
-| `auth/login-backoff.service.ts`                                             | 계정 단위 직렬화 + 검증 전 지연 + 실패 카운터 한 문장 UPDATE                                                                                                |
-| `auth/auth.constants.ts`                                                    | 백오프 · 유예 창 · 가족 상한 · scrypt 큐 상수, `computeBackoffDelaySeconds`                                                                                 |
-| `auth/guards/` · `auth/decorators/`                                         | `InternalAuthGuard` · `RolesGuard` / `@Public()` · `@Roles()` · `@CurrentUser()`                                                                            |
-| `tokens/token.service.ts`                                                   | JWT 서명(jose), refresh 토큰 생성 · SHA-256, `FOR UPDATE` 잠금, 회전, 가족 폐기(사유별), 가족 상한                                                          |
-| `members/members.controller.ts` · `members.service.ts` · `member-select.ts` | 가입 · me · 프로필 수정 · 탈퇴(익명화) · 운영자 목록 · 상세 · 상태 변경 / `passwordHash` 없는 Prisma `select`와 응답 매퍼                                   |
-| `common/`                                                                   | `ApiHttpException`(+code) · `ZodValidationPipe`(입력값 없는 문구) · `JsonContentTypeGuard` · 쿠키 helper · `assertCallerUsable` · `maskEmail` · `maskPhone` |
-| `filters/http-exception.filter.ts`                                          | `ApiErrorResponse`(+`code`, query 없는 `path`, `SERVICE_BUSY`에 `Retry-After`)                                                                              |
-| `seed/`                                                                     | ADMIN 생성 · 비밀번호 리셋                                                                                                                                  |
-| `testing/`                                                                  | 단위 테스트 가짜 객체, 통합 테스트 앱 도우미(`TestApp`). 빌드 제외                                                                                          |
+| 경로                                                                        | 역할                                                                                                                                                                                                                                                         |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app.ts` · `main.ts`                                                        | `createApp()`(JSON 본문 파서만, cookie-parser, 전역 예외 필터, Swagger) / 부팅. 통합 테스트는 `createApp`을 임시 포트로 띄운다                                                                                                                               |
+| `app.module.ts`                                                             | 전역 가드 등록 순서: `InternalAuthGuard`(내부 토큰 → `x-user-*`) → `RolesGuard`(`@Roles('ADMIN')`)                                                                                                                                                           |
+| `auth/auth.controller.ts` · `auth.service.ts`                               | login · refresh · logout · logout-all · password. 본문 `client` → 읽을 쿠키 선택, ADMIN `Origin` 판정, refresh 판정(FOR UPDATE 한 트랜잭션)                                                                                                                  |
+| `auth/password.ts` · `password.service.ts`                                  | scrypt 해시 · 검증 · 더미 검증(순수 함수) / 동시 실행 4 · 대기 큐 32 · 503 `SERVICE_BUSY`                                                                                                                                                                    |
+| `auth/login-backoff.service.ts`                                             | 계정 단위 직렬화 + 검증 전 지연 + 실패 카운터 한 문장 UPDATE                                                                                                                                                                                                 |
+| `auth/auth.constants.ts`                                                    | 백오프 · 유예 창 · 가족 상한 · scrypt 큐 상수, `computeBackoffDelaySeconds`                                                                                                                                                                                  |
+| `tokens/token.service.ts`                                                   | JWT 서명(jose), refresh 토큰 생성 · SHA-256, `FOR UPDATE` 잠금, 회전, 가족 폐기(사유별), 가족 상한                                                                                                                                                           |
+| `members/members.controller.ts` · `members.service.ts` · `member-select.ts` | 가입 · me · 프로필 수정 · 탈퇴(익명화) · 운영자 목록 · 상세 · 상태 변경 / `passwordHash` 없는 Prisma `select`와 응답 매퍼                                                                                                                                    |
+| `common/`                                                                   | 쿠키 helper · `assertCallerUsable`(호출자 상태 재확인) · `maskEmail` · `maskPhone`                                                                                                                                                                           |
+| `@oneul-sai/service-kit` (패키지)                                           | `InternalAuthGuard` · `RolesGuard` · `@Public()` · `@Roles()` · `@CurrentUser()` · `@RequestId()` · `ZodValidationPipe` · `JsonContentTypeGuard` · `ApiHttpException` · `HttpExceptionFilter` — [packages/service-kit](../../packages/service-kit/README.md) |
+| `seed/`                                                                     | ADMIN 생성 · 비밀번호 리셋                                                                                                                                                                                                                                   |
+| `testing/`                                                                  | 단위 테스트 가짜 객체, 통합 테스트 앱 도우미(`TestApp`). 빌드 제외                                                                                                                                                                                           |
 
 로그는 `@oneul-sai/logger`의 구조화 로그로 SPEC-001 14절의 이벤트 이름(`auth.login.succeeded` · `auth.login.backoff` · `auth.refresh.reuse_detected` · `member.list_viewed` 등)을 남긴다. 회원 식별은 `memberId`뿐이며 비밀번호 · 토큰 · 검색어 · `Origin` 값은 남기지 않는다.
 
@@ -168,7 +167,7 @@ pnpm --filter @oneul-sai/member-service test:integration  # 통합 (src/**/*.int
 ## Swagger
 
 - http://localhost:4001/docs
-- 서비스 포트를 직접 부를 때(Swagger "Try it out" 포함)는 `.env`의 `INTERNAL_API_TOKEN`을 `x-internal-token` 헤더에 실어야 한다(`/health` · `/docs` 제외). 보호 경로는 `x-user-id`(UUID) · `x-user-role`도 직접 채운다.
+- 서비스 포트를 직접 부를 때(Swagger "Try it out" 포함)는 `.env`의 `INTERNAL_API_TOKEN`을 `x-internal-token` 헤더에 실어야 한다(`/health` 제외. `/docs` 화면 자체는 토큰 없이 열린다). 보호 경로는 `x-user-id`(UUID) · `x-user-role`도 직접 채운다.
 
 ## Health
 

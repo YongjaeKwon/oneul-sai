@@ -1,9 +1,9 @@
 import { ApiHttpException } from './api-error.js';
-import { fakeExecutionContext, fakeRequest } from '../testing/fakes.js';
 import {
   isJsonContentType,
   JsonContentTypeGuard,
 } from './json-content-type.guard.js';
+import { fakeExecutionContext, fakeRequest } from './testing/fakes.js';
 
 describe('JsonContentTypeGuard', () => {
   const guard = new JsonContentTypeGuard();

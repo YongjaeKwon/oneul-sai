@@ -1,7 +1,7 @@
 import { API_ERROR_CODES } from '@oneul-sai/contracts';
+import type { ApiHttpException } from '@oneul-sai/service-kit';
 import { vi } from 'vitest';
 import { WITHDRAWN_PASSWORD_HASH } from '../auth/auth.constants.js';
-import type { ApiHttpException } from '../common/api-error.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { fakeLogger } from '../testing/fakes.js';
 import { decodeAccessSecret, TokenService } from '../tokens/token.service.js';
