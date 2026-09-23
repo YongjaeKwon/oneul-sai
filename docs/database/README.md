@@ -3,7 +3,7 @@
 DB 소유권, Prisma 7 워크플로우, 마이그레이션 규칙, 그리고 실제로 있는 테이블의 인덱스다. 스키마의 원천은 `apps/<service>/prisma/schema.prisma`이고, 이 문서와 다르면 스키마가 맞다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-23 (Step 2 — event_db 첫 마이그레이션 `init_event`, 테스트 전용 DB `event_test_db`)
+- 최종 갱신: 2026-09-23 (Step 2 — event_db 첫 마이그레이션 `init_event`, 테스트 전용 DB `event_test_db`. seed 전 빌드를 `turbo run build`로)
 
 ## 1. Database per Service
 
@@ -93,7 +93,7 @@ pnpm --filter @oneul-sai/event-service test:integration
 
 ### 4.3 seed
 
-- ADMIN(운영자) 계정은 가입 API로 만들 수 없고 seed로만 만든다: `pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed`(`node dist/seed/seed-admin.js`, `prisma.config.ts`의 `migrations.seed`도 같은 명령).
+- ADMIN(운영자) 계정은 가입 API로 만들 수 없고 seed로만 만든다: `pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-sai/member-service db:seed`(`node dist/seed/seed-admin.js`, `prisma.config.ts`의 `migrations.seed`도 같은 명령).
 - 입력은 env `SEED_ADMIN_EMAIL` · `SEED_ADMIN_NAME`, 비밀번호는 `SEED_ADMIN_PASSWORD_FILE`(파일) > `SEED_ADMIN_PASSWORD`(로컬 전용) > stdin. upsert가 아니라 분기한다(없으면 생성 / ADMIN이 있으면 `SEED_ADMIN_RESET_PASSWORD=true`일 때만 비밀번호 갱신 + 그 계정의 세션 전부 폐기 / MEMBER가 같은 이메일이면 실패). 상세는 [apps/member-service/README.md](../../apps/member-service/README.md) "seed" 절.
 - 시드 데이터는 운영자 계정뿐이다. 테스트용 회원 데이터 seed는 두지 않는다(통합 테스트가 자기 데이터를 만든다).
 
@@ -106,7 +106,7 @@ cp apps/event-service/.env.example apps/event-service/.env
 pnpm --filter @oneul-sai/member-service exec prisma migrate dev   # 커밋된 마이그레이션 적용 (member_db)
 pnpm --filter @oneul-sai/event-service exec prisma migrate dev    # 커밋된 마이그레이션 적용 (event_db)
 pnpm db:generate
-pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed
+pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-sai/member-service db:seed
 ```
 
 ## 5. member_db (Step 1, SPEC-001 9절)

@@ -32,7 +32,7 @@
 3. 운영자(ADMIN) 계정을 seed 한다 (아래 "seed" 절):
 
    ```bash
-   pnpm --filter @oneul-sai/member-service build
+   pnpm turbo run build --filter=@oneul-sai/member-service
    pnpm --filter @oneul-sai/member-service db:seed
    ```
 
@@ -142,7 +142,7 @@
 
 ## seed (ADMIN)
 
-`pnpm db:seed` = `node dist/seed/seed-admin.js` (`prisma.config.ts`의 `migrations.seed`도 같은 명령). **먼저 `build`.** ADMIN은 가입 API로 만들 수 없고 이 스크립트로만 만든다.
+`pnpm db:seed` = `node dist/seed/seed-admin.js` (`prisma.config.ts`의 `migrations.seed`도 같은 명령). **먼저 빌드한다**(`pnpm turbo run build --filter=@oneul-sai/member-service` — 워크스페이스 의존 패키지도 함께 빌드한다). ADMIN은 가입 API로 만들 수 없고 이 스크립트로만 만든다.
 
 - 입력: `SEED_ADMIN_EMAIL`, `SEED_ADMIN_NAME`, 비밀번호는 `SEED_ADMIN_PASSWORD_FILE` > `SEED_ADMIN_PASSWORD`(로컬 전용) > stdin. 비밀번호 규칙은 가입과 같다(8~64자, 공백만 금지).
 - upsert가 아니라 분기한다: 행 없음 → ADMIN 생성 / ADMIN 있음 → `SEED_ADMIN_RESET_PASSWORD=true`일 때만 한 트랜잭션에서 비밀번호 갱신 + 그 계정의 `ACTIVE` refresh 토큰 전부 `REVOKED`(`PASSWORD_CHANGED`) + 실패 카운터 초기화(기존 세션이 모두 끊긴다), 아니면 아무것도 하지 않음 / **MEMBER가 같은 이메일을 쓰고 있으면 실패**(exit 1, 사람이 확인한다).

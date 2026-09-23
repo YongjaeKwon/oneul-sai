@@ -172,7 +172,7 @@ pnpm db:generate
 # 4. member_db 마이그레이션 적용 + 운영자(ADMIN) 계정 seed (apps/member-service/.env 필요)
 cp apps/member-service/.env.example apps/member-service/.env
 pnpm --filter @oneul-sai/member-service exec prisma migrate dev
-pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed
+pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-sai/member-service db:seed
 
 # 5. event_db 마이그레이션 적용 (apps/event-service/.env 필요)
 cp apps/event-service/.env.example apps/event-service/.env

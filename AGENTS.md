@@ -48,7 +48,7 @@ pnpm dev | build | lint | typecheck | test | format | format:check
 pnpm --filter @oneul-sai/member-service dev      # 하나만
 pnpm --filter @oneul-sai/member-service db:generate
 pnpm --filter @oneul-sai/member-service exec prisma migrate dev   # 커밋된 마이그레이션 적용 (member_db)
-pnpm --filter @oneul-sai/member-service build && pnpm --filter @oneul-sai/member-service db:seed   # ADMIN 계정
+pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-sai/member-service db:seed   # ADMIN 계정
 pnpm --filter @oneul-sai/member-service test:integration          # 실제 member_db 통합 테스트 (테이블을 비운다 → 뒤에 db:seed)
 pnpm --filter @oneul-sai/event-service exec prisma migrate dev    # 커밋된 마이그레이션 적용 (event_db)
 pnpm --filter @oneul-sai/event-service test:integration           # 테스트 전용 event_test_db만 쓴다 (없으면 만든다, event_db는 건드리지 않음)
