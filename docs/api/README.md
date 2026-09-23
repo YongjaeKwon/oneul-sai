@@ -88,7 +88,7 @@ interface ApiErrorResponse {
 1. Gateway는 **모든 요청**에서 클라이언트가 보낸 `x-user-` 접두사 헤더와 `x-internal-token`을 먼저 지운다(공개 · 보호 구분 없이).
 2. `Authorization: Bearer <access token>`이 **있으면** 검증한다(HS256, `iss` · `aud` · `typ: at+jwt` · `exp`, `clockTolerance` 30초). 실패 → 401 `UNAUTHENTICATED`, 만료 → 401 `TOKEN_EXPIRED`. 성공 → `x-user-id`(UUID) · `x-user-role`(`MEMBER` | `ADMIN`)을 채우고 `Authorization`은 지운다.
 3. `Authorization`이 **없으면** 헤더를 채우지 않고 그대로 프록시한다. 보호 경로면 서비스가 401 `UNAUTHENTICATED`를 낸다. 역할이 맞지 않으면 서비스가 403 `FORBIDDEN`을 낸다.
-4. 프록시하는 모든 요청에 `x-internal-token`(env `INTERNAL_API_TOKEN`, Gateway와 서비스가 같은 값)을 붙인다. 서비스는 `/api/v1/**`의 모든 요청에서 이 값을 가장 먼저 확인하고(없거나 다르면 401 `INTERNAL_TOKEN_INVALID`), `Authorization` 헤더는 보지 않는다. `/health` · `/docs`는 검사하지 않는다(K8s 프로브가 직접 부른다).
+4. 프록시하는 모든 요청에 `x-internal-token`(env `INTERNAL_API_TOKEN`, Gateway와 서비스가 같은 값)을 붙인다. 서비스는 `/health`(정확히 일치)를 뺀 모든 핸들러에서 경로 대소문자와 무관하게 이 값을 가장 먼저 확인하고(없거나 다르면 401 `INTERNAL_TOKEN_INVALID` — `@Public()` 포함), `Authorization` 헤더는 보지 않는다. `/health`는 K8s 프로브가 직접 부르므로 검사하지 않는다. Swagger(`/docs` · `/docs-json`)는 Nest 가드를 거치지 않는 경로라 토큰 없이 열린다(API 문서만 보이고 핸들러에는 닿지 않는다). 허용 목록은 `@oneul-sai/service-kit`의 `INTERNAL_AUTH_EXEMPT_PATHS`다(SPEC-002 D10 · 12절, [ADR-010](../adr/ADR-010-platform-packages.md)).
 5. 헤더 이름 · JWT 고정값 · 에러 코드는 `@oneul-sai/contracts`(`HEADER_USER_ID`, `HEADER_USER_ROLE`, `INTERNAL_HEADER_PREFIX`, `HEADER_INTERNAL_TOKEN`, `JWT_*`, `API_ERROR_CODES`)에서 가져온다.
 
 로그인 · 로그아웃 · 정지 · 탈퇴는 남은 access token(최대 15분)에 즉시 반영되지 않는다(거부 목록 없음). 회원 · ADMIN 경로는 호출자의 상태를 다시 읽어 `WITHDRAWN` → 401 `UNAUTHENTICATED`, `SUSPENDED` → 403 `ACCOUNT_SUSPENDED`를 낸다.
