@@ -11,5 +11,9 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 30_000,
+    // 앱 부팅(env.ts)에 필요한 값. 테스트는 이 값으로 x-internal-token을 붙이므로 .env · CI 값과 무관하게 맞는다.
+    env: {
+      INTERNAL_API_TOKEN: 'integration-test-internal-token-0123456789',
+    },
   },
 });
