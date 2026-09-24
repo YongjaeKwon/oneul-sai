@@ -21,7 +21,7 @@ export function Label({
       {children}
       {required ? (
         <>
-          <span className="ml-1 text-rose-deep" aria-hidden="true">
+          <span className="ml-1 text-rose-ink" aria-hidden="true">
             *
           </span>
           <span className="sr-only"> (필수)</span>

@@ -13,7 +13,7 @@ const baseClasses =
 const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {
   primary: 'bg-ink text-paper hover:bg-ink-soft',
   secondary: 'border border-line-strong bg-surface text-ink hover:bg-rose-wash',
-  ghost: 'text-rose-deep hover:bg-rose-wash',
+  ghost: 'text-rose-ink hover:bg-rose-wash',
 };
 
 export function Button({
