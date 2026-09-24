@@ -65,15 +65,17 @@
 
 규칙은 AGENTS.md 6장 "외부 스킬 · MCP", 설치는 `scripts/setup-agent-tools.sh`. 스킬은 upstream 커밋으로 고정한 사본을 저장소에 커밋한다.
 
-| 도구            | 출처 · 고정 버전                                                | 쓰는 곳                                                            |
-| --------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Taste 스킬      | `Leonxlnx/taste-skill` `3c7017d636` (MIT)                       | 랜딩 · 마케팅만                                                    |
-| Emil 스킬 4개   | `emilkowalski/skills` `d16ebe60d0` (MIT)                        | 모든 웹 화면의 모션 · 터치 판단                                    |
-| Impeccable 스킬 | `pbakaus/impeccable` `skill-v4.3.1` = `cd12f8660e` (Apache-2.0) | 평가 · 보강 명령, 검사 엔진 `detect` 0.1.5(첫 실행 때 sha256 확인) |
-| Playwright MCP  | `@playwright/mcp@0.0.82` (Apache-2.0)                           | localhost 화면 확인(Codex · 터미널). Windows는 Edge를 쓴다         |
-| Figma MCP       | claude.ai 커넥터(원격, 버전 고정 불가)                          | 거울 파일 · 화면 목업. Starter 읽기 월 20회                        |
+| 도구            | 출처 · 고정 버전                                                | 쓰는 곳                                                                       |
+| --------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Taste 스킬      | `Leonxlnx/taste-skill` `3c7017d636` (MIT)                       | 랜딩 · 마케팅만                                                               |
+| Emil 스킬 4개   | `emilkowalski/skills` `d16ebe60d0` (MIT)                        | 모든 웹 화면의 모션 · 터치 판단                                               |
+| Impeccable 스킬 | `pbakaus/impeccable` `skill-v4.3.1` = `cd12f8660e` (Apache-2.0) | 평가 · 보강 명령, 검사 엔진 `detect` 0.1.5(setup 스크립트가 받아 sha256 확인) |
+| Playwright MCP  | `@playwright/mcp@0.0.82` (Apache-2.0)                           | localhost 화면 확인(Codex · 터미널). Windows는 Edge를 쓴다                    |
+| Figma MCP       | claude.ai 커넥터(원격, 버전 고정 불가)                          | 거울 파일 · 화면 목업. Starter 읽기 월 20회                                   |
 
-- 사용 통계와 Impeccable 업데이트 확인은 `DO_NOT_TRACK=1` · `IMPECCABLE_NO_UPDATE_CHECK=1`로 끈다. 고정을 푸는 `npx skills update` · `npx impeccable`은 `.claude/settings.json`에서 막아 두었다.
+- 사용 통계와 Impeccable 업데이트 확인은 `DO_NOT_TRACK=1` · `IMPECCABLE_NO_UPDATE_CHECK=1`로 끈다. Claude Code는 `.claude/settings.json`의 `env`, 셸 · Codex는 setup 스크립트가 넣는다.
+- 고정을 푸는 `npx impeccable` · `npx skills add/update`는 `.claude/settings.json`에서 막아 두었다. Claude Code에서만 걸리는 보조 장치이고, 원칙은 AGENTS.md 6장 규칙이다.
+- 스킬 사본의 라이선스 전문은 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md).
 - `@playwright/test`(브라우저 e2e)는 SPEC-003 15절 9번 PR에서 들인다.
 
 ## 2. 알려진 함정

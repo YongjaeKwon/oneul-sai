@@ -5,7 +5,7 @@
 [문서 지도(docs/README.md)](../README.md)의 5절 판단표는 이 문서 2절의 **요약**이다. 두 표가 다르면 이 문서를 고치고 요약을 맞춘다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-22
+- 최종 갱신: 2026-09-24 (에이전트 스킬 · MCP 행 추가)
 
 ---
 
@@ -44,6 +44,7 @@ PR을 올리기 전 자기 변경이 어느 줄에 해당하는지 찾고, "반�
 | **Kafka 이벤트 추가 · 변경**                     | `docs/events/README.md`(이벤트 목록 · 버전), `packages/contracts`, 설계서 "8. 이벤트" 절                                                                                                  | 소비 서비스 README, ADR-005 · ADR-006                             |
 | **서비스 경계 · 책임 · 포트 변경**               | `docs/architecture/overview.md`, 루트 README, 해당 서비스 README. 경계 변경은 **새 ADR**                                                                                                  | CLAUDE.md 구조 절                                                 |
 | **라이브러리 메이저 업그레이드 · 새 기술 도입**  | `docs/architecture/tech-stack.md`(버전 표 · 함정). 되돌리기 어렵다면 새 ADR                                                                                                               | 루트 README 기술 스택 절, CI `node-version`, Dockerfile 베이스    |
+| **에이전트 스킬 · MCP 도입 · 버전 올림**         | `scripts/setup-agent-tools.sh` 머리말(고정 버전), `docs/architecture/tech-stack.md` 에이전트 도구 표, `THIRD_PARTY_NOTICES.md`(번들된 제3자 파일 고지 포함)                               | AGENTS.md 6장 "외부 스킬 · MCP", `.claude/settings.json`          |
 | **되돌리기 어려운 구조 결정**                    | 새 ADR + `docs/adr/README.md` 인덱스                                                                                                                                                      | `docs/architecture/overview.md`, CLAUDE.md                        |
 | **사용자에게 보이는 규칙 · 화면 · 문구 변경**    | 기능 소개서 해당 문서, 용어 사전                                                                                                                                                          | 디자인 파운데이션 "문구 톤" 절과 맞는지                           |
 | **UI 컴포넌트 · 색 · 글꼴 · 토큰**               | `docs/design/design-foundation.md`(디자인 담당과 함께), `packages/ui/README.md`                                                                                                           | 기능 소개서 화면 설명                                             |

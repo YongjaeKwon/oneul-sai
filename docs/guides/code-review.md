@@ -53,15 +53,15 @@ PR을 **어떻게 읽고, 어떻게 코멘트를 남기고, 어떻게 답하는�
 
 사람 리뷰를 대신하지 않고 **먼저 걸러 주는 단계**로 쓴다.
 
-| 언제                         | 도구                                                                                    |
-| ---------------------------- | --------------------------------------------------------------------------------------- |
-| PR을 올린 직후 (모든 PR)     | Claude Code `/code-review` — 버그 · 계약 · 경계. 큰 PR은 `/code-review high`            |
-| 인증 · 권한 · 개인정보 변경  | Claude Code `/security-review`                                                          |
-| 과한 추상화가 의심될 때      | `/ponytail-review` (Ponytail 설치 시)                                                   |
-| UI 화면 · `packages/ui` 변경 | `/impeccable critique` · `audit` + 검사 엔진 `detect <경로>` — 기준은 디자인 파운데이션 |
-| 모션이 바뀐 UI 변경          | `/review-animations` (Emil)                                                             |
-| 화면 동작 확인               | Claude 데스크톱은 내장 브라우저 창, Codex · 터미널은 Playwright MCP(localhost)          |
-| 교차 확인(선택)              | Codex 리뷰 — 같은 diff를 다른 모델로                                                    |
+| 언제                         | 도구                                                                                                                                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR을 올린 직후 (모든 PR)     | Claude Code `/code-review` — 버그 · 계약 · 경계. 큰 PR은 `/code-review high`                                                                                                                 |
+| 인증 · 권한 · 개인정보 변경  | Claude Code `/security-review`                                                                                                                                                               |
+| 과한 추상화가 의심될 때      | `/ponytail-review` (Ponytail 설치 시)                                                                                                                                                        |
+| UI 화면 · `packages/ui` 변경 | `/impeccable critique` · `audit` + 검사 엔진 `.claude/skills/impeccable/scripts/impeccable detect --json <경로 또는 localhost URL>`(`npx impeccable`은 쓰지 않음) — 기준은 디자인 파운데이션 |
+| 모션이 바뀐 UI 변경          | `/review-animations` (Emil)                                                                                                                                                                  |
+| 화면 동작 확인               | Claude 데스크톱은 내장 브라우저 창, Codex · 터미널은 Playwright MCP(localhost)                                                                                                               |
+| 교차 확인(선택)              | Codex 리뷰 — 같은 diff를 다른 모델로                                                                                                                                                         |
 
 - AI 리뷰 결과는 **PR 코멘트로 남긴다.** 머리표 규칙을 그대로 따르고, 각 항목 앞에 `(AI)`를 붙인다: `(AI) [필수] ...`
 - AI가 낸 `[필수]`도 사람이 확인한 뒤에만 `[필수]`로 취급한다. 틀린 지적이면 이유를 달아 닫는다.

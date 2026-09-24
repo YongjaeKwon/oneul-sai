@@ -94,6 +94,7 @@ PR을 열기 전에 내 변경이 어느 줄에 해당하는지 찾는다. 여�
 | Kafka 이벤트 발행·구독 추가, payload 변경      | `docs/events/README.md`, `packages/contracts`, 관련 설계서 "이벤트" 절                                                                  |
 | 서비스 경계·책임·포트 변경                     | `docs/architecture/overview.md`, 루트 README, 해당 서비스 README. 경계 변경은 ADR도                                                     |
 | 라이브러리 메이저 업그레이드, 새 기술 도입     | `docs/architecture/tech-stack.md`. 되돌리기 어렵다면 ADR                                                                                |
+| 에이전트 스킬 · MCP 도입 · 버전 올림           | `scripts/setup-agent-tools.sh` 머리말, `docs/architecture/tech-stack.md` 에이전트 도구 표, `THIRD_PARTY_NOTICES.md`                     |
 | 되돌리기 어려운 구조 결정                      | `docs/adr/` 새 ADR + 인덱스 표                                                                                                          |
 | 사용자에게 보이는 규칙·화면·문구 변경          | `docs/overview/features/` 해당 문서, 용어 사전                                                                                          |
 | UI 컴포넌트·색·폰트·토큰 변경                  | `docs/design/design-foundation.md` (디자인 담당과 함께)                                                                                 |
