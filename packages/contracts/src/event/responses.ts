@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { PublicScheduleStatusSchema, ScheduleStatusSchema } from './enums.js';
+import { GenderSchema } from '../member/enums.js';
+import {
+  ApplicationCancelledBySchema,
+  ApplicationStatusSchema,
+  PublicScheduleStatusSchema,
+  ScheduleStatusSchema,
+} from './enums.js';
 
 // SPEC-002 7절 응답 스키마. 응답은 `z.object`(모르는 키를 떼어 낸다) — `strictObject`는 요청용이다(12절).
 // 요청 규칙(범위 · 길이 · 지도 링크 호스트)을 재사용하지 않는다 — 규칙이 바뀌어도 저장된 값 때문에 조회가 500이 되지 않게.
@@ -87,4 +93,57 @@ export const BatchCreateSchedulesResponseSchema = z.object({
 });
 export type BatchCreateSchedulesResponse = z.infer<
   typeof BatchCreateSchedulesResponseSchema
+>;
+
+// ----- 참가 신청 (SPEC-003 7절) -----
+
+/**
+ * 회원 응답. 회차는 공개 필드만 싣는다 — 정확한 장소 안내는 없다.
+ * `schedule.status`는 전체 `ScheduleStatus`다(취소된 회차의 신청도 보인다). `memberId` · `gender`는 싣지 않는다.
+ */
+export const MyApplicationSchema = z.object({
+  id: z.uuid(),
+  scheduleId: z.uuid(),
+  status: ApplicationStatusSchema,
+  cancelledBy: ApplicationCancelledBySchema.nullable(),
+  price: z.number().int(),
+  createdAt: IsoDateTime,
+  updatedAt: IsoDateTime,
+  schedule: z.object({
+    title: z.string(),
+    startsAt: IsoDateTime,
+    endsAt: IsoDateTime,
+    applyDeadlineAt: IsoDateTime,
+    venueArea: z.string(),
+    status: ScheduleStatusSchema,
+  }),
+});
+export type MyApplication = z.infer<typeof MyApplicationSchema>;
+
+/** `GET /api/v1/applications`. */
+export const MyApplicationListResponseSchema = listOf(MyApplicationSchema);
+export type MyApplicationListResponse = z.infer<
+  typeof MyApplicationListResponseSchema
+>;
+
+/** 운영자 응답. 이름 · 휴대폰은 없다 — admin이 member API(`ids`)로 붙인다(D11). */
+export const AdminApplicationSchema = z.object({
+  id: z.uuid(),
+  scheduleId: z.uuid(),
+  memberId: z.uuid(),
+  gender: GenderSchema,
+  price: z.number().int(),
+  status: ApplicationStatusSchema,
+  cancelledBy: ApplicationCancelledBySchema.nullable(),
+  createdAt: IsoDateTime,
+  updatedAt: IsoDateTime,
+});
+export type AdminApplication = z.infer<typeof AdminApplicationSchema>;
+
+/** `GET /api/v1/meetups/:meetupId/schedules/:scheduleId/applications`. */
+export const AdminApplicationListResponseSchema = listOf(
+  AdminApplicationSchema,
+);
+export type AdminApplicationListResponse = z.infer<
+  typeof AdminApplicationListResponseSchema
 >;
