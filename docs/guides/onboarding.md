@@ -140,7 +140,7 @@ pnpm dev
 
 ## 선택: AI 에이전트 도구 (Claude Code · Codex)
 
-규칙(`AGENTS.md`, `CLAUDE.md`)과 프로젝트 스킬(`.claude/skills/`, `.agents/skills/`)은 저장소에 들어 있어 clone만 하면 된다. Ponytail · Graphify 같은 개인 도구와 HyperFrames 사용 통계 끄기는 PC마다 한 번 실행한다:
+규칙(`AGENTS.md`, `CLAUDE.md`)과 프로젝트 스킬(Taste · Emil · Impeccable — `.claude/skills/`, `.agents/skills/`)은 저장소에 들어 있어 clone만 하면 된다. Figma는 claude.ai 계정의 커넥터라 PC마다 할 일이 없다. Ponytail · Graphify · Playwright MCP 같은 개인 도구, 사용 통계 끄기, Impeccable 검사 엔진 준비는 PC마다 한 번 실행한다:
 
 ```bash
 bash scripts/setup-agent-tools.sh

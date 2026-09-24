@@ -3,7 +3,7 @@
 오늘사이가 쓰는 기술과 버전, 각 선택의 이유, 그리고 알려진 함정을 기록한다. 버전을 올리거나 새 기술을 들일 때 이 문서를 먼저 읽고, 바꾼 뒤 이 문서를 갱신한다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-22 (npm registry 실측 + 공식 템플릿 생성으로 확정)
+- 최종 갱신: 2026-09-24 (에이전트 디자인 · 확인 도구 표 추가. 그 전: 2026-09-22 npm registry 실측 + 공식 템플릿 생성으로 확정)
 - 원천: 루트 `package.json`, `pnpm-workspace.yaml`, 각 앱·패키지의 `package.json`과 tsconfig. 이 문서와 다르면 코드가 맞다. 이 문서를 고친다.
 - 구조와 통신 원칙은 [아키텍처 개요](./overview.md), 결정의 배경은 [ADR](../adr/README.md).
 
@@ -60,6 +60,21 @@
 | 배포            | Kubernetes (Kustomize)                 | 구조만  | Step 8에서 매니페스트 작성. 배경은 ADR-008                |
 | 서드파티 차트   | Helm values                            | 구조만  | 직접 차트를 만들지 않고 values만 관리                     |
 | 모니터링        | —                                      | 구조만  | 도구 선택은 결정 예정 (Step 8)                            |
+
+### 에이전트 도구 (개발용, 제품 코드에 들어가지 않음)
+
+규칙은 AGENTS.md 6장 "외부 스킬 · MCP", 설치는 `scripts/setup-agent-tools.sh`. 스킬은 upstream 커밋으로 고정한 사본을 저장소에 커밋한다.
+
+| 도구            | 출처 · 고정 버전                                                | 쓰는 곳                                                            |
+| --------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Taste 스킬      | `Leonxlnx/taste-skill` `3c7017d636` (MIT)                       | 랜딩 · 마케팅만                                                    |
+| Emil 스킬 4개   | `emilkowalski/skills` `d16ebe60d0` (MIT)                        | 모든 웹 화면의 모션 · 터치 판단                                    |
+| Impeccable 스킬 | `pbakaus/impeccable` `skill-v4.3.1` = `cd12f8660e` (Apache-2.0) | 평가 · 보강 명령, 검사 엔진 `detect` 0.1.5(첫 실행 때 sha256 확인) |
+| Playwright MCP  | `@playwright/mcp@0.0.82` (Apache-2.0)                           | localhost 화면 확인(Codex · 터미널). Windows는 Edge를 쓴다         |
+| Figma MCP       | claude.ai 커넥터(원격, 버전 고정 불가)                          | 거울 파일 · 화면 목업. Starter 읽기 월 20회                        |
+
+- 사용 통계와 Impeccable 업데이트 확인은 `DO_NOT_TRACK=1` · `IMPECCABLE_NO_UPDATE_CHECK=1`로 끈다. 고정을 푸는 `npx skills update` · `npx impeccable`은 `.claude/settings.json`에서 막아 두었다.
+- `@playwright/test`(브라우저 e2e)는 SPEC-003 15절 9번 PR에서 들인다.
 
 ## 2. 알려진 함정
 
