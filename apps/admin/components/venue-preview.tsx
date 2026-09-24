@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { DetailList } from './detail-list';
 
 const NOT_YET = (
-  <span className="text-ink-muted">아직 입력하지 않았습니다.</span>
+  <span className="text-ink-soft">아직 입력하지 않았습니다.</span>
 );
 
 function orNotYet(value: string | null, render: (value: string) => ReactNode) {

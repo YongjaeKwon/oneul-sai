@@ -230,7 +230,7 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
       {error ? (
         <Notice tone="danger">{describeEventError(error)}</Notice>
       ) : data === undefined ? (
-        <p className="py-12 text-center text-sm text-ink-muted" role="status">
+        <p className="py-12 text-center text-sm text-ink-soft" role="status">
           불러오고 있습니다…
         </p>
       ) : (
@@ -244,7 +244,7 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
             ].join(' ')}
           >
             <table className="w-full min-w-max text-left text-sm">
-              <thead className="border-b border-line text-xs text-ink-muted">
+              <thead className="border-b border-line text-xs text-ink-soft">
                 <tr>
                   <th scope="col" className="w-10 px-4 py-3">
                     <span className="sr-only">공개할 회차 고르기</span>

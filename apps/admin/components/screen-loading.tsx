@@ -13,7 +13,7 @@ export function ScreenLoading({
       className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16"
     >
       <BrandMark size={32} />
-      <p className="text-sm text-ink-muted">{message}</p>
+      <p className="text-sm text-ink-soft">{message}</p>
     </div>
   );
 }

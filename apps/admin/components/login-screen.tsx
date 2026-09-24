@@ -142,7 +142,7 @@ export function LoginScreen() {
             {isSubmitting ? '확인 중…' : '로그인'}
           </Button>
           {isSubmitting ? (
-            <p className="text-center text-xs text-ink-muted" role="status">
+            <p className="text-center text-xs text-ink-soft" role="status">
               확인하고 있습니다. 잠시만 기다려 주세요.
             </p>
           ) : null}

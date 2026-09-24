@@ -57,7 +57,7 @@ export function MemberDetailScreen({ id }: { id: string }) {
     return (
       <div className="flex flex-col gap-6">
         <BackLink href="/members">회원 목록</BackLink>
-        <p className="py-12 text-center text-sm text-ink-muted" role="status">
+        <p className="py-12 text-center text-sm text-ink-soft" role="status">
           불러오고 있습니다…
         </p>
       </div>
@@ -187,7 +187,7 @@ export function MemberDetailScreen({ id }: { id: string }) {
             },
           ]}
         />
-        <p className="mt-3 text-xs text-ink-muted">
+        <p className="mt-3 text-xs text-ink-soft">
           15분 안에 4회 틀린 뒤로는 다섯 번째 시도부터 확인이 늦어집니다. 계정은
           잠기지 않으므로 운영자가 풀어 줄 것은 없습니다.
         </p>

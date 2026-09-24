@@ -19,7 +19,7 @@ export default function Home() {
       <div className="flex flex-col items-center gap-4">
         <BrandMark size={44} />
         <h1 className="text-5xl font-semibold text-ink">오늘사이</h1>
-        <p className="font-latin-display text-sm tracking-[0.35em] text-ink-muted">
+        <p className="font-latin-display text-sm tracking-[0.35em] text-ink-soft">
           ONULSAI
         </p>
         <p className="text-base text-ink-soft">오늘, 우리 사이의 시작.</p>
@@ -50,7 +50,7 @@ export default function Home() {
         <Button variant="secondary">오늘사이 소개</Button>
       </div>
 
-      <p className="text-xs text-ink-muted">서로 선택한 경우에만 연결됩니다.</p>
+      <p className="text-xs text-ink-soft">서로 선택한 경우에만 연결됩니다.</p>
     </main>
   );
 }

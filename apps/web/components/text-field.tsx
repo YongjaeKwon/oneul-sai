@@ -44,7 +44,7 @@ export function TextField({
         {...inputProps}
       />
       {hint !== undefined ? (
-        <p id={hintId} className="mt-1.5 text-xs text-ink-muted">
+        <p id={hintId} className="mt-1.5 text-xs text-ink-soft">
           {hint}
         </p>
       ) : null}

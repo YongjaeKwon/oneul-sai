@@ -95,7 +95,7 @@ function ScheduleDetail({
     return (
       <div className="flex flex-col gap-6">
         {back}
-        <p className="py-12 text-center text-sm text-ink-muted" role="status">
+        <p className="py-12 text-center text-sm text-ink-soft" role="status">
           불러오고 있습니다…
         </p>
       </div>
