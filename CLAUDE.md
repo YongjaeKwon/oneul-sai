@@ -6,5 +6,5 @@
 
 ## Claude Code 전용
 
-- 프로젝트 스킬은 `.claude/skills/`에서 읽힌다. 스킬을 추가 · 갱신하면 Codex용 `.agents/skills/`에도 같은 사본을 둔다.
+- 프로젝트 스킬은 `.claude/skills/`에서 읽힌다. 스킬을 추가 · 갱신하면 Codex용 `.agents/skills/`에도 같은 upstream 커밋의 사본을 둔다(Impeccable은 Codex용 빌드가 따로 있다).
 - 규칙을 고칠 때는 이 파일이 아니라 AGENTS.md를 고친다.

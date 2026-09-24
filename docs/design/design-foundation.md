@@ -157,6 +157,6 @@
 이 문서가 이긴다(AGENTS.md 6장 "외부 스킬 · MCP"). 알려진 충돌:
 
 - **Taste**: 세리프 비권장, `paper` · `ivory` · `ink` 계열 팔레트 금지, 소비자 페이지 다크 강제, "1 / 5" · 가운데 점 라벨 금지 → 모두 따르지 않는다(Noto Serif KR · Playfair Display, 2절 색, 마케팅은 라이트, `TODAY · ONE MORE · AFTER · NEXT` 유지).
-- **Emil**: 반투명 재질 · 그림자 · blur 마스크 → 쓰지 않는다(카드는 `surface` + `line` 1px, 그림자 없음). `Button`에 `:active` 축소를 넣으려면 5절 표를 같은 PR에서 고친다.
-- **Impeccable**: 대담한 재디자인 쪽 지시와 `overused-font`(Playfair Display) 지적 → 따르지 않는다. 1절(정중함) · 8절이 우선.
+- **Emil**: 누를 때 축소(`:active`의 `scale(0.97)`), 전환 중 blur, Framer Motion 예시 → 모션 라이브러리는 들이지 않고 CSS로만 한다. `Button`에 `:active` 축소를 넣으려면 5절 표를 같은 PR에서 고친다.
+- **Impeccable**: 대담한 재디자인 쪽 지시, 그림자 · 반투명 · blur로 깊이를 주라는 기준(`craft-floor`) → 따르지 않는다(카드는 `surface` + `line` 1px, 그림자 없음). 검사 엔진의 `cream-palette`(2절 `paper` 바탕) 지적은 브랜드 색이라 무시한다. 1절(정중함) · 8절이 우선.
 - 모션 easing · duration 토큰은 아직 없다. 두 곳 이상 쓰게 되면 이 문서와 `theme.css`에 먼저 정한다.
