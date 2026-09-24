@@ -7,14 +7,15 @@
 #       Taste       Leonxlnx/taste-skill 3c7017d636
 #       Emil        emilkowalski/skills d16ebe60d0 — emil-design-eng · animate · review-animations · mobile-native
 #       Impeccable  pbakaus/impeccable skill-v4.3.1 (cd12f8660e) — 검사 엔진 0.1.5는 아래에서 받아 둔다(sha256 확인)
-#   - Ponytail 마켓플레이스 선언 · 막아 둔 도구: .claude/settings.json
+#     버전을 올리거나 스킬을 들이면 이 머리말, docs/architecture/tech-stack.md 표, THIRD_PARTY_NOTICES.md를 같은 PR에서 고친다
+#   - Ponytail 마켓플레이스 선언 · 막아 둔 도구 · 통계 끄기 환경 변수(Claude Code): .claude/settings.json
 #   - Figma: claude.ai 커넥터(계정 단위, PC마다 설치 없음)
 #
 # 이 스크립트가 PC에 설치하는 것:
 #   - Ponytail: Claude Code 플러그인 + Codex 플러그인
 #   - Graphify: CLI + 두 에이전트용 사용자 스킬(훅 없이)
-#   - Playwright MCP(@playwright/mcp 0.0.82): Claude Code(사용자 범위) + Codex, localhost만
-#   - 도구 사용 통계 · Impeccable 업데이트 확인 끄기(DO_NOT_TRACK, IMPECCABLE_NO_UPDATE_CHECK)
+#   - Playwright MCP(@playwright/mcp 0.0.82): Claude Code(사용자 범위) + Codex, 허용 origin은 localhost 3개(보안 경계는 아니다)
+#   - 도구 사용 통계 · Impeccable 업데이트 확인 끄기(DO_NOT_TRACK, IMPECCABLE_NO_UPDATE_CHECK) — 셸 · Codex용
 #   - main 직접 push를 막는 git 훅 켜기(core.hooksPath)
 #   - HyperFrames CLI 사용 통계 끄기
 #
@@ -76,8 +77,13 @@ else
   PW_ENV+=("PLAYWRIGHT_MCP_OUTPUT_DIR=${TMPDIR:-/tmp}/playwright-mcp")
 fi
 if have claude; then
-  if claude mcp get playwright >/dev/null 2>&1; then
-    echo "   이미 있다. 버전을 바꾸려면: claude mcp remove playwright -s user 후 다시 실행"
+  if cur=$(claude mcp get playwright 2>/dev/null); then
+    if printf '%s' "$cur" | grep -qF "$PW" && printf '%s' "$cur" | grep -qF PLAYWRIGHT_MCP_ALLOWED_ORIGINS; then
+      echo "   이미 있다. 버전을 바꾸려면: claude mcp remove playwright -s user 후 다시 실행"
+    else
+      echo "   경고: 설정이 다른 playwright가 이미 있다(버전 고정 · 허용 origin 없음)."
+      echo "         'claude mcp get playwright'로 범위를 보고 'claude mcp remove playwright -s <범위>' 후 다시 실행한다"
+    fi
   else
     e=()
     for kv in "${PW_ENV[@]}"; do e+=(-e "$kv"); done
@@ -87,11 +93,22 @@ else
   skip "claude CLI가 없다"
 fi
 if have codex; then
-  CFG="$HOME/.codex/config.toml"
-  if grep -q '^\[mcp_servers\.playwright\]' "$CFG" 2>/dev/null; then
-    echo "   이미 있다: $CFG [mcp_servers.playwright]"
+  CODEX_DIR=${CODEX_HOME:-$HOME/.codex}
+  [ "$WIN" = 1 ] && CODEX_DIR=$(cygpath -u "$CODEX_DIR")
+  CFG="$CODEX_DIR/config.toml"
+  if grep -Eq '^[[:space:]]*(\[mcp_servers\."?playwright"?[].]|mcp_servers\.playwright|playwright[[:space:]]*=)' "$CFG" 2>/dev/null; then
+    # Codex는 .claude/settings.json의 deny를 읽지 않는다 — browser_run_code_unsafe 차단이 이 항목에 있어야 한다
+    sec=$(awk '/^[[:space:]]*\[/ { p = ($0 ~ /^[[:space:]]*\[mcp_servers\.playwright[].]/) } p' "$CFG")
+    if printf '%s' "$sec" | grep -qF "$PW" && printf '%s' "$sec" | grep -qF browser_run_code_unsafe; then
+      echo "   이미 있다: $CFG [mcp_servers.playwright]"
+    else
+      echo "   경고: $CFG 에 설정이 다른 playwright가 있다(버전 고정 · browser_run_code_unsafe 차단 없음)."
+      echo "         그 항목을 지우고(codex mcp remove playwright) 다시 실행한다"
+    fi
+  elif case "${PW_ENV[*]}" in *\'*) true ;; *) false ;; esac; then
+    skip "경로에 작은따옴표가 있어 TOML에 쓸 수 없다 — $CFG 에 직접 추가"
   else
-    mkdir -p "$HOME/.codex"
+    mkdir -p "$CODEX_DIR"
     {
       printf "\n[mcp_servers.playwright]\ncommand = '%s'\nargs = [" "${PW_CMD[0]}"
       printf "'%s', " "${PW_CMD[@]:1}"
@@ -104,13 +121,17 @@ else
   skip "codex CLI가 없다"
 fi
 
-step "도구 사용 통계 · Impeccable 업데이트 확인 끄기"
+step "도구 사용 통계 · Impeccable 업데이트 확인 끄기 (Claude Code는 .claude/settings.json env로 이미 꺼져 있다)"
+case "${SHELL##*/}" in
+  zsh) RC=~/.zshenv ;;
+  *) RC=~/.profile; [ -f ~/.bash_profile ] && RC=~/.bash_profile ;;
+esac
 for kv in DO_NOT_TRACK=1 IMPECCABLE_NO_UPDATE_CHECK=1; do
   if [ "$WIN" = 1 ]; then
-    setx "${kv%%=*}" "${kv#*=}" >/dev/null && echo "   $kv (사용자 환경 변수, 새 터미널부터)"
+    setx "${kv%%=*}" "${kv#*=}" >/dev/null && echo "   $kv (사용자 환경 변수 — 실행 중인 앱 · 터미널은 다시 시작해야 적용)"
   else
-    grep -qx "export $kv" ~/.profile 2>/dev/null || echo "export $kv" >>~/.profile
-    echo "   $kv (~/.profile)"
+    grep -qx "export $kv" "$RC" 2>/dev/null || echo "export $kv" >>"$RC"
+    echo "   $kv ($RC, 새 터미널부터)"
   fi
 done
 
@@ -118,8 +139,13 @@ step "Impeccable 검사 엔진 준비 — 고정 버전을 받아 sha256을 확�
 IMP=.claude/skills/impeccable/scripts/impeccable
 if [ -f "$IMP" ]; then
   # engine-probe: 없으면 고정 버전(scripts/VERSION)을 공식 릴리스에서 받아 sha256을 확인한 뒤 ~/.impeccable/bin/<버전>/에 둔다
+  # 실행기는 IMPECCABLE_BIN, 버전 없는 ~/.impeccable/bin/impeccable을 고정 버전보다 먼저 쓴다 — 버전을 비교한다
+  want="impeccable-engine $(tr -d '[:space:]' <"${IMP%/*}/VERSION")"
   if out=$(DO_NOT_TRACK=1 IMPECCABLE_NO_UPDATE_CHECK=1 sh "$IMP" engine-probe 2>&1); then
-    echo "   $out"
+    case "$out" in
+      "$want" | "$want"[!0-9.]*) echo "   $out" ;;
+      *) printf '   경고: 고정 버전(%s)이 아닌 엔진이 잡혔다: %s\n         IMPECCABLE_BIN, ~/.impeccable/bin/impeccable, PATH의 impeccable을 치운 뒤 다시 실행한다\n' "$want" "$out" ;;
+    esac
   else
     printf '   엔진 준비 실패:\n%s\n' "$out"
   fi

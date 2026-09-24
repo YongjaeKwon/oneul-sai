@@ -10,11 +10,23 @@
   "enabledPlugins": {
     "ponytail@ponytail": true
   },
+  "env": {
+    "DO_NOT_TRACK": "1",
+    "IMPECCABLE_NO_UPDATE_CHECK": "1"
+  },
   "permissions": {
     "deny": [
       "mcp__playwright__browser_run_code_unsafe",
-      "Bash(npx impeccable:*)",
-      "Bash(npx skills update:*)"
+      "Bash(npx *impeccable*)",
+      "Bash(pnpm dlx *impeccable*)",
+      "Bash(npm exec *impeccable*)",
+      "Bash(npx *skills* add*)",
+      "Bash(npx *skills* update*)",
+      "PowerShell(npx *impeccable*)",
+      "PowerShell(pnpm dlx *impeccable*)",
+      "PowerShell(npm exec *impeccable*)",
+      "PowerShell(npx *skills* add*)",
+      "PowerShell(npx *skills* update*)"
     ]
   }
 }
