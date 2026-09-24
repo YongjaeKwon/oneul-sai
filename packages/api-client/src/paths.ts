@@ -39,4 +39,19 @@ export const MEETUP_PATHS = {
     `${API_PREFIX}/meetups/${encodeURIComponent(meetupId)}/schedules/${encodeURIComponent(scheduleId)}`,
   scheduleStatus: (meetupId: string, scheduleId: string): string =>
     `${API_PREFIX}/meetups/${encodeURIComponent(meetupId)}/schedules/${encodeURIComponent(scheduleId)}/status`,
+  applications: (meetupId: string, scheduleId: string): string =>
+    `${API_PREFIX}/meetups/${encodeURIComponent(meetupId)}/schedules/${encodeURIComponent(scheduleId)}/applications`,
+  applicationStatus: (
+    meetupId: string,
+    scheduleId: string,
+    applicationId: string,
+  ): string =>
+    `${API_PREFIX}/meetups/${encodeURIComponent(meetupId)}/schedules/${encodeURIComponent(scheduleId)}/applications/${encodeURIComponent(applicationId)}/status`,
+} as const;
+
+/** 참가 신청(SPEC-003) — 회원(MEMBER) 전용. 운영자 신청 관리는 `MEETUP_PATHS` 아래다. */
+export const APPLICATION_PATHS = {
+  applications: `${API_PREFIX}/applications`,
+  applicationStatus: (applicationId: string): string =>
+    `${API_PREFIX}/applications/${encodeURIComponent(applicationId)}/status`,
 } as const;
