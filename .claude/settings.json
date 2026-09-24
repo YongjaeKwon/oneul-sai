@@ -9,5 +9,12 @@
   },
   "enabledPlugins": {
     "ponytail@ponytail": true
+  },
+  "permissions": {
+    "deny": [
+      "mcp__playwright__browser_run_code_unsafe",
+      "Bash(npx impeccable:*)",
+      "Bash(npx skills update:*)"
+    ]
   }
 }

@@ -48,3 +48,7 @@ graphify-out/
 # .agents/skills/ 는 Codex가 읽는 프로젝트 스킬이라 커밋한다(.claude/skills/와 같은 사본).
 # Graphify 스킬 — 개인 로컬 도구(설치한 사람만 쓴다)
 .claude/skills/graphify/
+
+# 외부 디자인 · 테스트 도구의 로컬 파일(커밋하지 않음)
+.impeccable/
+.claude/settings.local.json
