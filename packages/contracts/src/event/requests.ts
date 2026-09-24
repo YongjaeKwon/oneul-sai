@@ -1,18 +1,21 @@
 import { z } from 'zod';
 
-import { ScheduleStatusSchema } from './enums.js';
+import { ApplicationStatusSchema, ScheduleStatusSchema } from './enums.js';
 import {
+  ADMIN_APPLICATION_LIST_PAGE_SIZE,
   ADMIN_LIST_MAX_PAGE_SIZE,
   CancelReasonSchema,
   EVENT_LIST_DEFAULT_PAGE_SIZE,
   ListPageSchema,
   MeetupDescriptionSchema,
   MeetupTitleSchema,
+  MY_APPLICATION_LIST_MAX_PAGE_SIZE,
   PUBLIC_SCHEDULE_LIST_MAX_PAGE_SIZE,
   SCHEDULE_BATCH_MAX,
   ScheduleBirthYearSchema,
   ScheduleCapacitySchema,
   ScheduleDateTimeSchema,
+  ScheduleIdSchema,
   SchedulePriceSchema,
   VenueAddressSchema,
   VenueAreaSchema,
@@ -184,4 +187,57 @@ export const PublicScheduleListQuerySchema = z.strictObject({
 });
 export type PublicScheduleListQuery = z.infer<
   typeof PublicScheduleListQuerySchema
+>;
+
+// ----- 참가 신청 (SPEC-003 7절) -----
+// 신청할 수 있는지(회차 상태 · 신청 마감 · 중복 · 입금 대기 한도 · 남성 연령대 · 성별 정원)와 취소할 수 있는지는
+// 저장된 값과 요청 시각에 따라 달라서 event-service가 판정한다(D7).
+
+/**
+ * `POST /api/v1/applications` (MEMBER). 성별 · 참가비 · 회원 ID는 받지 않는다(모르는 필드 → 400) —
+ * 서버가 회원 정보(위임 호출)와 회차에서 정한다.
+ */
+export const CreateApplicationRequestSchema = z.strictObject({
+  scheduleId: ScheduleIdSchema,
+});
+export type CreateApplicationRequest = z.infer<
+  typeof CreateApplicationRequestSchema
+>;
+
+/** 본인 취소 `PATCH /api/v1/applications/:applicationId/status`와 운영자 취소가 같이 쓴다. 사유 필드는 없다. */
+export const UpdateApplicationStatusRequestSchema = z.strictObject({
+  status: ApplicationStatusSchema.extract(['CANCELLED']),
+});
+export type UpdateApplicationStatusRequest = z.infer<
+  typeof UpdateApplicationStatusRequestSchema
+>;
+
+/** `GET /api/v1/applications` query (MEMBER). 모든 상태, `createdAt` 내림차순 · `id`. */
+export const MyApplicationListQuerySchema = z.strictObject({
+  scheduleId: ScheduleIdSchema.optional(),
+  page: ListPageSchema,
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MY_APPLICATION_LIST_MAX_PAGE_SIZE)
+    .default(EVENT_LIST_DEFAULT_PAGE_SIZE),
+});
+export type MyApplicationListQuery = z.infer<
+  typeof MyApplicationListQuerySchema
+>;
+
+/** `GET /api/v1/meetups/:meetupId/schedules/:scheduleId/applications` query (ADMIN). 신청 순(`createdAt` 오름차순 · `id`). */
+export const AdminApplicationListQuerySchema = z.strictObject({
+  status: ApplicationStatusSchema.optional(),
+  page: ListPageSchema,
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(ADMIN_APPLICATION_LIST_PAGE_SIZE)
+    .default(ADMIN_APPLICATION_LIST_PAGE_SIZE),
+});
+export type AdminApplicationListQuery = z.infer<
+  typeof AdminApplicationListQuerySchema
 >;

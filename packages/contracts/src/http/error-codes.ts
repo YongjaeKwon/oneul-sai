@@ -31,11 +31,29 @@ export const API_ERROR_CODES = {
   MEETUP_NOT_FOUND: 'MEETUP_NOT_FOUND',
   /** 공개: 없음 · DRAFT · CANCELLED(같은 본문). 운영자: 없음 또는 `scheduleId`가 `meetupId`에 속하지 않음. SPEC-002 */
   SCHEDULE_NOT_FOUND: 'SCHEDULE_NOT_FOUND',
+  /** 취소: 신청 없음, 회원 경로에서 남의 신청(같은 본문), 운영자 경로에서 그 회차의 신청이 아님. SPEC-003 */
+  APPLICATION_NOT_FOUND: 'APPLICATION_NOT_FOUND',
   // 409
   EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
   INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
   /** CANCELLED 회차의 필드 수정, DRAFT가 아닌 회차의 삭제. SPEC-002 */
   SCHEDULE_NOT_EDITABLE: 'SCHEDULE_NOT_EDITABLE',
+  /** 신청: 회차가 CLOSED이거나 신청 마감이 지남. SPEC-003 */
+  APPLICATION_CLOSED: 'APPLICATION_CLOSED',
+  /** 신청: 이 회차에 내 활성 신청이 있음. SPEC-003 */
+  ALREADY_APPLIED: 'ALREADY_APPLIED',
+  /** 신청: 이 회차에 운영자가 취소한 내 신청이 있음. SPEC-003 */
+  REAPPLY_NOT_ALLOWED: 'REAPPLY_NOT_ALLOWED',
+  /** 신청: 시작 전인 다른 회차에 내 입금 대기 신청이 있음(한 사람당 하나). SPEC-003 */
+  PENDING_APPLICATION_LIMIT: 'PENDING_APPLICATION_LIMIT',
+  /** 신청: 남성이고 출생연도가 회차의 남성 연령대 밖. SPEC-003 */
+  BIRTH_YEAR_OUT_OF_RANGE: 'BIRTH_YEAR_OUT_OF_RANGE',
+  /** 신청: 내 성별의 활성 신청 수가 정원에 닿음. SPEC-003 */
+  SCHEDULE_FULL: 'SCHEDULE_FULL',
+  /** 본인 취소: 신청 마감이 지남. SPEC-003 */
+  APPLICATION_NOT_CANCELLABLE: 'APPLICATION_NOT_CANCELLABLE',
+  /** 회차 수정: 새 정원이 그 성별의 활성 신청 수보다 작음. SPEC-003 */
+  CAPACITY_BELOW_APPLICATIONS: 'CAPACITY_BELOW_APPLICATIONS',
   // 429 (Gateway)
   TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
   // 503

@@ -42,6 +42,10 @@ export const EVENT_LIST_DEFAULT_PAGE_SIZE = 20;
 export const ADMIN_LIST_MAX_PAGE_SIZE = 100;
 /** 공개 회차 목록의 `pageSize` 상한. */
 export const PUBLIC_SCHEDULE_LIST_MAX_PAGE_SIZE = 50;
+/** 내 신청 목록의 `pageSize` 상한(기본은 `EVENT_LIST_DEFAULT_PAGE_SIZE`). SPEC-003 */
+export const MY_APPLICATION_LIST_MAX_PAGE_SIZE = 50;
+/** 운영자 신청 목록의 `pageSize` 기본값이자 상한 — 한 회차의 신청을 한 번에 본다. SPEC-003 */
+export const ADMIN_APPLICATION_LIST_PAGE_SIZE = 100;
 
 /**
  * 텍스트 필드 금지 문자: 제어 문자(Cc — 줄바꿈 `\n` · `\r` · 탭 제외)와 방향 서식 문자(U+202A–U+202E, U+2066–U+2069).
@@ -163,3 +167,7 @@ export const MeetupIdSchema = z.uuid({
 });
 /** 경로의 `:scheduleId` · 공개 `:id`. UUID가 아니면 400(web은 API를 부르지 않고 404 화면). */
 export const ScheduleIdSchema = z.uuid({ error: '일정 ID 형식이 아닙니다.' });
+/** 경로의 `:applicationId`. UUID가 아니면 400. SPEC-003 */
+export const ApplicationIdSchema = z.uuid({
+  error: '신청 ID 형식이 아닙니다.',
+});
