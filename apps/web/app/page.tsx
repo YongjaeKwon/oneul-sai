@@ -35,7 +35,7 @@ export default function Home() {
       <ul className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
         {concepts.map((concept) => (
           <li key={concept.key} className="flex items-baseline gap-2">
-            <span className="font-latin-display text-sm tracking-[0.2em] text-rose-deep">
+            <span className="font-latin-display text-sm tracking-[0.2em] text-rose-ink">
               {concept.key}
             </span>
             <span className="text-sm text-ink-soft">{concept.label}</span>

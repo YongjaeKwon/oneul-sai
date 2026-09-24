@@ -20,6 +20,7 @@
   --rose-deep: #c7827f;
   --rose-soft: #e9afae;
   --rose-wash: #f3d9d6;
+  --rose-ink: #9c4844; /* 로즈 글자 — 모든 바탕 · rose-wash 위에서 4.5:1 이상 */
 
   /* 모브 — 로고 오른쪽 원 */
   --mauve: #c9b2ae;
@@ -46,6 +47,7 @@
     --rose-deep: #d98884;
     --rose-soft: #b97a78;
     --rose-wash: #4a3331;
+    --rose-ink: #e39a97;
     --mauve: #8f7a75;
     --line: #3a2d29;
     --line-strong: #6b4f4b;
@@ -66,6 +68,7 @@
   --color-rose-deep: var(--rose-deep);
   --color-rose-soft: var(--rose-soft);
   --color-rose-wash: var(--rose-wash);
+  --color-rose-ink: var(--rose-ink);
   --color-mauve: var(--mauve);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
