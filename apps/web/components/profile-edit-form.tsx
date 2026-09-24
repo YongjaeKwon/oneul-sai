@@ -105,7 +105,7 @@ export function ProfileEditForm({
             {formatBirthYear(profile.birthYear)}
           </dd>
         </dl>
-        <p className="mt-3 text-xs text-ink-muted">
+        <p className="mt-3 text-xs text-ink-soft">
           이름 · 성별 · 출생연도 변경은 오늘사이에 문의해 주세요.
         </p>
       </div>

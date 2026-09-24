@@ -6,4 +6,4 @@ const controlClasses =
 
 export const selectClasses = `${controlClasses} pr-9`;
 
-export const textareaClasses = `${controlClasses} min-h-24 resize-y placeholder:text-ink-muted aria-invalid:border-danger`;
+export const textareaClasses = `${controlClasses} min-h-24 resize-y placeholder:text-ink-soft aria-invalid:border-danger`;

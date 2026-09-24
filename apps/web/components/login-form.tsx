@@ -73,7 +73,7 @@ export function LoginForm() {
         {isSubmitting ? '로그인하는 중…' : '로그인'}
       </Button>
       {isSubmitting ? (
-        <p role="status" className="text-center text-xs text-ink-muted">
+        <p role="status" className="text-center text-xs text-ink-soft">
           확인하는 동안 잠시 기다려 주세요.
         </p>
       ) : null}

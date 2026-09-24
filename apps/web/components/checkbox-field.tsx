@@ -38,7 +38,7 @@ export function CheckboxField({
         <label htmlFor={inputId} className="text-sm text-ink">
           {label}
           {hint !== undefined ? (
-            <span className="mt-0.5 block text-xs text-ink-muted">{hint}</span>
+            <span className="mt-0.5 block text-xs text-ink-soft">{hint}</span>
           ) : null}
         </label>
       </div>

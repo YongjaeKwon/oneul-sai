@@ -39,7 +39,7 @@ export function MemberTable({ items, busy = false }: MemberTableProps) {
       ].join(' ')}
     >
       <table className="w-full min-w-max text-left text-sm">
-        <thead className="border-b border-line text-xs text-ink-muted">
+        <thead className="border-b border-line text-xs text-ink-soft">
           <tr>
             {COLUMNS.map((column, index) => (
               <th

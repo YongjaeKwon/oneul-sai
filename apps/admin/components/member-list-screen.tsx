@@ -53,7 +53,7 @@ export function MemberListScreen() {
       {error ? (
         <Notice tone="danger">{describeError(error)}</Notice>
       ) : data === undefined ? (
-        <p className="py-12 text-center text-sm text-ink-muted" role="status">
+        <p className="py-12 text-center text-sm text-ink-soft" role="status">
           불러오고 있습니다…
         </p>
       ) : (
