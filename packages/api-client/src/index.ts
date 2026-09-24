@@ -7,14 +7,17 @@ export {
   type ApiClientOptions,
   type ApiRequestInit,
   type HttpMethod,
+  type AdminApplicationListParams,
   type AdminScheduleListParams,
   type LoginInput,
   type MeetupListParams,
   type MemberListParams,
+  type MyApplicationListParams,
   type PublicScheduleListParams,
 } from './client.js';
 export { ApiClientError, isApiErrorResponse } from './error.js';
 export {
+  APPLICATION_PATHS,
   AUTH_PATHS,
   EVENT_PATHS,
   MEETUP_PATHS,

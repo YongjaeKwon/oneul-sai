@@ -1,6 +1,9 @@
 import { HEADER_REQUEST_ID } from '@oneul-sai/constants';
 import {
   API_ERROR_CODES,
+  type AdminApplication,
+  type AdminApplicationListQuery,
+  type AdminApplicationListResponse,
   type AdminSchedule,
   type AdminScheduleListQuery,
   type AdminScheduleListResponse,
@@ -20,6 +23,9 @@ import {
   type MemberListQuery,
   type MemberListResponse,
   type MemberProfile,
+  type MyApplication,
+  type MyApplicationListQuery,
+  type MyApplicationListResponse,
   type PublicSchedule,
   type PublicScheduleListQuery,
   type PublicScheduleListResponse,
@@ -40,6 +46,7 @@ import {
 } from './access-token-store.js';
 import { ApiClientError, isApiErrorResponse } from './error.js';
 import {
+  APPLICATION_PATHS,
   AUTH_PATHS,
   EVENT_PATHS,
   MEETUP_PATHS,
@@ -92,6 +99,12 @@ export type MeetupListParams = Partial<MeetupListQuery>;
 
 /** `listSchedules` 조건. `from` · `to`는 ISO 8601 + offset. 생략한 값은 서버 기본값(page 1, pageSize 20). */
 export type AdminScheduleListParams = Partial<AdminScheduleListQuery>;
+
+/** `listMyApplications` 조건. 생략한 값은 서버 기본값(page 1, pageSize 20). */
+export type MyApplicationListParams = Partial<MyApplicationListQuery>;
+
+/** `listScheduleApplications` 조건. 생략한 값은 서버 기본값(page 1, pageSize 100). */
+export type AdminApplicationListParams = Partial<AdminApplicationListQuery>;
 
 async function parseResponseBody(response: Response): Promise<unknown> {
   const text = await response.text();
@@ -439,6 +452,63 @@ export class ApiClient {
     return this.request<void>(
       'DELETE',
       MEETUP_PATHS.schedule(meetupId, scheduleId),
+    );
+  }
+
+  // ----- 참가 신청 (회원, SPEC-003) -----
+
+  /** `POST /api/v1/applications` (MEMBER). 201 입금 대기. */
+  apply(scheduleId: string): Promise<MyApplication> {
+    return this.request<MyApplication>('POST', APPLICATION_PATHS.applications, {
+      body: { scheduleId },
+    });
+  }
+
+  /** `GET /api/v1/applications?scheduleId=&page=&pageSize=` (MEMBER). 모든 상태, 최근 신청부터. */
+  listMyApplications(
+    params: MyApplicationListParams = {},
+  ): Promise<MyApplicationListResponse> {
+    return this.request<MyApplicationListResponse>(
+      'GET',
+      APPLICATION_PATHS.applications,
+      { query: params },
+    );
+  }
+
+  /** `PATCH /api/v1/applications/:applicationId/status` (MEMBER). 신청 마감 전까지 본인 취소. */
+  cancelMyApplication(applicationId: string): Promise<MyApplication> {
+    return this.request<MyApplication>(
+      'PATCH',
+      APPLICATION_PATHS.applicationStatus(applicationId),
+      { body: { status: 'CANCELLED' } },
+    );
+  }
+
+  // ----- 참가 신청 (운영자, SPEC-003) -----
+
+  /** `GET /api/v1/meetups/:meetupId/schedules/:scheduleId/applications?status=&page=&pageSize=` (ADMIN). 신청 순. */
+  listScheduleApplications(
+    meetupId: string,
+    scheduleId: string,
+    params: AdminApplicationListParams = {},
+  ): Promise<AdminApplicationListResponse> {
+    return this.request<AdminApplicationListResponse>(
+      'GET',
+      MEETUP_PATHS.applications(meetupId, scheduleId),
+      { query: params },
+    );
+  }
+
+  /** `PATCH .../schedules/:scheduleId/applications/:applicationId/status` (ADMIN). 언제든 취소, 사유 없음. */
+  cancelApplication(
+    meetupId: string,
+    scheduleId: string,
+    applicationId: string,
+  ): Promise<AdminApplication> {
+    return this.request<AdminApplication>(
+      'PATCH',
+      MEETUP_PATHS.applicationStatus(meetupId, scheduleId, applicationId),
+      { body: { status: 'CANCELLED' } },
     );
   }
 
