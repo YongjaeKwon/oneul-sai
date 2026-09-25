@@ -90,7 +90,7 @@ export interface ApiRequestInit {
 /** `login`에 넘기는 값. `client`는 생성자 옵션에서 채운다. */
 export type LoginInput = Omit<LoginRequest, 'client'>;
 
-/** `listMembers` 검색 조건. 생략한 값은 서버 기본값(page 1, pageSize 20). */
+/** `listMembers` 검색 조건. 생략한 값은 서버 기본값(page 1, pageSize 20). `ids`는 쉼표로 이어 보낸다(최대 `pageSize`개). */
 export type MemberListParams = Partial<MemberListQuery>;
 
 /** `listPublicEvents` 조건. 생략한 값은 서버 기본값(page 1, pageSize 20). */
@@ -312,10 +312,11 @@ export class ApiClient {
 
   // ----- members (운영자) -----
 
-  /** `GET /api/v1/members?query=&status=&role=&page=&pageSize=` (ADMIN) */
+  /** `GET /api/v1/members?query=&status=&role=&ids=&page=&pageSize=` (ADMIN) */
   listMembers(params: MemberListParams = {}): Promise<MemberListResponse> {
+    const { ids, ...rest } = params;
     return this.request<MemberListResponse>('GET', MEMBER_PATHS.members, {
-      query: params,
+      query: { ...rest, ids: ids?.join(',') },
     });
   }
 
