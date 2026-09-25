@@ -512,6 +512,28 @@ describe('MembersService admin APIs', () => {
     expect(JSON.stringify(logger.info.mock.calls)).not.toContain('010-1234');
   });
 
+  it('list with ids: filters by id and logs the returned member ids (SPEC-003 D11)', async () => {
+    const { service, prisma, logger } = build({ rows: [adminRow, target] });
+    const missing = '00000000-0000-4000-8000-000000000000';
+    await service.list(
+      admin,
+      { ids: [TARGET_ID, missing], page: 1, pageSize: 100 },
+      'r',
+    );
+
+    expect(prisma.member.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: [TARGET_ID, missing] } } }),
+    );
+    // 가짜 findMany는 두 행을 돌려준다 — 로그는 요청한 ID가 아니라 실제로 돌려준 행의 ID다
+    expect(logger.info).toHaveBeenCalledWith('member.list_viewed', {
+      adminId: ADMIN_ID,
+      hasFilter: true,
+      memberIds: [ADMIN_ID, TARGET_ID],
+      count: 2,
+      requestId: 'r',
+    });
+  });
+
   it('buildListWhere: email/name partial match plus phone prefix only for digit queries', () => {
     expect(
       buildListWhere({
@@ -534,6 +556,14 @@ describe('MembersService admin APIs', () => {
       buildListWhere({ query: '앨리스', page: 1, pageSize: 20 }).OR,
     ).toHaveLength(2);
     expect(buildListWhere({ page: 1, pageSize: 20 })).toEqual({});
+    expect(
+      buildListWhere({
+        ids: [TARGET_ID],
+        status: 'ACTIVE',
+        page: 1,
+        pageSize: 20,
+      }),
+    ).toEqual({ status: 'ACTIVE', id: { in: [TARGET_ID] } });
   });
 
   it('detail: 404 MEMBER_NOT_FOUND when missing, otherwise MemberDetail + member.detail_viewed', async () => {

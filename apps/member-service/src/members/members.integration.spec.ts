@@ -496,4 +496,93 @@ describe('members (integration)', () => {
     expect((badQuery.body as ApiErrorResponse).path).toBe('/api/v1/members');
     expect((badQuery.body as ApiErrorResponse).message).not.toContain('1000');
   });
+
+  it('admin list by ids: only those rows, AND with other filters, missing ids dropped, access log names the returned ids (SPEC-003 D11)', async () => {
+    const admin = await createAdmin();
+    const a = await t.signup({
+      email: 'alice@example.com',
+      name: '앨리스',
+      phone: '010-1111-2222',
+    });
+    const b = await t.signup({
+      email: 'bob@example.com',
+      name: '밥',
+      phone: '010-3333-4444',
+    });
+    await t.signup({ email: 'carol@example.com', name: '캐럴' });
+    const missing = '00000000-0000-4000-8000-000000000000';
+
+    const logs: string[] = [];
+    const write = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation((chunk: string | Uint8Array) => {
+        logs.push(String(chunk));
+        return true;
+      });
+    let byIds: ApiResult;
+    try {
+      byIds = await t.call({
+        method: 'GET',
+        path: `/api/v1/members?ids=${a.profile.id},${b.profile.id},${missing}&pageSize=100`,
+        user: admin,
+      });
+    } finally {
+      write.mockRestore();
+    }
+    expect(byIds.status).toBe(200);
+    expect(
+      (byIds.body as MemberListResponse).items.map((item) => item.id).sort(),
+    ).toEqual([a.profile.id, b.profile.id].sort());
+
+    const viewed = logs
+      .flatMap((chunk) => chunk.split('\n'))
+      .filter((line) => line.includes('"member.list_viewed"'));
+    expect(viewed).toHaveLength(1);
+    const entry = JSON.parse(viewed[0] ?? '{}') as Record<string, unknown>;
+    expect(entry).toMatchObject({
+      adminId: admin.id,
+      hasFilter: true,
+      count: 2,
+    });
+    expect((entry['memberIds'] as string[]).sort()).toEqual(
+      [a.profile.id, b.profile.id].sort(),
+    );
+    expect(viewed[0]).not.toContain(missing);
+    expect(viewed[0]).not.toContain('010');
+    expect(viewed[0]).not.toContain('앨리스');
+
+    const andStatus = await t.call({
+      method: 'GET',
+      path: `/api/v1/members?ids=${a.profile.id},${b.profile.id}&query=${encodeURIComponent('밥')}`,
+      user: admin,
+    });
+    expect(
+      (andStatus.body as MemberListResponse).items.map((item) => item.id),
+    ).toEqual([b.profile.id]);
+
+    const tooMany = await t.call({
+      method: 'GET',
+      path: `/api/v1/members?ids=${Array.from({ length: 101 }, () => a.profile.id).join(',')}&pageSize=100`,
+      user: admin,
+    });
+    expect(tooMany.status).toBe(400);
+    expect(codeOf(tooMany)).toBe(API_ERROR_CODES.VALIDATION_FAILED);
+
+    const overPageSize = await t.call({
+      method: 'GET',
+      path: `/api/v1/members?ids=${a.profile.id},${b.profile.id}&pageSize=1`,
+      user: admin,
+    });
+    expect(overPageSize.status).toBe(400);
+
+    const notUuid = await t.call({
+      method: 'GET',
+      path: `/api/v1/members?ids=${a.profile.id},not-a-uuid`,
+      user: admin,
+    });
+    expect(notUuid.status).toBe(400);
+    expect((notUuid.body as ApiErrorResponse).message).not.toContain(
+      'not-a-uuid',
+    );
+  });
 });
