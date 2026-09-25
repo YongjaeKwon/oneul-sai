@@ -105,10 +105,10 @@ pnpm --filter @oneul-sai/event-service test:integration   # 통합 — event_tes
 ```
 
 - 단위: `schedule-rules`(시간 · 연령대 · 전이 표 20칸), contracts 스키마 경계값(`src/event-contracts.spec.ts`), 서비스(가짜 prisma), 공개 필드 격리, DB 에러 로그.
-- 통합: 앱을 임시 포트로 띄워 `fetch`로 부른다(`src/testing/integration-app.ts`, Gateway가 붙이는 헤더는 테스트가 채운다). 운영자 흐름, 공개 응답 원문에 비공개 값 · 키 이름이 없음, 404 본문 동일, 인가, 라우트 목록(기본 거부), 여러 회차 등록, 동시 수정 경합, CHECK 제약.
+- 통합: 앱을 임시 포트로 띄워 `fetch`로 부른다(`src/testing/integration-app.ts`, Gateway가 붙이는 헤더는 테스트가 채운다). 운영자 흐름, 공개 응답 원문에 비공개 값 · 키 이름이 없음, 404 본문 동일, 인가, 라우트 목록(기본 거부), 여러 회차 등록, 동시 수정 경합, CHECK 제약, 신청의 부분 유니크 인덱스 · CHECK · FK.
 - 개발 DB `event_db`가 아니라 **테스트 전용 DB `event_test_db`**(`TEST_DATABASE_URL`)에서 돈다(SPEC-002 9절, D13). `.env`의 `DATABASE_URL`은 보지 않는다.
 - `globalSetup`(`src/testing/integration.global-setup.ts`)이 실행마다 한 번 이름 검사(`_test_db`로 끝나지 않으면 즉시 실패) → `prisma migrate deploy`(적용 안 된 마이그레이션만. DB가 없으면 Prisma가 만든다) → URL을 워커에 `provide`한다.
-- 각 테스트는 앞에서 `resetTestDatabase`로 `Schedule` · `Meetup`을 비운다. 비우기 직전에 `current_database()`가 `_test_db`로 끝나는지 다시 확인한다.
+- 각 테스트는 앞에서 `resetTestDatabase`로 `Application` · `Schedule` · `Meetup`을 비운다. 비우기 직전에 `current_database()`가 `_test_db`로 끝나는지 다시 확인한다.
 - 이미 적용한 마이그레이션 파일을 고쳐 `migrate deploy`가 checksum 불일치로 실패하면 테스트 DB를 지우고 다시 실행한다(테스트 데이터뿐이다). `migrate reset`은 쓰지 않는다.
 
   ```bash

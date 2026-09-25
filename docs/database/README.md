@@ -251,17 +251,17 @@ HAVING count(*) > CASE a."gender" WHEN 'MALE' THEN s."capacityMale" ELSE s."capa
 
 #### 잘못 취소한 신청 되살리기 (SPEC-003 J-2 — 화면 없음)
 
-운영자 요청을 받아 개발자가 DB에서 한다. 한 트랜잭션에서 회차 행을 먼저 잠그고, 아래 세 가지를 확인한 뒤에만 되살린다.
+운영자 요청을 받아 개발자가 DB에서 한다. 한 트랜잭션에서 회차 행을 먼저 잠그고, 아래 세 가지를 확인한 뒤에만 되살린다. psql 변수로 값을 넘긴다: `docker compose exec postgres psql -U oneul -d event_db -v scheduleId=<회차 ID> -v applicationId=<신청 ID>`(저장소 루트에서).
 
 ```sql
 BEGIN;
 SET LOCAL lock_timeout = '2s';
 SELECT "id", "status", "startsAt", "capacityMale", "capacityFemale"
-FROM "Schedule" WHERE "id" = :scheduleId FOR UPDATE;
+FROM "Schedule" WHERE "id" = :'scheduleId' FOR UPDATE;
 -- 1 · 2 · 3을 확인한다(아래)
 UPDATE "Application"
 SET "status" = 'PENDING', "cancelledBy" = NULL, "updatedAt" = now()
-WHERE "id" = :applicationId AND "scheduleId" = :scheduleId AND "status" = 'CANCELLED';
+WHERE "id" = :'applicationId' AND "scheduleId" = :'scheduleId' AND "status" = 'CANCELLED';
 COMMIT; -- 하나라도 어긋나면 ROLLBACK
 ```
 
