@@ -150,7 +150,7 @@
 
 - 증상: `Application`의 부분 유니크(`@@unique([scheduleId, memberId], where: raw("\"status\" <> 'CANCELLED'"))`)를 선언하면 `findUnique({ where: { scheduleId_memberId } })` · `update` · `upsert`가 타입 검사를 통과한다. 그런데 같은 쌍에 취소된 행이 여럿일 수 있어, 이 선택자는 취소된 행을 읽거나 바꿀 수 있다.
 - 원인: Prisma 7.10 `partialIndexes` 미리보기의 생성 클라이언트는 `where` 조건을 모르고 복합 유니크 선택자(`ApplicationWhereUniqueInput.scheduleId_memberId`)를 만든다.
-- 대응: 이 선택자를 쓰지 않는다. 활성 신청은 `findFirst`에 `ACTIVE_APPLICATION_WHERE`(`status <> 'CANCELLED'`)를 붙여 찾는다(SPEC-003 9 · 10절). 코드 검색으로 쓰는 곳이 없는지 본다: `git grep scheduleId_memberId -- apps/event-service/src ':!**/generated/**'`. 미리보기를 끄거나 버전을 올릴 때 `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma`가 비어 있는지 확인한다(인덱스를 Prisma가 관리한다).
+- 대응: 이 선택자를 쓰지 않는다. 활성 신청은 `findFirst`에 `ACTIVE_APPLICATION_WHERE`(`status <> 'CANCELLED'`)를 붙여 찾는다(SPEC-003 9 · 10절). 코드 검색으로 쓰는 곳이 없는지 본다(저장소 루트에서): `git grep scheduleId_memberId -- apps/event-service/src ':!**/generated/**'`. 미리보기를 끄거나 버전을 올릴 때 `apps/event-service`에서 `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma`가 비어 있는지 확인한다(인덱스를 Prisma가 관리한다).
 
 ## 3. 업그레이드 시 확인할 것
 
