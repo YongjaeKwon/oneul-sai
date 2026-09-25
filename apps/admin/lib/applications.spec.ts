@@ -216,6 +216,8 @@ describe('capacityNotice (A8 — does not block)', () => {
     expect(capacityNotice(3, 3, 7)).toBeUndefined();
     // 손대지 않은 칸(저장된 정원)은 서버가 판정한다
     expect(capacityNotice(2, 3, 2)).toBeUndefined();
+    // 저장된 정원보다 늘려도 신청 수보다 작으면 알린다(바꿨는지는 같음으로만 본다)
+    expect(capacityNotice(4, 5, 3)).toBe(capacityBelowMessage(5));
     expect(capacityNotice(null, 3, 7)).toBeUndefined();
     expect(capacityNotice(Number.NaN, 3, 7)).toBeUndefined();
   });
@@ -249,6 +251,7 @@ describe('memberLookupNotice (A10 회원 정보 조회 실패)', () => {
       failed,
     );
     expect(memberLookupNotice(new TypeError('fetch failed'))).toBe(failed);
+    expect(memberLookupNotice(apiError(500, 'INTERNAL_ERROR'))).toBe(failed);
     expect(memberLookupNotice(apiError(403, 'ACCOUNT_SUSPENDED'))).toBe(
       '이용이 정지된 계정입니다. 오늘사이에 문의해 주세요.',
     );

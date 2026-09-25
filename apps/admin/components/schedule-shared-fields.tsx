@@ -62,23 +62,26 @@ export function ScheduleSharedFields({
     watch,
     getValues,
     setValue,
-    formState: { errors },
+    formState: { errors, touchedFields },
   } = useFormContext<ScheduleSharedValues>();
   const samePrice = watch('samePrice');
   const [capacityMale, capacityFemale] = useWatch<
     ScheduleSharedValues,
     ['capacityMale', 'capacityFemale']
   >({ name: ['capacityMale', 'capacityFemale'] });
+  // 입력하는 중에는 알리지 않는다 — 칸을 벗어난 뒤에(다른 칸 오류와 같은 때) 보인다
   const maleNotice =
-    capacity &&
-    capacityNotice(capacityMale, capacity.applied.male, capacity.saved.male);
+    capacity && touchedFields.capacityMale
+      ? capacityNotice(capacityMale, capacity.applied.male, capacity.saved.male)
+      : undefined;
   const femaleNotice =
-    capacity &&
-    capacityNotice(
-      capacityFemale,
-      capacity.applied.female,
-      capacity.saved.female,
-    );
+    capacity && touchedFields.capacityFemale
+      ? capacityNotice(
+          capacityFemale,
+          capacity.applied.female,
+          capacity.saved.female,
+        )
+      : undefined;
   const samePriceId = useId();
 
   return (

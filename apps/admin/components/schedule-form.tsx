@@ -8,7 +8,6 @@ import {
   type UpdateScheduleRequest,
 } from '@oneul-sai/contracts';
 import { Button, Dialog, Input } from '@oneul-sai/ui';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useId, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -18,7 +17,6 @@ import {
   capacityBelowMessage,
   capacityConflictCount,
 } from '@/lib/applications';
-import { apiClient } from '@/lib/api';
 import { useEndSessionOn401 } from '@/lib/auth-provider';
 import { describeEventError, isApiClientError } from '@/lib/errors';
 import {
@@ -30,8 +28,8 @@ import {
   type TimeField,
 } from '@/lib/schedule-form';
 import {
-  meetupKeys,
   useCreateSchedule,
+  useRefreshSchedule,
   useUpdateSchedule,
 } from '@/lib/queries';
 import { FormField } from './form-field';
@@ -58,15 +56,18 @@ export function ScheduleForm({
   schedule?: AdminSchedule;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const questionId = useId();
+  const refreshSchedule = useRefreshSchedule(meetupId);
   const creating = schedule === undefined;
   const create = useCreateSchedule(meetupId);
   const update = useUpdateSchedule(meetupId, schedule?.id ?? '');
   const mutation = creating ? create : update;
   useEndSessionOn401(mutation.error);
   // 만들기는 성공하면 상세로 떠나므로 그때까지 잠근다(다시 누르면 한 번 더 만들어진다). 수정은 이 화면에 남아 다시 저장할 수 있다.
-  const locked = mutation.isPending || (creating && mutation.isSuccess);
+  const [refreshing, setRefreshing] = useState(false);
+  // 저장 전 안내를 위해 회차를 새로 읽는 동안에도 잠근다 — 두 번 누르면 PATCH가 두 번 나간다
+  const locked =
+    mutation.isPending || refreshing || (creating && mutation.isSuccess);
 
   const [pending, setPending] = useState<Pending | null>(null);
   const [notice, setNotice] = useState<{
@@ -117,9 +118,7 @@ export function ScheduleForm({
             error.code === API_ERROR_CODES.CAPACITY_BELOW_APPLICATIONS &&
             schedule !== undefined
           ) {
-            void queryClient.invalidateQueries({
-              queryKey: meetupKeys.schedule(meetupId, schedule.id),
-            });
+            void refreshSchedule(schedule.id);
           }
         },
         onSuccess: (saved) => {
@@ -136,18 +135,18 @@ export function ScheduleForm({
    * 받은 값은 캐시에도 들어가 정원 칸 옆 신청 수 · 요약 카드도 함께 새로워진다.
    */
   const freshApplied = async (current: AdminSchedule) => {
+    setRefreshing(true);
     try {
-      return await queryClient.fetchQuery({
-        queryKey: meetupKeys.schedule(meetupId, current.id),
-        queryFn: () => apiClient.getSchedule(meetupId, current.id),
-        staleTime: 0,
-      });
-    } catch {
-      return current;
+      return (await refreshSchedule(current.id)) ?? current;
+    } finally {
+      setRefreshing(false);
     }
   };
 
   const onSubmit = handleSubmit(async (request) => {
+    if (locked) {
+      return;
+    }
     setNotice(null);
     const changes =
       baseline === undefined ? null : scheduleChanges(request, baseline);
