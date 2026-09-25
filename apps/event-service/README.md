@@ -95,7 +95,7 @@
 
 ## 마이그레이션
 
-`event_db`의 스키마는 `prisma/schema.prisma`, 마이그레이션은 `prisma/migrations/`(첫 마이그레이션 `init_event` — CHECK 제약은 SQL에만 있다). 테이블 · CHECK 목록은 [docs/database/README.md](../../docs/database/README.md) 6절.
+`event_db`의 스키마는 `prisma/schema.prisma`, 마이그레이션은 `prisma/migrations/`(`init_event` · `add_application` — CHECK 제약은 SQL에만 있다). `Application`의 부분 유니크 인덱스는 Prisma `partialIndexes` 미리보기로 스키마에 선언한다 — 생성 선택자 `scheduleId_memberId`는 쓰지 않는다(기술 스택 함정 11). 테이블 · CHECK 목록은 [docs/database/README.md](../../docs/database/README.md) 6절.
 
 ## 테스트
 

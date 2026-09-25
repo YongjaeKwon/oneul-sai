@@ -3,7 +3,7 @@
 오늘사이가 쓰는 기술과 버전, 각 선택의 이유, 그리고 알려진 함정을 기록한다. 버전을 올리거나 새 기술을 들일 때 이 문서를 먼저 읽고, 바꾼 뒤 이 문서를 갱신한다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-24 (에이전트 디자인 · 확인 도구 표 추가. 그 전: 2026-09-22 npm registry 실측 + 공식 템플릿 생성으로 확정)
+- 최종 갱신: 2026-09-25 (event-service `partialIndexes` 미리보기 · 함정 11. 그 전: 2026-09-24 에이전트 디자인 · 확인 도구 표 추가. 그 전: 2026-09-22 npm registry 실측 + 공식 템플릿 생성으로 확정)
 - 원천: 루트 `package.json`, `pnpm-workspace.yaml`, 각 앱·패키지의 `package.json`과 tsconfig. 이 문서와 다르면 코드가 맞다. 이 문서를 고친다.
 - 구조와 통신 원칙은 [아키텍처 개요](./overview.md), 결정의 배경은 [ADR](../adr/README.md).
 
@@ -24,19 +24,19 @@
 
 ### 백엔드
 
-| 영역           | 선택                                                                  | 버전      | 한 줄 이유                                                                                                                       |
-| -------------- | --------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 프레임워크     | NestJS (ESM)                                                          | 12        | 모듈·DI·데코레이터로 서비스 5개의 구조를 같게 유지. Swagger 통합                                                                 |
-| API 문서       | @nestjs/swagger                                                       | 12        | 컨트롤러 데코레이터가 API 문서의 원천                                                                                            |
-| 테스트         | vitest                                                                | 4         | ESM 친화, 빠름. jest는 쓰지 않는다                                                                                               |
-| 빌드·실행      | tsc + tsc-watch                                                       | —         | Nest CLI를 쓰지 않는다(아래 함정 1). `build`는 `tsc -p tsconfig.build.json`, `dev`는 `tsc-watch --onSuccess "node dist/main.js"` |
-| ORM            | Prisma                                                                | `7.10.0`  | 타입 안전 쿼리·마이그레이션. `prisma-client` generator + `@prisma/adapter-pg`                                                    |
-| DB             | PostgreSQL                                                            | 17        | 서비스별 논리 DB 5개. 로컬은 Docker Compose                                                                                      |
-| Gateway 프록시 | http-proxy-middleware                                                 | `^3.0.7`  | v3 유지(아래 함정 5)                                                                                                             |
-| 메시징         | Kafka (KRaft 단일 노드)                                               | —         | 현재 구조만. `docker compose --profile kafka up -d`                                                                              |
-| 로깅           | `@oneul-sai/logger`                                                   | —         | JSON 구조화 로그. `x-request-id`를 함께 남긴다                                                                                   |
-| 환경 변수      | dotenv + Zod (`@oneul-sai/config`)                                    | dotenv 18 | 서비스 부팅 시 검증. 잘못된 값이면 바로 실패                                                                                     |
-| 인증           | JWT(jose) HS256 + 불투명 refresh 쿠키, 비밀번호 scrypt(`node:crypto`) | jose 6    | member-service가 서명하고 Gateway가 검증한다(SPEC-001, ADR-009). 해시는 네이티브 빌드가 없는 scrypt(아래 함정 9)                 |
+| 영역           | 선택                                                                  | 버전      | 한 줄 이유                                                                                                                                                          |
+| -------------- | --------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 프레임워크     | NestJS (ESM)                                                          | 12        | 모듈·DI·데코레이터로 서비스 5개의 구조를 같게 유지. Swagger 통합                                                                                                    |
+| API 문서       | @nestjs/swagger                                                       | 12        | 컨트롤러 데코레이터가 API 문서의 원천                                                                                                                               |
+| 테스트         | vitest                                                                | 4         | ESM 친화, 빠름. jest는 쓰지 않는다                                                                                                                                  |
+| 빌드·실행      | tsc + tsc-watch                                                       | —         | Nest CLI를 쓰지 않는다(아래 함정 1). `build`는 `tsc -p tsconfig.build.json`, `dev`는 `tsc-watch --onSuccess "node dist/main.js"`                                    |
+| ORM            | Prisma                                                                | `7.10.0`  | 타입 안전 쿼리·마이그레이션. `prisma-client` generator + `@prisma/adapter-pg`. event-service만 `previewFeatures = ["partialIndexes"]`(부분 유니크 인덱스, SPEC-003) |
+| DB             | PostgreSQL                                                            | 17        | 서비스별 논리 DB 5개. 로컬은 Docker Compose                                                                                                                         |
+| Gateway 프록시 | http-proxy-middleware                                                 | `^3.0.7`  | v3 유지(아래 함정 5)                                                                                                                                                |
+| 메시징         | Kafka (KRaft 단일 노드)                                               | —         | 현재 구조만. `docker compose --profile kafka up -d`                                                                                                                 |
+| 로깅           | `@oneul-sai/logger`                                                   | —         | JSON 구조화 로그. `x-request-id`를 함께 남긴다                                                                                                                      |
+| 환경 변수      | dotenv + Zod (`@oneul-sai/config`)                                    | dotenv 18 | 서비스 부팅 시 검증. 잘못된 값이면 바로 실패                                                                                                                        |
+| 인증           | JWT(jose) HS256 + 불투명 refresh 쿠키, 비밀번호 scrypt(`node:crypto`) | jose 6    | member-service가 서명하고 Gateway가 검증한다(SPEC-001, ADR-009). 해시는 네이티브 빌드가 없는 scrypt(아래 함정 9)                                                    |
 
 ### 프론트엔드
 
@@ -145,6 +145,12 @@
 - 증상: 앱이 부팅하면서 `RolesGuard`의 의존성(`Reflector`)을 찾지 못해 실패하거나, 필터의 `instanceof HttpException`이 거짓이 되어 모든 에러가 500이 된다.
 - 원인: `@oneul-sai/service-kit`이 `@nestjs/common` · `@nestjs/core`를 자기 `dependencies`로 따로 가지면 앱과 kit이 서로 다른 Nest 인스턴스를 로드한다. 그러면 kit의 `Reflector` · `HttpException`은 앱의 것과 다른 클래스다.
 - 대응: `@nestjs/common` · `@nestjs/core` · `reflect-metadata` · `rxjs`는 kit의 `peerDependencies`(+ 테스트용 `devDependencies`)에 앱과 **같은 버전 범위**로 둔다. Nest 메이저를 올릴 때 kit의 범위도 함께 올린다. 확인: 앱과 kit의 `node_modules/@nestjs/core`가 같은 `.pnpm` 경로를 가리키는지(`cd <pkg>/node_modules/@nestjs/core && pwd -P`). ADR-010.
+
+### 함정 11. `partialIndexes`의 부분 유니크는 보통 복합 유니크처럼 생성된다
+
+- 증상: `Application`의 부분 유니크(`@@unique([scheduleId, memberId], where: raw("\"status\" <> 'CANCELLED'"))`)를 선언하면 `findUnique({ where: { scheduleId_memberId } })` · `update` · `upsert`가 타입 검사를 통과한다. 그런데 같은 쌍에 취소된 행이 여럿일 수 있어, 이 선택자는 취소된 행을 읽거나 바꿀 수 있다.
+- 원인: Prisma 7.10 `partialIndexes` 미리보기의 생성 클라이언트는 `where` 조건을 모르고 복합 유니크 선택자(`ApplicationWhereUniqueInput.scheduleId_memberId`)를 만든다.
+- 대응: 이 선택자를 쓰지 않는다. 활성 신청은 `findFirst`에 `ACTIVE_APPLICATION_WHERE`(`status <> 'CANCELLED'`)를 붙여 찾는다(SPEC-003 9 · 10절). 코드 검색으로 쓰는 곳이 없는지 본다: `git grep scheduleId_memberId -- apps/event-service/src ':!**/generated/**'`. 미리보기를 끄거나 버전을 올릴 때 `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma`가 비어 있는지 확인한다(인덱스를 Prisma가 관리한다).
 
 ## 3. 업그레이드 시 확인할 것
 

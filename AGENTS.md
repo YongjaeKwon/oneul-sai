@@ -58,7 +58,7 @@ curl http://localhost:4001/health                 # {status, service, database, 
 - **Nest CLI(`nest`)를 쓰지 않는다.** Node 22.14 크래시. 빌드는 `tsc -p tsconfig.build.json`, dev는 `tsc-watch`.
 - 루트 명령은 Turborepo가 전 workspace에 돌린다. `dev`/`build`/`typecheck`/`test`는 `db:generate`에 의존.
 - 새 의존성이 build 스크립트를 가지면 `pnpm-workspace.yaml`의 `allowBuilds`에 추가하고 이유를 PR에 쓴다.
-- 버전 · 알려진 함정 10개(Nest CLI, TS6 @types, pnpm 11 설정 위치, Prisma 7, http-proxy-middleware v3 유지, ESM import, Next 16/Tailwind 4, Expo 57, scrypt `maxmem`, Nest peerDependencies)의 원천은 `docs/architecture/tech-stack.md`. 의존성을 올리기 전에 읽는다.
+- 버전 · 알려진 함정 11개(Nest CLI, TS6 @types, pnpm 11 설정 위치, Prisma 7, http-proxy-middleware v3 유지, ESM import, Next 16/Tailwind 4, Expo 57, scrypt `maxmem`, Nest peerDependencies, Prisma `partialIndexes` 선택자)의 원천은 `docs/architecture/tech-stack.md`. 의존성을 올리기 전에 읽는다.
 
 ## 5. 로드맵 (Step)
 

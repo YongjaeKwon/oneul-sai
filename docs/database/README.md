@@ -3,19 +3,19 @@
 DB 소유권, Prisma 7 워크플로우, 마이그레이션 규칙, 그리고 실제로 있는 테이블의 인덱스다. 스키마의 원천은 `apps/<service>/prisma/schema.prisma`이고, 이 문서와 다르면 스키마가 맞다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-24 (SPEC-003 확정 — NEXT 재참가 혜택의 결정 예정 시점. 그 전: 2026-09-23 Step 2 — event_db 첫 마이그레이션 `init_event`, 테스트 전용 DB `event_test_db`. seed 전 빌드를 `turbo run build`로)
+- 최종 갱신: 2026-09-25 (Step 3 — event_db `Application`(마이그레이션 `add_application`), 부분 유니크 인덱스, 점검 쿼리 · 되살리기 절차. 그 전: 2026-09-24 SPEC-003 확정 — NEXT 재참가 혜택의 결정 예정 시점. 그 전: 2026-09-23 Step 2 — event_db 첫 마이그레이션 `init_event`, 테스트 전용 DB `event_test_db`. seed 전 빌드를 `turbo run build`로)
 
 ## 1. Database per Service
 
 각 서비스는 자신의 논리 Database만 소유한다. 다른 서비스의 DB에 직접 접근(쿼리, FK 참조 포함)하는 것은 금지이며, 다른 서비스의 데이터가 필요하면 REST 호출 또는 Kafka 이벤트로만 얻는다. 개발 환경에서는 PostgreSQL 인스턴스 하나를 공유하되 논리 DB로 소유권을 분리한다. (ADR-007 참고)
 
-| 서비스               | 논리 DB           | 기본 URL                                                  | 상태                                    |
-| -------------------- | ----------------- | --------------------------------------------------------- | --------------------------------------- |
-| member-service       | `member_db`       | `postgresql://oneul:oneul@localhost:5432/member_db`       | Step 1 — `Member` · `RefreshToken`(5절) |
-| event-service        | `event_db`        | `postgresql://oneul:oneul@localhost:5432/event_db`        | Step 2 — `Meetup` · `Schedule`(6절)     |
-| matching-service     | `matching_db`     | `postgresql://oneul:oneul@localhost:5432/matching_db`     | 최소 스키마(모델 없음). Step 6          |
-| notification-service | `notification_db` | `postgresql://oneul:oneul@localhost:5432/notification_db` | 최소 스키마(모델 없음). Step 7          |
-| payment-service      | `payment_db`      | `postgresql://oneul:oneul@localhost:5432/payment_db`      | 최소 스키마(모델 없음). Step 4          |
+| 서비스               | 논리 DB           | 기본 URL                                                  | 상태                                                    |
+| -------------------- | ----------------- | --------------------------------------------------------- | ------------------------------------------------------- |
+| member-service       | `member_db`       | `postgresql://oneul:oneul@localhost:5432/member_db`       | Step 1 — `Member` · `RefreshToken`(5절)                 |
+| event-service        | `event_db`        | `postgresql://oneul:oneul@localhost:5432/event_db`        | Step 2 · 3 — `Meetup` · `Schedule` · `Application`(6절) |
+| matching-service     | `matching_db`     | `postgresql://oneul:oneul@localhost:5432/matching_db`     | 최소 스키마(모델 없음). Step 6                          |
+| notification-service | `notification_db` | `postgresql://oneul:oneul@localhost:5432/notification_db` | 최소 스키마(모델 없음). Step 7                          |
+| payment-service      | `payment_db`      | `postgresql://oneul:oneul@localhost:5432/payment_db`      | 최소 스키마(모델 없음). Step 4                          |
 
 - 실제 접속 URL은 각 서비스 디렉토리의 `.env`(`DATABASE_URL`)로 주입한다. 루트 `.env.example`에는 `<SERVICE>_DATABASE_URL` 이름으로 전체 목록이 있다.
 - 테이블 이름은 Prisma 기본(모델명 그대로, `@@map` 없음)을 쓴다. 다른 서비스가 이 테이블을 볼 일이 없기 때문이다(ADR-007).
@@ -87,7 +87,7 @@ pnpm --filter @oneul-sai/event-service test:integration
 
 - URL의 원천은 env `TEST_DATABASE_URL`(기본 `postgresql://oneul:oneul@localhost:5432/event_test_db`) 하나이고, vitest `globalSetup`(`apps/event-service/src/testing/integration.global-setup.ts`)만 읽는다. 서비스 부팅과 `.env`의 `DATABASE_URL`은 관여하지 않는다.
 - `globalSetup`이 실행마다 한 번: 이름 검사(`_test_db`로 끝나지 않으면 즉시 실패 — `event_db` · `member_db` 거부) → `prisma migrate deploy`(비파괴, `DATABASE_URL`만 테스트 URL로 바꾼 자식 프로세스. DB가 없으면 Prisma가 만든다) → `provide('testDatabaseUrl')`로 워커에 넘긴다.
-- 워커는 `inject('testDatabaseUrl')`로 받은 URL로만 `PrismaService`를 만든다. 각 테스트 앞의 `resetTestDatabase`는 `SELECT current_database()`가 `_test_db`로 끝나는지 확인한 뒤에만 `TRUNCATE "Schedule", "Meetup"`을 한다.
+- 워커는 `inject('testDatabaseUrl')`로 받은 URL로만 `PrismaService`를 만든다. 각 테스트 앞의 `resetTestDatabase`는 `SELECT current_database()`가 `_test_db`로 끝나는지 확인한 뒤에만 `TRUNCATE "Application", "Schedule", "Meetup"`을 한다.
 - `prisma migrate reset`은 쓰지 않는다. 이미 적용한 마이그레이션 파일을 고쳐 checksum이 어긋나면(`migrate deploy` 실패) 사람이 테스트 DB를 지우고 다시 실행한다: `docker compose exec postgres psql -U oneul -d oneul -c "DROP DATABASE event_test_db;"`(테스트 데이터뿐이다).
 - CI `integration` 잡은 member-service 다음에 event-service `build`(`db:generate` 포함) → `test:integration`을 단계 env `TEST_DATABASE_URL=postgresql://oneul:oneul@localhost:5432/event_test_db`로 돈다. 잡 env의 `DATABASE_URL`(member_db)은 그대로이고 event-service 테스트는 그것을 보지 않는다.
 
@@ -164,13 +164,14 @@ pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-
 - 약관 버전 · 동의 이력 테이블 — 약관이 실제로 개정될 때.
 - 닉네임 · 매칭용 프로필 열 — 결정 예정 (Step 5 · 6).
 
-## 6. event_db (Step 2, SPEC-002 9절)
+## 6. event_db (Step 2 · 3, SPEC-002 · SPEC-003 9절)
 
-원천: `apps/event-service/prisma/schema.prisma`, 마이그레이션 `prisma/migrations/20260923014911_init_event/migration.sql`. 설계 이유는 [SPEC-002 5 · 9절](../specs/SPEC-002-meetup-schedule.md#9-db-변경). 이번 Step의 event_db는 회원을 참조하지 않는다(작성자 열 · 개인정보 열 없음). 모든 시각은 `TIMESTAMPTZ(3)`이다 — SQL `now()`와 직접 비교하는 조건 때문이며 member_db의 `TIMESTAMP(3)`과 다르다(D7). seed는 없다(운영자가 화면에서 만든다).
+원천: `apps/event-service/prisma/schema.prisma`, 마이그레이션 `prisma/migrations/*/migration.sql`. 설계 이유는 [SPEC-002 5 · 9절](../specs/SPEC-002-meetup-schedule.md#9-db-변경) · [SPEC-003 5 · 9절](../specs/SPEC-003-application.md#9-db-변경). Step 3부터 event_db가 회원과 이어진 값을 가진다 — `Application.memberId`(member_db 회원 ID, FK 없음)와 신청할 때의 성별이다. 이름 · 휴대폰 · 출생연도는 저장하지 않는다(SPEC-003 D1 · 12절). 모든 시각은 `TIMESTAMPTZ(3)`이다 — SQL `now()`와 직접 비교하는 조건 때문이며 member_db의 `TIMESTAMP(3)`과 다르다(D7). seed는 없다(운영자가 화면에서 만든다).
 
-| 마이그레이션                | 내용                                                                             |
-| --------------------------- | -------------------------------------------------------------------------------- |
-| `20260923014911_init_event` | enum `ScheduleStatus`, `Meetup`, `Schedule`, 인덱스, FK, 손으로 추가한 CHECK 6개 |
+| 마이그레이션                     | 내용                                                                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `20260923014911_init_event`      | enum `ScheduleStatus`, `Meetup`, `Schedule`, 인덱스, FK, 손으로 추가한 CHECK 6개                                                           |
+| `20260925001239_add_application` | enum `Gender` · `ApplicationStatus` · `ApplicationCancelledBy`, `Application`, 인덱스 둘 + 부분 유니크 인덱스, FK, 손으로 추가한 CHECK 2개 |
 
 ### `Meetup` — 모임 상품 (회차가 함께 쓰는 제목 · 설명)
 
@@ -212,13 +213,73 @@ pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-
 | `Schedule_venue_map_url_https`   | `venueMapUrl IS NULL OR venueMapUrl LIKE 'https://%'`                                      |
 | `Schedule_cancel_reason`         | `(status = 'CANCELLED') = (cancelReason IS NOT NULL)` — CANCELLED일 때만, 그리고 반드시    |
 
+### `Application` — 참가 신청 (SPEC-003)
+
+| 열                        | 타입 · 제약                           | 뜻                                                                             |
+| ------------------------- | ------------------------------------- | ------------------------------------------------------------------------------ |
+| `id`                      | `TEXT` PK, UUID v4                    |                                                                                |
+| `scheduleId`              | `TEXT` FK → `Schedule.id` (RESTRICT)  | 신청한 회차                                                                    |
+| `memberId`                | `TEXT` NOT NULL                       | member_db의 회원 ID. FK 없음(ADR-007)                                          |
+| `gender`                  | `Gender` NOT NULL                     | 신청할 때의 성별 스냅샷. 자리 계산에 쓴다                                      |
+| `price`                   | `INTEGER` NOT NULL                    | 신청할 때 그 성별의 참가비. 운영자가 회차 참가비를 바꿔도 그대로다             |
+| `status`                  | `ApplicationStatus` DEFAULT `PENDING` | 신청 상태(SPEC-003 6절). 활성 신청 = `CANCELLED`가 아닌 신청                   |
+| `cancelledBy`             | `ApplicationCancelledBy` nullable     | 취소 주체. CANCELLED일 때만 값이 있다                                          |
+| `createdAt` · `updatedAt` | `TIMESTAMPTZ(3)`                      | 신청 · 갱신 시각. 취소된 행은 다시 바뀌지 않아 `updatedAt`이 취소 시각이다(D1) |
+
+- 인덱스: `Application_scheduleId_createdAt_idx`(운영자 목록 · 성별 집계 · FK 조회), `Application_memberId_createdAt_idx`(내 신청 목록 · 입금 대기 한도).
+- **부분 유니크 인덱스** `Application_active_member_key`: `("scheduleId", "memberId") WHERE "status" <> 'CANCELLED'` — 한 회차 · 한 회원의 활성 신청은 하나다(최종 방어선, D3). CANCELLED 행은 같은 쌍에 여러 개 있을 수 있다. Prisma `partialIndexes` 미리보기로 스키마에 선언해 Prisma가 만들고 관리한다(개발 승인 N).
+- **생성 선택자 `scheduleId_memberId`를 쓰지 않는다.** 미리보기의 생성 클라이언트는 이 인덱스를 보통 복합 유니크처럼 다뤄 `findUnique` · `update` · `upsert` 등에 `scheduleId_memberId`를 만든다. 같은 쌍에 CANCELLED 행이 여럿일 수 있어 취소된 행을 가리킬 수 있다. 활성 신청은 `findFirst({ where: { scheduleId, memberId, ...ACTIVE_APPLICATION_WHERE } })`로만 찾는다([기술 스택 함정 11](../architecture/tech-stack.md)).
+- 유니크 · CHECK · FK 테스트: `apps/event-service/src/prisma/application-checks.integration.spec.ts`.
+
+| 제약                       | 조건                                                                                   |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `Application_price_valid`  | `price >= 0`                                                                           |
+| `Application_cancelled_by` | `(status = 'CANCELLED') = (cancelledBy IS NOT NULL)` — CANCELLED일 때만, 그리고 반드시 |
+
+#### 불변식 점검 쿼리 — "활성 신청 수 ≤ 정원"
+
+여러 행에 걸친 조건이라 CHECK로 쓸 수 없다. 모든 신청과 정원 수정이 회차 행을 먼저 잠그는 것으로 지킨다(SPEC-003 D3 · D8). 운영 중 확인할 때 이 쿼리를 돌린다. **결과는 항상 0행이어야 한다.**
+
+```sql
+SELECT s."id", a."gender", count(*) AS active,
+       CASE a."gender" WHEN 'MALE' THEN s."capacityMale" ELSE s."capacityFemale" END AS capacity
+FROM "Application" a JOIN "Schedule" s ON s."id" = a."scheduleId"
+WHERE a."status" <> 'CANCELLED'
+GROUP BY s."id", a."gender", s."capacityMale", s."capacityFemale"
+HAVING count(*) > CASE a."gender" WHEN 'MALE' THEN s."capacityMale" ELSE s."capacityFemale" END;
+```
+
+#### 잘못 취소한 신청 되살리기 (SPEC-003 J-2 — 화면 없음)
+
+운영자 요청을 받아 개발자가 DB에서 한다. 한 트랜잭션에서 회차 행을 먼저 잠그고, 아래 세 가지를 확인한 뒤에만 되살린다.
+
+```sql
+BEGIN;
+SET LOCAL lock_timeout = '2s';
+SELECT "id", "status", "startsAt", "capacityMale", "capacityFemale"
+FROM "Schedule" WHERE "id" = :scheduleId FOR UPDATE;
+-- 1 · 2 · 3을 확인한다(아래)
+UPDATE "Application"
+SET "status" = 'PENDING', "cancelledBy" = NULL, "updatedAt" = now()
+WHERE "id" = :applicationId AND "scheduleId" = :scheduleId AND "status" = 'CANCELLED';
+COMMIT; -- 하나라도 어긋나면 ROLLBACK
+```
+
+1. 회차가 OPEN 또는 CLOSED이고 아직 시작 전이다(`"startsAt" > now()`). 취소된 회차 · 지난 회차에는 되살리지 않는다.
+2. 그 신청 성별의 활성 신청 수가 정원보다 작다 — 불변식이라 운영자도 넘길 수 없다.
+3. 같은 회원의 입금 대기 신청이 다른 시작 전 회차에 없다(입금 대기 한도). **이것만 예외다** — 어긋나면 먼저 운영자에게 알리고, 운영자가 한도를 넘겨도 된다고 명시했을 때만 진행한다.
+
+1 · 2가 어긋나거나 3이 어긋나고 명시가 없으면 ROLLBACK하고 운영자에게 알린다. 같은 회원의 활성 신청이 이 회차에 이미 있으면 부분 유니크 인덱스가 막는다(23505). 신청 마감 · 남성 연령대는 다시 보지 않는다(운영자 판단).
+
 ### enum
 
-`ScheduleStatus`(`DRAFT` · `OPEN` · `CLOSED` · `CANCELLED`). 행사를 마친 상태는 Step 5(SPEC-005)가 더한다. Postgres enum 타입 이름도 같다.
+`ScheduleStatus`(`DRAFT` · `OPEN` · `CLOSED` · `CANCELLED`). 행사를 마친 상태는 Step 5(SPEC-005)가 더한다. `Gender`(`MALE` · `FEMALE`) — member_db의 `Gender`와 값이 같다. `ApplicationStatus`(`PENDING` · `CANCELLED`) — 참가 확정 상태는 Step 4(SPEC-004)가 더한다. `ApplicationCancelledBy`(`MEMBER` · `ADMIN` · `SCHEDULE`). Postgres enum 타입 이름도 같다.
 
 ### event_db에 없는 것 (설계로 뺀 것)
 
 - 작성자 · 수정자 열 — 로그(`adminId`)가 원천이다(SPEC-002 5절).
 - 여성 연령대 열 — 여성에게는 연령 조건이 없다(D5).
 - NEXT 재참가 혜택 · "같은 금액" 여부 — 혜택 내용은 결정 예정 (금액 혜택이면 Step 4 · 신청 조건이면 SPEC-003 개정) — Step 3 신청에는 없음. 같은 금액 여부는 두 값의 비교로 안다(D3).
-- 신청(`Application`) · 좌석 계산 — Step 3이 같은 `event_db`에 더한다. 방식은 결정 예정 (Step 3)(SPEC-002 9절).
+- 신청자의 이름 · 휴대폰 · 출생연도 — member_db에만 있다. 운영자 화면이 member API로 붙인다(SPEC-003 D11).
+- 대기자 명단 · 취소 사유 · 취소 시각 열 — 대기자와 취소 사유는 없고(SPEC-003 확인 요청 E · J), 취소 시각은 `updatedAt`이다. 취소된 행을 고치는 Step이 생기면 `cancelledAt`을 먼저 더한다(SPEC-003 9절 "Step 4가 더할 것").
+- 좌석 수 열 — 성별 활성 신청 수를 그때그때 센다(회차 행 잠금 뒤).
