@@ -64,8 +64,8 @@ export function ScheduleForm({
   const mutation = creating ? create : update;
   useEndSessionOn401(mutation.error);
   // 만들기는 성공하면 상세로 떠나므로 그때까지 잠근다(다시 누르면 한 번 더 만들어진다). 수정은 이 화면에 남아 다시 저장할 수 있다.
-  // 저장 전 안내를 위해 회차를 새로 읽는 동안에도 잠근다 — 두 번 누르면 PATCH가 두 번 나간다. 잠그면 포커스가 버튼에서
-  // 빠지므로 확인 창을 닫을 때 저장 버튼으로 돌려놓는다(`focusSubmit`)
+  // 저장 전 안내를 위해 회차를 새로 읽는 동안에도 잠근다 — 두 번 누르면 PATCH가 두 번 나간다. 잠그면 포커스가 저장
+  // 버튼에서 빠지므로, 확인 창을 "다시 고치기" · Esc로 닫았는데 브라우저가 포커스를 돌려놓지 못했으면 저장 버튼으로 옮긴다
   const [refreshing, setRefreshing] = useState(false);
   const locked =
     mutation.isPending || refreshing || (creating && mutation.isSuccess);
@@ -308,8 +308,13 @@ export function ScheduleForm({
         title="확인"
         onClose={() => {
           setPending(null);
-          // 닫힌 뒤(브라우저의 포커스 복원 다음) 저장 버튼으로 — 새로 읽는 동안 잠겨 포커스가 빠졌다
-          focusSubmit();
+          // 닫힌 뒤(브라우저의 포커스 복원 다음) 돌아갈 곳이 없을 때만 — Enter를 누른 칸으로 돌아갔으면 그대로 둔다
+          if (
+            document.activeElement === null ||
+            document.activeElement === document.body
+          ) {
+            focusSubmit();
+          }
         }}
         describedBy={questionId}
       >
