@@ -86,7 +86,8 @@ function ScheduleDetail({
     <BackLink href={`/meetups/${meetup.id}`}>{meetup.title}</BackLink>
   );
 
-  if (!validId || error) {
+  // 다시 부르기만 실패했으면(가진 회차가 있으면) 화면을 두어 고치던 입력을 잃지 않게 한다
+  if (!validId || (error && schedule === undefined)) {
     return (
       <div className="flex flex-col gap-6">
         {back}

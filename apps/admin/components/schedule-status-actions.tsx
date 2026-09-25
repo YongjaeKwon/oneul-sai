@@ -9,7 +9,6 @@ import {
   type UpdateScheduleStatusRequest,
 } from '@oneul-sai/contracts';
 import { Button, Dialog } from '@oneul-sai/ui';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -19,8 +18,8 @@ import { scheduleCancelApplicantsNote } from '@/lib/applications';
 import { STATUS_TIME_INVALID_MESSAGE, describeEventError } from '@/lib/errors';
 import { textareaClasses } from '@/lib/form-styles';
 import {
-  meetupKeys,
   useDeleteSchedule,
+  useRefreshSchedule,
   useUpdateScheduleStatus,
 } from '@/lib/queries';
 import { FormField } from './form-field';
@@ -42,7 +41,7 @@ export function ScheduleStatusActions({
   now: number;
 }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const refreshSchedule = useRefreshSchedule(schedule.meetupId);
   const statusMutation = useUpdateScheduleStatus(
     schedule.meetupId,
     schedule.id,
@@ -105,10 +104,8 @@ export function ScheduleStatusActions({
           onClick={() => {
             // 앞서 실패한 공개 · 마감의 에러가 취소 창 안에 따라오지 않게
             statusMutation.reset();
-            // 창의 "신청 N건도 함께 취소됩니다"가 화면을 연 뒤 들어온 신청까지 세도록 회차를 새로 읽는다
-            void queryClient.invalidateQueries({
-              queryKey: meetupKeys.schedule(schedule.meetupId, schedule.id),
-            });
+            // 창의 "신청 N건도 함께 취소됩니다"가 화면을 연 뒤 들어온 신청까지 세도록 회차를 새로 읽는다(실패하면 가진 값)
+            void refreshSchedule(schedule.id);
             setDialog('cancel');
           }}
         >

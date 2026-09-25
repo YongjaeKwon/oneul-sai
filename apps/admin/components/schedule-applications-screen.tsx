@@ -7,7 +7,7 @@ import {
 } from '@oneul-sai/contracts';
 import { Badge, Button, Dialog } from '@oneul-sai/ui';
 import Link from 'next/link';
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import {
   APPLICATION_ERROR_OVERRIDES,
@@ -211,8 +211,16 @@ function ApplicationTable({
   // 확인 창은 신청 ID만 쥐고 회원은 지금의 행에서 읽는다 — 창을 연 뒤 도착한 이름도 질문에 들어가게
   const [targetId, setTargetId] = useState<string | null>(null);
   const questionId = useId();
-  // 취소한 행의 버튼이 사라져도 키보드 포커스가 갈 곳
+  // 취소한 행의 버튼이 사라져도 키보드 포커스가 갈 곳. 창이 닫힐 때(`dialog.close()`) 브라우저가 포커스를 연 버튼으로
+  // 되돌리므로, 창이 닫힌 뒤(자식 Dialog의 effect 다음)에 옮긴다
   const tableRef = useRef<HTMLDivElement>(null);
+  const returnFocus = useRef(false);
+  useEffect(() => {
+    if (targetId === null && returnFocus.current) {
+      returnFocus.current = false;
+      tableRef.current?.focus();
+    }
+  }, [targetId]);
 
   if (error) {
     return <Notice tone="danger">{describeEventError(error)}</Notice>;
@@ -280,10 +288,11 @@ function ApplicationTable({
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
+              rows.map((row, index) => (
                 <ApplicationRowView
                   key={row.application.id}
                   row={row}
+                  ordinal={(data.page - 1) * data.pageSize + index + 1}
                   cancelDisabled={cancel.isPending}
                   onCancel={() => {
                     cancel.reset();
@@ -319,8 +328,8 @@ function ApplicationTable({
                 onClick={() =>
                   cancel.mutate(target.application.id, {
                     onSettled: () => {
+                      returnFocus.current = true;
                       closeDialog();
-                      tableRef.current?.focus();
                     },
                   })
                 }
@@ -346,17 +355,20 @@ function ApplicationTable({
 
 function ApplicationRowView({
   row: { application, member },
+  ordinal,
   cancelDisabled,
   onCancel,
 }: {
   row: ApplicationRow;
+  /** 신청 순 번호(페이지를 넘어 이어진다) — 이름을 모르는 행을 서로 가르는 데 쓴다. */
+  ordinal: number;
   cancelDisabled: boolean;
   onCancel: () => void;
 }) {
   const cancelled = application.status === 'CANCELLED';
   const appliedAt = formatScheduleTime(application.createdAt);
-  // 이름을 모르는 행(탈퇴 · 조회 실패 · 불러오는 중)도 서로 가를 수 있게 신청 시각을 넣는다
-  const who = member?.name ?? `${appliedAt} 신청자`;
+  // 이름을 모르는 행(탈퇴 · 조회 실패 · 불러오는 중)도 서로 가를 수 있게 신청 순번을 넣는다(같은 분의 신청도 갈린다)
+  const who = member?.name ?? `${ordinal}번째 신청자`;
 
   return (
     <tr className="align-top hover:bg-ivory">

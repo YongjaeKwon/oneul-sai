@@ -183,6 +183,27 @@ function useScheduleSaved(meetupId: string) {
   };
 }
 
+/**
+ * 회차를 새로 읽어 캐시에 넣는다(A8 저장 전 안내 · 회차 취소 창의 신청 수 — SPEC-003 H · I). 실패하면 null을 돌려주고
+ * 캐시는 건드리지 않는다 — 공유 쿼리를 오류 상태로 만들면 회차 상세가 오류 화면으로 바뀌어 고치던 입력이 사라진다.
+ */
+export function useRefreshSchedule(meetupId: string) {
+  const queryClient = useQueryClient();
+
+  return async (scheduleId: string): Promise<AdminSchedule | null> => {
+    try {
+      const fresh = await apiClient.getSchedule(meetupId, scheduleId);
+      queryClient.setQueryData(
+        meetupKeys.schedule(meetupId, scheduleId),
+        fresh,
+      );
+      return fresh;
+    } catch {
+      return null;
+    }
+  };
+}
+
 /** A7 회차 만들기(항상 DRAFT). */
 export function useCreateSchedule(meetupId: string) {
   const onSuccess = useScheduleSaved(meetupId);
