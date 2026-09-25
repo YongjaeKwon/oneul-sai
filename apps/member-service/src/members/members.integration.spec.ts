@@ -548,8 +548,16 @@ describe('members (integration)', () => {
       [a.profile.id, b.profile.id].sort(),
     );
     expect(viewed[0]).not.toContain(missing);
-    expect(viewed[0]).not.toContain('010');
-    expect(viewed[0]).not.toContain('앨리스');
+    // 저장된 값(휴대폰은 하이픈 없이) 그대로 찾는다
+    for (const value of [
+      '01011112222',
+      '01033334444',
+      'alice@',
+      'bob@',
+      '앨리스',
+    ]) {
+      expect(viewed[0]).not.toContain(value);
+    }
 
     const andStatus = await t.call({
       method: 'GET',

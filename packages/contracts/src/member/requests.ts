@@ -88,7 +88,9 @@ export const MemberListQuerySchema = z
     ids: z
       .string()
       .transform((value) => value.split(','))
-      .pipe(z.array(z.uuid()).min(1).max(MEMBER_LIST_MAX_PAGE_SIZE))
+      // 개수를 먼저 본다 — 쉼표만 길게 이은 값이 조각마다 이슈를 만들지 않게(앞 단계가 실패하면 뒤 단계는 돌지 않는다)
+      .pipe(z.array(z.string()).max(MEMBER_LIST_MAX_PAGE_SIZE))
+      .pipe(z.array(z.uuid()).min(1))
       .optional(),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce
