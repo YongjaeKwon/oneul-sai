@@ -29,11 +29,14 @@ describe('envSchema', () => {
     expect(result.data?.MEMBER_SERVICE_URL).toBe('http://member-service:4001');
   });
 
-  it('rejects a MEMBER_SERVICE_URL that is not a URL', () => {
-    const result = envSchema.safeParse({
-      ...minimal,
-      MEMBER_SERVICE_URL: 'member-service',
-    });
-    expect(result.success).toBe(false);
-  });
+  it.each(['member-service', 'member-service:4001', 'ftp://member-service'])(
+    'rejects MEMBER_SERVICE_URL %s (http · https only — a missing scheme would fail every call)',
+    (value) => {
+      const result = envSchema.safeParse({
+        ...minimal,
+        MEMBER_SERVICE_URL: value,
+      });
+      expect(result.success).toBe(false);
+    },
+  );
 });

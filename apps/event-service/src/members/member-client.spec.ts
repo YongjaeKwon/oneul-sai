@@ -66,6 +66,7 @@ describe('MemberClient.lookupSelf — request', () => {
       'x-internal-token': TOKEN,
     });
     expect(init?.headers).not.toHaveProperty('authorization');
+    expect(init?.redirect).toBe('manual');
   });
 
   it('returns only gender and birthYear for an ACTIVE MEMBER', async () => {
@@ -144,6 +145,22 @@ describe('MemberClient.lookupSelf — response table (SPEC-003 7절)', () => {
       );
     },
   );
+
+  it('a redirect is not followed → 503 + error log (configuration error)', async () => {
+    const { client, logger } = build(
+      async () =>
+        new Response(null, {
+          status: 307,
+          headers: { location: 'http://elsewhere.example/api/v1/members/me' },
+        }),
+    );
+    const error = await errorOf(client.lookupSelf(CALLER, 'r'));
+    expect(error.getStatus()).toBe(503);
+    expect(logger.error).toHaveBeenCalledWith(
+      'application.member_lookup_failed',
+      expect.objectContaining({ status: 307 }),
+    );
+  });
 
   it('a 4xx body that is not JSON → 503 + error log', async () => {
     const { client, logger } = build(

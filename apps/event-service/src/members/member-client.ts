@@ -113,6 +113,9 @@ export class MemberClient implements MemberLookup {
           [HEADER_INTERNAL_TOKEN]: this.options.internalToken,
         },
         signal: controller.signal,
+        // 3xx를 따라가지 않는다 — 내부 토큰 · 호출자 헤더가 MEMBER_SERVICE_URL 밖으로 가지 않게.
+        // 3xx는 표에 없는 응답이라 아래에서 503 + error(설정 오류)가 된다
+        redirect: 'manual',
       });
       status = response.status;
       const text = await response.text();
