@@ -1076,3 +1076,8 @@ SPEC-002 13절의 방식 그대로다: 단위는 vitest, 소스 옆 `*.spec.ts`,
 - `cancelActiveForSchedule`(`updateMany`)의 생성 SQL은 조건을 담은 UPDATE **한 문장**이다: `UPDATE "public"."Application" SET "status" = …, "cancelledBy" = …, "updatedAt" = $3 WHERE ("public"."Application"."scheduleId" = $4 AND "public"."Application"."status" <> CAST($5::text AS "public"."ApplicationStatus"))`. `$executeRaw`로 고정할 필요가 없었다. Prisma 쿼리 로그로 확인하는 통합 테스트를 남겼다(`src/applications/application-queries.integration.spec.ts`).
 - `SET LOCAL lock_timeout = '2s'`는 PrismaPg 대화형 트랜잭션 안에서만 걸린다 — 연결 하나짜리 풀에서 트랜잭션 안 `SHOW lock_timeout` = `2s`, 뒤 요청 = `0`(같은 테스트 파일). 잠금 대기 초과(SQLSTATE 55P03)는 기존 `dbErrorFields`로 가를 수 있었다 — 회차 행을 3초 쥔 동안의 `PATCH`가 503 `SERVICE_BUSY` + `Retry-After: 1`로 끝나는 통합 테스트로 확인했다.
 - 응답 스키마 확장의 영향: admin은 타입 픽스처 하나(`apps/admin/lib/schedule-form.spec.ts`)에 네 값을 더했다. web은 바꿀 것이 없었다 — 공개 조회는 `JSON.parse` 뒤 타입만 붙이고 새 필드를 아직 쓰지 않으며(7번 PR에서 쓴다), 서버 렌더 캐시(30초)는 그대로다.
+
+**5b PR 확인 (2026-09-25) — 동작은 설계와 같다. 구현 방식 두 가지를 적는다.**
+
+- 10절 `member-client` 행의 `AbortSignal.timeout(3000)` 대신 `AbortController` + `setTimeout`을 썼다 — vitest 가짜 타이머로 3초 초과를 결정적으로 시험하려는 것이다. 같은 신호가 본문 읽기까지 끊는다. 리뷰에서 `redirect: 'manual'`을 더했다 — 3xx를 따라가면 내부 토큰 · 호출자 헤더가 `MEMBER_SERVICE_URL` 밖으로 가므로, 3xx는 7절 표에 없는 응답으로 503 + error가 된다. env `MEMBER_SERVICE_URL`은 http · https URL만 받는다(스킴 없는 `member-service:4001`은 부팅 실패).
+- 주입은 `MembersModule`(global, `MemberClient` 토큰)로 한다. `createApp({ memberClient })`가 가짜 `MemberLookup`을 넘기면 그것을, 없으면 env로 만든 `MemberClient`를 쓴다(D13).
