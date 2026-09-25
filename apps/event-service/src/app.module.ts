@@ -2,6 +2,7 @@ import { Module, type DynamicModule } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { InternalAuthGuard, RolesGuard } from '@oneul-sai/service-kit';
 import { env } from './env.js';
+import { ApplicationsModule } from './applications/applications.module.js';
 import { EventsModule } from './events/events.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MeetupsModule } from './meetups/meetups.module.js';
@@ -27,6 +28,7 @@ export class AppModule {
         EventsModule,
         MeetupsModule,
         SchedulesModule,
+        ApplicationsModule,
       ],
       providers: [
         // 전역 가드는 등록 순서대로 돈다: 내부 토큰 · 내부 헤더 신뢰 규칙 → 역할 (SPEC-002 10절, member-service와 같다).

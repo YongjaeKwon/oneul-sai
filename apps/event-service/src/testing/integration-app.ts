@@ -16,8 +16,10 @@ import {
   type Meetup,
   type MemberRole,
 } from '@oneul-sai/contracts';
+import { apiError } from '@oneul-sai/service-kit';
 import { inject } from 'vitest';
 import { createApp } from '../app.js';
+import type { Applicant, MemberLookup } from '../members/member-client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { resetTestDatabase } from './test-database.js';
 
@@ -86,23 +88,73 @@ export function scheduleInput(
 export const codeOf = (result: ApiResult): string | undefined =>
   (result.body as ApiErrorResponse | undefined)?.code;
 
+/**
+ * 가짜 회원 조회(SPEC-003 D13) — member-service를 띄우지 않는다. 등록한 회원만 조회되고, 등록하지 않은 ID는
+ * member-service가 행 없음 · 탈퇴에 주는 401 `UNAUTHENTICATED`와 같다. `fail`로 정지 · 조회 실패를 흉내 낸다.
+ */
+export class FakeMembers implements MemberLookup {
+  private readonly profiles = new Map<string, Applicant | Error>();
+
+  /** 새 회원(MEMBER) 하나를 만들어 등록한다. */
+  add(gender: Applicant['gender'], birthYear: number): Caller {
+    const caller: Caller = { id: randomUUID(), role: 'MEMBER' };
+    this.profiles.set(caller.id, { gender, birthYear });
+    return caller;
+  }
+
+  /** 이 회원의 조회가 member-client가 내는 에러로 끝난다: 탈퇴 401 · 정지 403 · 조회 실패 503. */
+  fail(caller: Caller, status: 401 | 403 | 503): void {
+    const code = {
+      401: 'UNAUTHENTICATED',
+      403: 'ACCOUNT_SUSPENDED',
+      503: 'SERVICE_BUSY',
+    } as const;
+    this.profiles.set(caller.id, apiError(status, code[status], code[status]));
+  }
+
+  clear(): void {
+    this.profiles.clear();
+  }
+
+  async lookupSelf(caller: { id: string }): Promise<Applicant> {
+    const entry =
+      this.profiles.get(caller.id) ??
+      apiError(401, 'UNAUTHENTICATED', 'UNAUTHENTICATED');
+    if (entry instanceof Error) throw entry;
+    return entry;
+  }
+}
+
 export class TestApp {
   private constructor(
     readonly app: NestExpressApplication,
     readonly prisma: PrismaService,
     readonly baseUrl: string,
+    readonly members: FakeMembers,
   ) {}
 
   static async start(): Promise<TestApp> {
     const prisma = new PrismaService(inject('testDatabaseUrl'));
-    const app = await createApp({ logger: false, swagger: false, prisma });
+    const members = new FakeMembers();
+    const app = await createApp({
+      logger: false,
+      swagger: false,
+      prisma,
+      memberClient: members,
+    });
     await app.listen(0, '127.0.0.1');
     const address = app.getHttpServer().address() as AddressInfo;
-    return new TestApp(app, prisma, `http://127.0.0.1:${address.port}`);
+    return new TestApp(
+      app,
+      prisma,
+      `http://127.0.0.1:${address.port}`,
+      members,
+    );
   }
 
-  /** 각 테스트 앞에서 — 실제로 붙은 DB가 `_test_db`인지 확인한 뒤 비운다. */
+  /** 각 테스트 앞에서 — 실제로 붙은 DB가 `_test_db`인지 확인한 뒤 비운다. 가짜 회원도 비운다. */
   reset(): Promise<void> {
+    this.members.clear();
     return resetTestDatabase(this.prisma);
   }
 
