@@ -42,15 +42,16 @@
 
 ## 구조
 
-| 경로                               | 역할                                                                                                                                     |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app.ts` · `src/app.module.ts` | `createApp()`(JSON 본문 파서만, 전역 필터, Swagger) · 전역 가드(내부 토큰 → 역할)                                                        |
-| `src/events/`                      | 공개 조회만. `PUBLIC_SCHEDULE_SELECT` · `PublicScheduleSchema`와 신청 수 집계(`activeCountsBySchedule`)만 쓴다                           |
-| `src/meetups/`                     | 운영자 상품 API                                                                                                                          |
-| `src/schedules/`                   | 운영자 회차 API, `schedule-rules.ts`(순수 규칙 · 전이 표), `schedule-select.ts`(공개 · 운영자 select)                                    |
-| `src/applications/`                | `application-queries.ts` — `Application` 테이블 접근은 여기만: 활성 조건, 성별 활성 신청 수, 회차 취소 연쇄, 신청 수 집계(SPEC-003 10절) |
-| `src/common/`                      | `NoStoreInterceptor`, `dbErrorFields` · 예상 밖 에러 로그 필터, `db-lock.ts`(잠금 대기 상한 · 55P03/P2028 → 503), Swagger 헤더 설명      |
-| `src/testing/`                     | 통합 테스트 도우미(`TestApp`, 테스트 DB 보호). 빌드에서 제외                                                                             |
+| 경로                               | 역할                                                                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/app.ts` · `src/app.module.ts` | `createApp()`(JSON 본문 파서만, 전역 필터, Swagger) · 전역 가드(내부 토큰 → 역할)                                                                |
+| `src/events/`                      | 공개 조회만. `PUBLIC_SCHEDULE_SELECT` · `PublicScheduleSchema`와 신청 수 집계(`activeCountsBySchedule`)만 쓴다                                   |
+| `src/meetups/`                     | 운영자 상품 API                                                                                                                                  |
+| `src/schedules/`                   | 운영자 회차 API, `schedule-rules.ts`(순수 규칙 · 전이 표), `schedule-select.ts`(공개 · 운영자 select)                                            |
+| `src/members/`                     | `member-client.ts` — 위임 호출 하나(`GET /api/v1/members/me`, 3초, (상태, code) 쌍 해석, ADR-011) · `MembersModule`(통합 테스트는 가짜를 넣는다) |
+| `src/applications/`                | `application-queries.ts` — `Application` 테이블 접근은 여기만: 활성 조건, 성별 활성 신청 수, 회차 취소 연쇄, 신청 수 집계(SPEC-003 10절)         |
+| `src/common/`                      | `NoStoreInterceptor`, `dbErrorFields` · 예상 밖 에러 로그 필터, `db-lock.ts`(잠금 대기 상한 · 55P03/P2028 → 503), Swagger 헤더 설명              |
+| `src/testing/`                     | 통합 테스트 도우미(`TestApp`, 테스트 DB 보호). 빌드에서 제외                                                                                     |
 
 로그는 `@oneul-sai/logger` 구조화 로그다(`meetup.created` · `meetup.updated` · `schedule.created` · `schedule.updated` · `schedule.status_changed`(→ CANCELLED면 `cancelledApplications`) · `schedule.deleted`, 식별자와 바뀐 필드 이름만). 회차 쓰기가 503으로 끝나면 warn `schedule.busy`(meetupId · scheduleId · cause `lock_timeout`|`pool` · requestId)를 남긴다. 예상 밖 에러(500)는 `request.failed`로 SQLSTATE · Prisma 코드 · 제약 이름만 남긴다 — PostgreSQL DETAIL(행 값)은 남기지 않는다(SPEC-002 12절).
 
@@ -93,6 +94,7 @@
 | `DATABASE_URL`       | `postgresql://oneul:oneul@localhost:5432/event_db`      | event_db Postgres 연결 URL                                                                                     |
 | `NODE_ENV`           | `development`                                           | `development` · `test` · `production`                                                                          |
 | `INTERNAL_API_TOKEN` | (필수, 기본값 없음)                                     | Gateway ↔ 서비스 공유 비밀(`x-internal-token`). api-gateway와 같은 값, 32자 이상                               |
+| `MEMBER_SERVICE_URL` | `http://localhost:4001`(development · test)             | 위임 호출 대상 member-service 주소(ADR-011). **production은 기본값 없이 필수** — 없으면 부팅하지 않는다        |
 | `TEST_DATABASE_URL`  | `postgresql://oneul:oneul@localhost:5432/event_test_db` | 통합 테스트 전용 DB. vitest `globalSetup`만 읽는다(서비스 부팅에는 쓰지 않음). 이름이 `_test_db`로 끝나야 한다 |
 
 ## 마이그레이션
