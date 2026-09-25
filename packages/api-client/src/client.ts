@@ -12,6 +12,7 @@ import {
   type BatchCreateSchedulesResponse,
   type ChangePasswordRequest,
   type ClientType,
+  type CreateApplicationRequest,
   type CreateMeetupRequest,
   type CreateScheduleRequest,
   type LoginRequest,
@@ -31,6 +32,7 @@ import {
   type PublicScheduleListResponse,
   type RefreshRequest,
   type SignupRequest,
+  type UpdateApplicationStatusRequest,
   type UpdateMeetupRequest,
   type UpdateMemberStatusRequest,
   type UpdateMyProfileRequest,
@@ -460,7 +462,7 @@ export class ApiClient {
   /** `POST /api/v1/applications` (MEMBER). 201 입금 대기. */
   apply(scheduleId: string): Promise<MyApplication> {
     return this.request<MyApplication>('POST', APPLICATION_PATHS.applications, {
-      body: { scheduleId },
+      body: { scheduleId } satisfies CreateApplicationRequest,
     });
   }
 
@@ -480,7 +482,9 @@ export class ApiClient {
     return this.request<MyApplication>(
       'PATCH',
       APPLICATION_PATHS.applicationStatus(applicationId),
-      { body: { status: 'CANCELLED' } },
+      {
+        body: { status: 'CANCELLED' } satisfies UpdateApplicationStatusRequest,
+      },
     );
   }
 
@@ -508,7 +512,9 @@ export class ApiClient {
     return this.request<AdminApplication>(
       'PATCH',
       MEETUP_PATHS.applicationStatus(meetupId, scheduleId, applicationId),
-      { body: { status: 'CANCELLED' } },
+      {
+        body: { status: 'CANCELLED' } satisfies UpdateApplicationStatusRequest,
+      },
     );
   }
 
