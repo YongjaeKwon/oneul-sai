@@ -140,7 +140,7 @@ describe('members (integration)', () => {
       await t.prisma.refreshToken.count({ where: { memberId: profile.id } }),
     ).toBe(0);
 
-    // 탈퇴 전 access token(Gateway는 통과시킨다)으로 me → 401
+    // 탈퇴 전 access token(Gateway는 통과시킨다)으로 me → 401 UNAUTHENTICATED — event-service 위임 호출이 이 쌍에 기댄다(ADR-011)
     const me = await t.call({
       method: 'GET',
       path: '/api/v1/members/me',
@@ -348,7 +348,9 @@ describe('members (integration)', () => {
       path: '/api/v1/members/me',
       user,
     });
+    // event-service 위임 호출이 (403, ACCOUNT_SUSPENDED) 쌍에 기댄다 — 바꾸면 member-client와 SPEC-003 D5를 함께 고친다
     expect(me.status).toBe(403);
+    expect(codeOf(me)).toBe(API_ERROR_CODES.ACCOUNT_SUSPENDED);
     const relogin = await t.login(input.email, input.password, 'WEB');
     expect(relogin.status).toBe(403);
     expect(codeOf(relogin)).toBe(API_ERROR_CODES.ACCOUNT_SUSPENDED);

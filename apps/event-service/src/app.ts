@@ -4,6 +4,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 import { LoggingHttpExceptionFilter } from './common/db-error.js';
+import type { MemberLookup } from './members/member-client.js';
 import type { PrismaService } from './prisma/prisma.service.js';
 
 export interface CreateAppOptions {
@@ -12,6 +13,8 @@ export interface CreateAppOptions {
   swagger?: boolean;
   /** 통합 테스트가 `inject('testDatabaseUrl')`로 만든 인스턴스. 없으면 env.DATABASE_URL (SPEC-002 D13). */
   prisma?: PrismaService;
+  /** 통합 테스트의 가짜 회원 조회(member-service를 띄우지 않는다). 없으면 env.MEMBER_SERVICE_URL (SPEC-003 D13). */
+  memberClient?: MemberLookup;
 }
 
 /**
@@ -22,7 +25,7 @@ export async function createApp(
   options: CreateAppOptions = {},
 ): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(
-    AppModule.forRoot(options.prisma),
+    AppModule.forRoot(options.prisma, options.memberClient),
     {
       bodyParser: false,
       ...(options.logger !== undefined ? { logger: options.logger } : {}),

@@ -5,18 +5,24 @@ import { env } from './env.js';
 import { EventsModule } from './events/events.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MeetupsModule } from './meetups/meetups.module.js';
+import type { MemberLookup } from './members/member-client.js';
+import { MembersModule } from './members/members.module.js';
 import type { PrismaService } from './prisma/prisma.service.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SchedulesModule } from './schedules/schedules.module.js';
 
 @Module({})
 export class AppModule {
-  /** `prisma`는 통합 테스트만 넘긴다(SPEC-002 D13). */
-  static forRoot(prisma?: PrismaService): DynamicModule {
+  /** `prisma` · `memberClient`는 통합 테스트만 넘긴다(SPEC-002 · SPEC-003 D13). */
+  static forRoot(
+    prisma?: PrismaService,
+    memberClient?: MemberLookup,
+  ): DynamicModule {
     return {
       module: AppModule,
       imports: [
         PrismaModule.forRoot(prisma),
+        MembersModule.forRoot(memberClient),
         HealthModule,
         EventsModule,
         MeetupsModule,
