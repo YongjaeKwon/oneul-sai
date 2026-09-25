@@ -6,7 +6,7 @@ import {
   ScheduleStatusSchema,
   type ScheduleStatus,
 } from '@oneul-sai/contracts';
-import { Button, Label } from '@oneul-sai/ui';
+import { Button, Dialog, Label } from '@oneul-sai/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -31,7 +31,6 @@ import {
 import { meetupKeys, useScheduleList } from '@/lib/queries';
 import { publishInOrder, type PublishResult } from '@/lib/schedule-batch';
 import { startOfSeoulToday } from '@/lib/schedule-form';
-import { Dialog } from './dialog';
 import { Notice } from './notice';
 import { Pagination } from './pagination';
 import { ScheduleStatusBadge } from './schedule-status-badge';

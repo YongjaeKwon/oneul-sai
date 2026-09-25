@@ -1,9 +1,8 @@
 'use client';
 
-import { Button } from '@oneul-sai/ui';
+import { Button, Dialog } from '@oneul-sai/ui';
 import { useState } from 'react';
 
-import { Dialog } from '@/components/dialog';
 import { FormAlert } from '@/components/form-alert';
 import { useAuth } from '@/lib/auth';
 import { describeError, isSessionEnded } from '@/lib/errors';

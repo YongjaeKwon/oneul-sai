@@ -6,7 +6,7 @@ import type {
   CreateScheduleRequest,
   UpdateScheduleRequest,
 } from '@oneul-sai/contracts';
-import { Button, Input } from '@oneul-sai/ui';
+import { Button, Dialog, Input } from '@oneul-sai/ui';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -22,7 +22,6 @@ import {
   type TimeField,
 } from '@/lib/schedule-form';
 import { useCreateSchedule, useUpdateSchedule } from '@/lib/queries';
-import { Dialog } from './dialog';
 import { FormField } from './form-field';
 import { Notice } from './notice';
 import { ScheduleSharedFields } from './schedule-shared-fields';

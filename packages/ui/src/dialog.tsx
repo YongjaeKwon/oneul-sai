@@ -14,7 +14,7 @@ export interface DialogProps {
  * 확인 · 입력 모달. 브라우저의 `<dialog>`(`showModal`)를 그대로 써서 포커스 가두기 · Esc 닫기를 얻는다.
  * 처음 포커스는 `showModal()`이 첫 포커스 가능 요소로 옮긴다. 다른 요소에서 시작하려면 그 요소에 `data-autofocus`를 단다
  * (React의 `autoFocus`는 창이 닫힌 채 마운트될 때 실행되어 `showModal()` 뒤에는 남지 않는다).
- * 표면은 카드와 같다(surface + line, 그림자 없음 — 디자인 파운데이션 4절 6).
+ * 표면은 카드와 같다(surface + line, 그림자 없음 — 디자인 파운데이션 4절 6 · 5절). 운영자 웹 · 참가자 웹이 함께 쓴다.
  */
 export function Dialog({ open, title, onClose, children }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);

@@ -8,7 +8,7 @@ import {
   type AdminSchedule,
   type UpdateScheduleStatusRequest,
 } from '@oneul-sai/contracts';
-import { Button } from '@oneul-sai/ui';
+import { Button, Dialog } from '@oneul-sai/ui';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -17,7 +17,6 @@ import { useEndSessionOn401 } from '@/lib/auth-provider';
 import { STATUS_TIME_INVALID_MESSAGE, describeEventError } from '@/lib/errors';
 import { textareaClasses } from '@/lib/form-styles';
 import { useDeleteSchedule, useUpdateScheduleStatus } from '@/lib/queries';
-import { Dialog } from './dialog';
 import { FormField } from './form-field';
 import { Notice } from './notice';
 

@@ -71,7 +71,7 @@ app/
   (protected)/meetups/page.tsx · new/page.tsx       A4 · A5
   (protected)/meetups/[meetupId]/page.tsx           A6
   (protected)/meetups/[meetupId]/schedules/new · [scheduleId] · batch   A7 · A8 · A9
-components/                      화면 컴포넌트 — login-screen, member-*, meetup-*, schedule-*, dialog(<dialog> 모달), form-field, page-header …
+components/                      화면 컴포넌트 — login-screen, member-*, meetup-*, schedule-*, form-field, page-header …
 lib/
   api.ts            ApiClient 인스턴스(client: 'ADMIN', credentials: 'include')
   auth-provider.tsx AuthProvider · useAuth · useEndSessionOn401

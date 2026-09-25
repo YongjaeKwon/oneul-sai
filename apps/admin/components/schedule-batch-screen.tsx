@@ -7,7 +7,7 @@ import {
   SCHEDULE_BATCH_MAX,
   type Meetup,
 } from '@oneul-sai/contracts';
-import { Button, Input, Label } from '@oneul-sai/ui';
+import { Button, Dialog, Input, Label } from '@oneul-sai/ui';
 import { useRouter } from 'next/navigation';
 import { useId, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -45,7 +45,6 @@ import {
   type ScheduleSharedValues,
 } from '@/lib/schedule-form';
 import { BackLink } from './back-link';
-import { Dialog } from './dialog';
 import { FormField } from './form-field';
 import { MeetupScope } from './meetup-scope';
 import { Notice } from './notice';
