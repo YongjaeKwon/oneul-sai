@@ -1090,3 +1090,10 @@ SPEC-002 13절의 방식 그대로다: 단위는 vitest, 소스 옆 `*.spec.ts`,
 - 잠금 대기 상한의 실제 동작은 위 표(11 · D3).
 - 리뷰 반영: 본인 취소가 503으로 끝나면 `application.busy`에 `scheduleId` 대신 `applicationId`를 남긴다(14절 표는 scheduleId) — 잠금 문장이 신청 ID와 회원 ID로만 찾아 잠금 전에는 회차를 모른다. 이미 읽은 행의 활성 판정은 `ACTIVE_APPLICATION_WHERE` 옆의 `isActive`로 한다(D2 — 활성 조건을 한곳에). 신청 마감 순서 강제 테스트는 요청이 마감 전에 줄을 섰는지 먼저 확인한다(느린 러너에서 헛되이 통과하지 않게).
 - `docs/api/README.md` 9.3절 인증 열: 3절 표의 '회원' 대신 범례에 **MEMBER**(`@Roles('MEMBER')`, ADMIN은 403)를 더해 신청 세 행에 썼다 — 기존 '회원'은 MEMBER · ADMIN 모두를 뜻한다.
+
+**7번 PR 확인 (2026-09-25) — 동작 · 문구는 4절과 같다. 구현 방식을 적는다.**
+
+- 확인 창: 4절 "두 앱이 함께 쓰게 되면 `packages/ui`로 옮긴다"대로 운영자 웹의 `Dialog`(`data-autofocus`)를 `packages/ui`로 옮겨 두 앱이 함께 쓴다(파운데이션 5절). 참가자 웹의 기존 창(모든 기기 로그아웃 · 탈퇴)은 뒤 배경이 `ink` 40%였는데 파운데이션의 `ink-muted` 40%로 맞춰졌다.
+- 참가 신청 영역의 판정은 순수 함수 `applyAreaState`(`apps/web/lib/applications.ts`)로 두고 (d)~(j) 순서를 단위 테스트로 고정했다. (a) 지난 일정은 서버 렌더 시각으로 거른다(영역을 렌더하지 않음). 신청 · 취소가 끝나면 성공 · 실패와 관계없이 내 신청 쿼리를 무효화한다 — 409 `ALREADY_APPLIED` · `REAPPLY_NOT_ALLOWED`가 곧바로 (e) · (g)로 바뀐다. 오류 문구는 영역 위에 남아 바뀐 상태와 함께 보인다. 회차 필드(`maleFull` 등)는 서버 렌더 값이라 409 `SCHEDULE_FULL` 뒤에도 버튼은 남고 문구로 알린다(최대 30초 캐시, 원천은 서버).
+- 로그인 뒤 이동: 로그인 · 가입 화면의 `next`는 서버 컴포넌트가 `searchParams`로 검사해 폼(로그인 ↔ 가입 링크)에 넘기고, 이동하는 `RedirectIfAuthenticated`는 effect 안에서 `window.location.search`를 다시 검사한다 — `useSearchParams`는 정적 렌더에서 Suspense 경계를 요구해서다. 검사는 `ScheduleIdSchema`(공개 상세와 같은 UUID 규칙)로 한다.
+- `/me`의 "내 신청"은 같은 화면의 "비밀번호 변경"처럼 버튼(`router.push`)이다.
