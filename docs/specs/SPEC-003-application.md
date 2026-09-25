@@ -1070,3 +1070,9 @@ SPEC-002 13절의 방식 그대로다: 단위는 vitest, 소스 옆 `*.spec.ts`,
 - 9절의 `@@unique([scheduleId, memberId], map: "Application_active_member_key", where: raw("\"status\" <> 'CANCELLED'"))` 문법이 Prisma 7.10 `partialIndexes`에서 그대로 통과했고, 마이그레이션 `20260925001239_add_application`에 `CREATE UNIQUE INDEX "Application_active_member_key" ON "Application"("scheduleId", "memberId") WHERE ("status" <> 'CANCELLED')`가 생성됐다. N의 대안(인덱스 빼기)은 쓰지 않았다.
 - 드리프트: `prisma migrate diff --from-migrations`는 shadow DB 설정(`datasource.shadowDatabaseUrl`)을 요구해, 마이그레이션을 적용한 개발 DB와 스키마를 비교했다 — `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma` 결과 "This is an empty migration."(드리프트 없음). 손으로 넣은 CHECK는 Prisma가 비교하지 않는다.
 - 생성된 클라이언트에 `ApplicationWhereUniqueInput.scheduleId_memberId`가 **있다**. 9 · 10절 규칙대로 쓰지 않는다 — `git grep scheduleId_memberId -- apps/event-service/src ':!**/generated/**'` 결과 0곳(기술 스택 함정 11).
+
+**5a PR 확인 (2026-09-25) — 설계와 차이 없음.**
+
+- `cancelActiveForSchedule`(`updateMany`)의 생성 SQL은 조건을 담은 UPDATE **한 문장**이다: `UPDATE "public"."Application" SET "status" = …, "cancelledBy" = …, "updatedAt" = $3 WHERE ("public"."Application"."scheduleId" = $4 AND "public"."Application"."status" <> CAST($5::text AS "public"."ApplicationStatus"))`. `$executeRaw`로 고정할 필요가 없었다. Prisma 쿼리 로그로 확인하는 통합 테스트를 남겼다(`src/applications/application-queries.integration.spec.ts`).
+- `SET LOCAL lock_timeout = '2s'`는 PrismaPg 대화형 트랜잭션 안에서만 걸린다 — 연결 하나짜리 풀에서 트랜잭션 안 `SHOW lock_timeout` = `2s`, 뒤 요청 = `0`(같은 테스트 파일). 잠금 대기 초과(SQLSTATE 55P03)는 기존 `dbErrorFields`로 가를 수 있었다 — 회차 행을 3초 쥔 동안의 `PATCH`가 503 `SERVICE_BUSY` + `Retry-After: 1`로 끝나는 통합 테스트로 확인했다.
+- 응답 스키마 확장의 영향: admin은 타입 픽스처 하나(`apps/admin/lib/schedule-form.spec.ts`)에 네 값을 더했다. web은 바꿀 것이 없었다 — 공개 조회는 `JSON.parse` 뒤 타입만 붙이고 새 필드를 아직 쓰지 않으며(7번 PR에서 쓴다), 서버 렌더 캐시(30초)는 그대로다.
