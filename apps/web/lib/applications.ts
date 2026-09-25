@@ -42,30 +42,16 @@ export function birthYearRuleMessage(
 }
 
 /**
- * 신청 409 가운데 내 성별 · 이 일정의 연령대로 고르는 문구(`SCHEDULE_FULL` · `BIRTH_YEAR_OUT_OF_RANGE`).
- * 연령 문구는 화면이 가진 연령대가 실제로 나를 막을 때만 만든다. 막지 않는데 409가 왔다면 화면의 일정(서버 렌더, 최대 30초
- * 캐시)이 운영자의 변경보다 늦은 것이라 — 범위가 없었거나 좁혀졌다 — 옛 범위로 문장을 만들면 비거나 나와 모순된다.
- * 그때는 기본 문구로 둔다(설계서에 없는 문구를 지어내지 않는다).
+ * 신청 409 `SCHEDULE_FULL`의 문구를 내 성별로 고른다. `BIRTH_YEAR_OUT_OF_RANGE`는 넣지 않는다 — 연령대 밖이면 (h)가 버튼을
+ * 막으므로 버튼으로 이 409가 오는 것은 화면의 일정(서버 렌더, 최대 30초 캐시)이 운영자의 연령대 변경보다 늦을 때뿐이고,
+ * 옛 범위로 만든 문장은 비거나 나와 모순된다. 그때는 기본 문구로 둔다(설계서에 없는 문구를 지어내지 않는다).
  */
 export function applicationErrorCopy(
-  me: Pick<MemberProfile, 'gender' | 'birthYear'>,
-  schedule: Pick<PublicSchedule, 'maleMinBirthYear' | 'maleMaxBirthYear'>,
+  gender: Gender | null,
 ): Partial<Record<string, string>> {
-  const blockedByAge =
-    me.gender === 'MALE' &&
-    me.birthYear !== null &&
-    outsideMaleBirthYears(schedule, me.birthYear);
-  return {
-    ...(me.gender !== null && {
-      [API_ERROR_CODES.SCHEDULE_FULL]: genderFullMessage(me.gender),
-    }),
-    ...(blockedByAge && {
-      [API_ERROR_CODES.BIRTH_YEAR_OUT_OF_RANGE]: birthYearRuleMessage(
-        schedule.maleMinBirthYear,
-        schedule.maleMaxBirthYear,
-      ),
-    }),
-  };
+  return gender === null
+    ? {}
+    : { [API_ERROR_CODES.SCHEDULE_FULL]: genderFullMessage(gender) };
 }
 
 /** 서버 `outsideMaleBirthYears`와 같은 규칙(경계 포함). 범위가 없는 쪽은 열려 있다. */

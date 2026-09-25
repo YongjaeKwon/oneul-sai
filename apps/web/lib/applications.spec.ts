@@ -182,45 +182,23 @@ describe('applyAreaState — the first matching row of W9 (d)~(j)', () => {
 });
 
 describe('applicationErrorCopy', () => {
-  const ageError = new ApiClientError(409, {
-    statusCode: 409,
-    error: 'Conflict',
-    code: 'BIRTH_YEAR_OUT_OF_RANGE',
-    message: 'server text',
-  });
-  const DEFAULT = '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
-
-  it('picks the full-seat copy by my gender', () => {
-    expect(applicationErrorCopy(woman, schedule)).toEqual({
+  it('picks the full-seat copy by my gender, and none for an account without one', () => {
+    expect(applicationErrorCopy('FEMALE')).toEqual({
       SCHEDULE_FULL: '여성 자리가 모두 찼습니다.',
     });
+    expect(applicationErrorCopy(null)).toEqual({});
   });
 
-  it('makes the age copy only when the range on the page really excludes me (one-sided ranges too)', () => {
-    const fromNinety = { maleMinBirthYear: 1990, maleMaxBirthYear: null };
-    expect(
-      applicationErrorCopy({ ...man, birthYear: 1985 }, fromNinety),
-    ).toEqual({
-      SCHEDULE_FULL: '남성 자리가 모두 찼습니다.',
-      BIRTH_YEAR_OUT_OF_RANGE:
-        '이 일정은 남성 1990년생부터만 신청하실 수 있습니다.',
+  it('leaves 409 BIRTH_YEAR_OUT_OF_RANGE to the default copy — the button only gets it when the page is older than the operator’s change', () => {
+    const ageError = new ApiClientError(409, {
+      statusCode: 409,
+      error: 'Conflict',
+      code: 'BIRTH_YEAR_OUT_OF_RANGE',
+      message: 'server text',
     });
-  });
-
-  it.each([
-    ['has no range', { maleMinBirthYear: null, maleMaxBirthYear: null }],
-    ['still includes me', { maleMinBirthYear: 1985, maleMaxBirthYear: 1995 }],
-  ])(
-    'falls back to the default copy when the page %s (it is older than the operator’s change)',
-    (_label, range) => {
-      const copy = applicationErrorCopy({ ...man, birthYear: 1987 }, range);
-      expect(copy).not.toHaveProperty('BIRTH_YEAR_OUT_OF_RANGE');
-      expect(describeApplicationError(ageError, copy)).toBe(DEFAULT);
-    },
-  );
-
-  it('has no gender copy for an account without a gender', () => {
-    expect(applicationErrorCopy(admin, schedule)).toEqual({});
+    expect(
+      describeApplicationError(ageError, applicationErrorCopy('MALE')),
+    ).toBe('요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.');
   });
 });
 
