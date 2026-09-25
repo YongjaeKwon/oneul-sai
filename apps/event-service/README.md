@@ -35,22 +35,24 @@
 | DELETE | `/api/v1/meetups/:meetupId/schedules/:scheduleId`        | ADMIN | → 204 (DRAFT만)                                                    |
 
 - `/api/v1/meetups/**` 응답에는 `Cache-Control: no-store`가 붙는다. 공개 응답은 호출자 역할과 무관하게 같다(운영자도 공개 경로에서는 비공개 필드를 받지 않는다).
-- 에러 코드: 400 `VALIDATION_FAILED` · `SCHEDULE_TIME_INVALID` · `BIRTH_YEAR_RANGE_INVALID`, 401 `UNAUTHENTICATED` · `INTERNAL_TOKEN_INVALID`, 403 `FORBIDDEN`, 404 `MEETUP_NOT_FOUND` · `SCHEDULE_NOT_FOUND`, 409 `INVALID_STATUS_TRANSITION` · `SCHEDULE_NOT_EDITABLE`(SPEC-002 7절 에러 코드 표).
+- 에러 코드: 400 `VALIDATION_FAILED` · `SCHEDULE_TIME_INVALID` · `BIRTH_YEAR_RANGE_INVALID`, 401 `UNAUTHENTICATED` · `INTERNAL_TOKEN_INVALID`, 403 `FORBIDDEN`, 404 `MEETUP_NOT_FOUND` · `SCHEDULE_NOT_FOUND`, 409 `INVALID_STATUS_TRANSITION` · `SCHEDULE_NOT_EDITABLE` · `CAPACITY_BELOW_APPLICATIONS`(회차 수정에서 정원 < 그 성별 활성 신청 수), 503 `SERVICE_BUSY` + `Retry-After: 1`(회차 쓰기가 잠금 2초 · 트랜잭션 연결을 기다리다 끝남)(SPEC-002 · SPEC-003 7절 에러 코드 표).
+- 운영자 회차 응답에는 모두 신청 수 `appliedMale` · `appliedFemale`과 `maleFull` · `femaleFull`이, 공개 응답에는 `maleFull` · `femaleFull`만 실린다(SPEC-003 D10). 회차를 취소하면 같은 트랜잭션에서 그 회차의 활성 신청이 모두 취소된다(`cancelledBy: SCHEDULE`).
 - 여러 회차 등록은 전부 또는 없음이다. 문제 항목은 `message`의 `items.<순번>`(0부터)으로 알린다 — Zod 실패는 `items.3.capacityMale: 범위` 형식, 시간 · 연령대 규칙 위반은 첫 위반 항목 하나를 `items.5: 시간 규칙` · `items.2: 연령대 규칙`으로 준다.
 - 서비스 포트를 직접 부를 때는 `x-internal-token`(`.env`의 `INTERNAL_API_TOKEN`)을, 운영자 경로는 `x-user-id`(UUID) · `x-user-role: ADMIN`도 직접 채운다.
 
 ## 구조
 
-| 경로                               | 역할                                                                                                  |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `src/app.ts` · `src/app.module.ts` | `createApp()`(JSON 본문 파서만, 전역 필터, Swagger) · 전역 가드(내부 토큰 → 역할)                     |
-| `src/events/`                      | 공개 조회만. `PUBLIC_SCHEDULE_SELECT` · `PublicScheduleSchema`만 쓴다                                 |
-| `src/meetups/`                     | 운영자 상품 API                                                                                       |
-| `src/schedules/`                   | 운영자 회차 API, `schedule-rules.ts`(순수 규칙 · 전이 표), `schedule-select.ts`(공개 · 운영자 select) |
-| `src/common/`                      | `NoStoreInterceptor`, `dbErrorFields` · 예상 밖 에러 로그 필터, Swagger 헤더 설명                     |
-| `src/testing/`                     | 통합 테스트 도우미(`TestApp`, 테스트 DB 보호). 빌드에서 제외                                          |
+| 경로                               | 역할                                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app.ts` · `src/app.module.ts` | `createApp()`(JSON 본문 파서만, 전역 필터, Swagger) · 전역 가드(내부 토큰 → 역할)                                                        |
+| `src/events/`                      | 공개 조회만. `PUBLIC_SCHEDULE_SELECT` · `PublicScheduleSchema`와 신청 수 집계(`activeCountsBySchedule`)만 쓴다                           |
+| `src/meetups/`                     | 운영자 상품 API                                                                                                                          |
+| `src/schedules/`                   | 운영자 회차 API, `schedule-rules.ts`(순수 규칙 · 전이 표), `schedule-select.ts`(공개 · 운영자 select)                                    |
+| `src/applications/`                | `application-queries.ts` — `Application` 테이블 접근은 여기만: 활성 조건, 성별 활성 신청 수, 회차 취소 연쇄, 신청 수 집계(SPEC-003 10절) |
+| `src/common/`                      | `NoStoreInterceptor`, `dbErrorFields` · 예상 밖 에러 로그 필터, `db-lock.ts`(잠금 대기 상한 · 55P03/P2028 → 503), Swagger 헤더 설명      |
+| `src/testing/`                     | 통합 테스트 도우미(`TestApp`, 테스트 DB 보호). 빌드에서 제외                                                                             |
 
-로그는 `@oneul-sai/logger` 구조화 로그다(`meetup.created` · `meetup.updated` · `schedule.created` · `schedule.updated` · `schedule.status_changed` · `schedule.deleted`, 식별자와 바뀐 필드 이름만). 예상 밖 에러(500)는 `request.failed`로 SQLSTATE · Prisma 코드 · 제약 이름만 남긴다 — PostgreSQL DETAIL(행 값)은 남기지 않는다(SPEC-002 12절).
+로그는 `@oneul-sai/logger` 구조화 로그다(`meetup.created` · `meetup.updated` · `schedule.created` · `schedule.updated` · `schedule.status_changed`(→ CANCELLED면 `cancelledApplications`) · `schedule.deleted`, 식별자와 바뀐 필드 이름만). 회차 쓰기가 503으로 끝나면 warn `schedule.busy`(meetupId · scheduleId · cause `lock_timeout`|`pool` · requestId)를 남긴다. 예상 밖 에러(500)는 `request.failed`로 SQLSTATE · Prisma 코드 · 제약 이름만 남긴다 — PostgreSQL DETAIL(행 값)은 남기지 않는다(SPEC-002 12절).
 
 ## 실행 방법
 
