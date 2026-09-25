@@ -1,4 +1,4 @@
-// SPEC-001 · SPEC-002 7절 "에러 코드 표". `ApiErrorResponse.code`에 실리는 기계용 코드.
+// SPEC-001 · SPEC-002 · SPEC-003 7절 "에러 코드 표". `ApiErrorResponse.code`에 실리는 기계용 코드.
 // 사람이 읽는 `message`와 별개이며, 클라이언트는 이 값으로만 분기한다.
 
 export const API_ERROR_CODES = {
@@ -29,7 +29,7 @@ export const API_ERROR_CODES = {
   // 404
   MEMBER_NOT_FOUND: 'MEMBER_NOT_FOUND',
   MEETUP_NOT_FOUND: 'MEETUP_NOT_FOUND',
-  /** 공개: 없음 · DRAFT · CANCELLED(같은 본문). 운영자: 없음 또는 `scheduleId`가 `meetupId`에 속하지 않음. SPEC-002 */
+  /** 공개 · 신청: 없음 · DRAFT · CANCELLED(같은 본문). 운영자(회차 · 신청 관리): 없음 또는 `scheduleId`가 `meetupId`에 속하지 않음. SPEC-002 · SPEC-003 */
   SCHEDULE_NOT_FOUND: 'SCHEDULE_NOT_FOUND',
   /** 취소: 신청 없음, 회원 경로에서 남의 신청(같은 본문), 운영자 경로에서 그 회차의 신청이 아님. SPEC-003 */
   APPLICATION_NOT_FOUND: 'APPLICATION_NOT_FOUND',
