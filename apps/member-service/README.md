@@ -48,20 +48,20 @@
 
 모든 경로는 Gateway(:4000) 경유가 원칙이다. 서비스는 `/health`(정확히 일치)를 뺀 모든 핸들러에서 경로 대소문자와 무관하게 `x-internal-token`을 먼저 확인하고(없거나 다르면 401 `INTERNAL_TOKEN_INVALID`), 보호 경로에서는 Gateway가 채운 `x-user-id` · `x-user-role`만 믿는다. `Authorization` 헤더는 보지 않는다. Swagger(`/docs`)는 Nest 가드를 거치지 않는다. 가드 · 파이프 · 필터는 `@oneul-sai/service-kit`에 있다(SPEC-002 D10, ADR-010).
 
-| 메서드 | 경로                         | 인증  | 요청                                                                       | 응답                                                      |
-| ------ | ---------------------------- | ----- | -------------------------------------------------------------------------- | --------------------------------------------------------- |
-| POST   | `/api/v1/members`            | 공개  | `SignupRequest`                                                            | 201 `MemberProfile`                                       |
-| POST   | `/api/v1/auth/login`         | 공개  | `LoginRequest` `{ email, password, client }`                               | 200 `AuthResponse` + `Set-Cookie`                         |
-| POST   | `/api/v1/auth/refresh`       | 공개  | `RefreshRequest` `{ client }` + 쿠키                                       | 200 `AuthResponse` + `Set-Cookie` (유예 응답은 쿠키 없음) |
-| POST   | `/api/v1/auth/logout`        | 공개  | `LogoutRequest` `{ client }` + 쿠키                                        | 204 + 쿠키 삭제 (완전 멱등)                               |
-| POST   | `/api/v1/auth/logout-all`    | 회원  | (쿠키)                                                                     | 204 + 요청에 실린 이 회원의 쿠키 삭제                     |
-| POST   | `/api/v1/auth/password`      | 회원  | `ChangePasswordRequest` `{ currentPassword, newPassword }`                 | 204 (Set-Cookie 없음, 현재 가족 유지)                     |
-| GET    | `/api/v1/members/me`         | 회원  | —                                                                          | 200 `MemberProfile`                                       |
-| PATCH  | `/api/v1/members/me`         | 회원  | `UpdateMyProfileRequest` `{ phone?, marketingConsent?, currentPassword? }` | 200 `MemberProfile`                                       |
-| DELETE | `/api/v1/members/me`         | 회원  | `WithdrawRequest` `{ password }`                                           | 204 + 두 쿠키 삭제 (즉시 익명화)                          |
-| GET    | `/api/v1/members`            | ADMIN | query `MemberListQuery`                                                    | 200 `{ items: MemberSummary[], total, page, pageSize }`   |
-| GET    | `/api/v1/members/:id`        | ADMIN | —                                                                          | 200 `MemberDetail`                                        |
-| PATCH  | `/api/v1/members/:id/status` | ADMIN | `UpdateMemberStatusRequest` `{ status, reason? }`                          | 200 `MemberDetail`                                        |
+| 메서드 | 경로                         | 인증  | 요청                                                                                                          | 응답                                                      |
+| ------ | ---------------------------- | ----- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| POST   | `/api/v1/members`            | 공개  | `SignupRequest`                                                                                               | 201 `MemberProfile`                                       |
+| POST   | `/api/v1/auth/login`         | 공개  | `LoginRequest` `{ email, password, client }`                                                                  | 200 `AuthResponse` + `Set-Cookie`                         |
+| POST   | `/api/v1/auth/refresh`       | 공개  | `RefreshRequest` `{ client }` + 쿠키                                                                          | 200 `AuthResponse` + `Set-Cookie` (유예 응답은 쿠키 없음) |
+| POST   | `/api/v1/auth/logout`        | 공개  | `LogoutRequest` `{ client }` + 쿠키                                                                           | 204 + 쿠키 삭제 (완전 멱등)                               |
+| POST   | `/api/v1/auth/logout-all`    | 회원  | (쿠키)                                                                                                        | 204 + 요청에 실린 이 회원의 쿠키 삭제                     |
+| POST   | `/api/v1/auth/password`      | 회원  | `ChangePasswordRequest` `{ currentPassword, newPassword }`                                                    | 204 (Set-Cookie 없음, 현재 가족 유지)                     |
+| GET    | `/api/v1/members/me`         | 회원  | —                                                                                                             | 200 `MemberProfile`                                       |
+| PATCH  | `/api/v1/members/me`         | 회원  | `UpdateMyProfileRequest` `{ phone?, marketingConsent?, currentPassword? }`                                    | 200 `MemberProfile`                                       |
+| DELETE | `/api/v1/members/me`         | 회원  | `WithdrawRequest` `{ password }`                                                                              | 204 + 두 쿠키 삭제 (즉시 익명화)                          |
+| GET    | `/api/v1/members`            | ADMIN | query `MemberListQuery`(+ `ids`: 쉼표로 이은 회원 ID, `pageSize` 이하 — SPEC-003 D11. 접속기록에 `memberIds`) | 200 `{ items: MemberSummary[], total, page, pageSize }`   |
+| GET    | `/api/v1/members/:id`        | ADMIN | —                                                                                                             | 200 `MemberDetail`                                        |
+| PATCH  | `/api/v1/members/:id/status` | ADMIN | `UpdateMemberStatusRequest` `{ status, reason? }`                                                             | 200 `MemberDetail`                                        |
 
 - 스키마 · 타입 · 에러 코드 · 쿠키 이름은 모두 `@oneul-sai/contracts`에 있다. 요청은 전부 strict(모르는 필드 → 400).
 - 본문을 받는 경로는 `Content-Type: application/json`만 받는다(아니면 400 `VALIDATION_FAILED`, message `content-type: application/json`). urlencoded 파서는 켜지 않는다(로그인 CSRF 차단).

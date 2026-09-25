@@ -60,6 +60,7 @@ export function buildListWhere(
   const where: Prisma.MemberWhereInput = {};
   if (query.status !== undefined) where.status = query.status;
   if (query.role !== undefined) where.role = query.role;
+  if (query.ids !== undefined) where.id = { in: query.ids };
   if (query.query !== undefined && query.query.length > 0) {
     const or: Prisma.MemberWhereInput[] = [
       { email: { contains: query.query, mode: 'insensitive' } },
@@ -277,7 +278,10 @@ export class MembersService {
     this.logger.info('member.withdrawn', { memberId: member.id, requestId });
   }
 
-  /** 운영자 목록. 접속기록 `member.list_viewed` — 검색어 자체는 남기지 않는다 (12절). */
+  /**
+   * 운영자 목록. 접속기록 `member.list_viewed` — 검색어 자체는 남기지 않는다 (12절).
+   * `ids` 조회면 반환된 회원 ID(`memberIds`, 최대 100개)를 남겨 "누구의 정보를"을 채운다 (SPEC-003 D11).
+   */
   async list(
     admin: CallerUser,
     query: MemberListQuery,
@@ -302,7 +306,9 @@ export class MembersService {
       hasFilter:
         query.query !== undefined ||
         query.status !== undefined ||
-        query.role !== undefined,
+        query.role !== undefined ||
+        query.ids !== undefined,
+      ...(query.ids !== undefined && { memberIds: rows.map((row) => row.id) }),
       count: rows.length,
       requestId,
     });
