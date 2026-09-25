@@ -75,19 +75,34 @@ export const MEMBER_LIST_DEFAULT_PAGE_SIZE = 20;
 export const MEMBER_LIST_MAX_PAGE_SIZE = 100;
 
 /** `GET /api/v1/members` query string(운영자). 값은 문자열로 오므로 숫자는 coerce. 정렬은 `createdAt` 내림차순 고정. */
-export const MemberListQuerySchema = z.strictObject({
-  /** 이메일 · 이름 부분 일치 + 휴대폰 앞자리 일치. */
-  query: z.string().trim().max(MEMBER_LIST_QUERY_MAX_LENGTH).optional(),
-  status: AccountStatusSchema.optional(),
-  role: MemberRoleSchema.optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(MEMBER_LIST_MAX_PAGE_SIZE)
-    .default(MEMBER_LIST_DEFAULT_PAGE_SIZE),
-});
+export const MemberListQuerySchema = z
+  .strictObject({
+    /** 이메일 · 이름 부분 일치 + 휴대폰 앞자리 일치. */
+    query: z.string().trim().max(MEMBER_LIST_QUERY_MAX_LENGTH).optional(),
+    status: AccountStatusSchema.optional(),
+    role: MemberRoleSchema.optional(),
+    /**
+     * 쉼표로 이은 회원 ID 1~`MEMBER_LIST_MAX_PAGE_SIZE`개. 운영자 신청 목록이 한 페이지의 신청자 정보를 합칠 때 쓴다(SPEC-003 D11).
+     * 다른 필터와 AND. 없는 ID는 결과에서 빠진다.
+     */
+    ids: z
+      .string()
+      .transform((value) => value.split(','))
+      .pipe(z.array(z.uuid()).min(1).max(MEMBER_LIST_MAX_PAGE_SIZE))
+      .optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(MEMBER_LIST_MAX_PAGE_SIZE)
+      .default(MEMBER_LIST_DEFAULT_PAGE_SIZE),
+  })
+  // 한 페이지에 다 들어오지 않는 ID는 받지 않는다 — 신청 목록 한 페이지(최대 100명)를 한 번에 합친다
+  .refine(
+    (value) => value.ids === undefined || value.ids.length <= value.pageSize,
+    { error: 'ID 개수가 페이지 크기보다 많습니다.', path: ['ids'] },
+  );
 export type MemberListQuery = z.infer<typeof MemberListQuerySchema>;
 
 export const STATUS_REASON_MAX_LENGTH = 200;
