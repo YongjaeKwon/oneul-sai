@@ -1,13 +1,14 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"] // SPEC-003 개발 승인 N (2026-09-24) — 부분 유니크 인덱스 (D3)
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-// SPEC-002 9절. Prisma가 표현하지 못하는 CHECK 제약은 마이그레이션 init_event SQL에만 있다.
+// SPEC-002 · SPEC-003 9절. Prisma가 표현하지 못하는 CHECK 제약은 마이그레이션 SQL(init_event · add_application)에만 있다.
 
 // 행사를 마친 상태는 Step 5(SPEC-005)가 값과 전이를 함께 더한다 (D8)
 enum ScheduleStatus {
@@ -54,7 +55,47 @@ model Schedule {
   createdAt        DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime       @updatedAt @db.Timestamptz(3)
 
-  meetup Meetup @relation(fields: [meetupId], references: [id], onDelete: Restrict)
+  meetup       Meetup        @relation(fields: [meetupId], references: [id], onDelete: Restrict)
+  applications Application[]
 
   @@index([meetupId, startsAt])
+}
+
+// member_db의 Gender와 값이 같다. 신청 시점 스냅샷에만 쓴다 (SPEC-003 D1)
+enum Gender {
+  MALE
+  FEMALE
+}
+
+// 활성 신청 = CANCELLED가 아닌 신청. 확정 상태는 Step 4가 더한다 (D2)
+enum ApplicationStatus {
+  PENDING
+  CANCELLED
+}
+
+enum ApplicationCancelledBy {
+  MEMBER
+  ADMIN
+  SCHEDULE
+}
+
+// 참가 신청 (SPEC-003). 회원은 ID로만 참조한다 — FK 없음 (ADR-007). 이름 · 휴대폰 · 출생연도는 저장하지 않는다 (D1)
+model Application {
+  id          String                  @id @default(uuid())
+  scheduleId  String
+  memberId    String
+  gender      Gender // 신청 시점 스냅샷 (D1)
+  price       Int // 신청 시점 그 성별의 참가비 (D1)
+  status      ApplicationStatus       @default(PENDING)
+  cancelledBy ApplicationCancelledBy? // CANCELLED일 때만 (CHECK)
+  createdAt   DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime                @updatedAt @db.Timestamptz(3)
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+
+  // 한 회차 · 한 회원의 활성 신청은 하나 — 최종 방어선 (D3).
+  // 생성되는 복합 선택자 scheduleId_memberId는 쓰지 않는다 — CANCELLED 행은 여러 개일 수 있다 (9절)
+  @@unique([scheduleId, memberId], map: "Application_active_member_key", where: raw("\"status\" <> 'CANCELLED'"))
+  @@index([scheduleId, createdAt])
+  @@index([memberId, createdAt])
 }
