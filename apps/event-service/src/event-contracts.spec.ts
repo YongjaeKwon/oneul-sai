@@ -1,11 +1,16 @@
 import {
+  AdminApplicationListQuerySchema,
   AdminScheduleListQuerySchema,
   AdminScheduleSchema,
   BatchCreateSchedulesRequestSchema,
+  CreateApplicationRequestSchema,
   CreateMeetupRequestSchema,
   CreateScheduleRequestSchema,
   MeetupListQuerySchema,
+  MemberListQuerySchema,
+  MyApplicationListQuerySchema,
   PublicScheduleListQuerySchema,
+  UpdateApplicationStatusRequestSchema,
   UpdateScheduleRequestSchema,
   UpdateScheduleStatusRequestSchema,
   VENUE_MAP_URL_MAX_LENGTH,
@@ -38,7 +43,9 @@ function without(key: keyof CreateScheduleRequest) {
 
 /** 실패해야 하고, message에 입력값이 없어야 한다. */
 function expectRejected(
-  result: ReturnType<typeof CreateScheduleRequestSchema.safeParse>,
+  result:
+    | { success: true }
+    | { success: false; error: { issues: Parameters<typeof formatIssues>[0] } },
   input?: string,
 ): string {
   expect(result.success).toBe(false);
@@ -345,5 +352,113 @@ describe('venueMapUrl (D4)', () => {
     expect(AdminScheduleSchema.parse(row).venueMapUrl).toBe(
       'https://old.example/',
     );
+  });
+});
+
+// SPEC-003 13절 단위: 참가 신청 · 회원 ID 목록 조회의 계약 경계값.
+describe('application requests (SPEC-003)', () => {
+  const scheduleId = '3b241101-e2bb-4255-8caf-4136c566a962';
+
+  it('CreateApplicationRequest takes only scheduleId (UUID)', () => {
+    expect(
+      CreateApplicationRequestSchema.safeParse({ scheduleId }).success,
+    ).toBe(true);
+    for (const body of [
+      {},
+      { scheduleId: 'not-a-uuid' },
+      { scheduleId, gender: 'MALE' },
+      { scheduleId, price: 0 },
+      { scheduleId, memberId: scheduleId },
+    ]) {
+      expectRejected(
+        CreateApplicationRequestSchema.safeParse(body),
+        'not-a-uuid',
+      );
+    }
+  });
+
+  it('UpdateApplicationStatusRequest accepts only CANCELLED', () => {
+    expect(
+      UpdateApplicationStatusRequestSchema.safeParse({ status: 'CANCELLED' })
+        .success,
+    ).toBe(true);
+    for (const body of [
+      {},
+      { status: 'PENDING' },
+      { status: 'CANCELLED', reason: 'x' },
+    ]) {
+      expect(UpdateApplicationStatusRequestSchema.safeParse(body).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it('MyApplicationListQuery: pageSize 50 passes, 51 · page 1001 fail, default 20', () => {
+    expect(MyApplicationListQuerySchema.parse({})).toEqual({
+      page: 1,
+      pageSize: 20,
+    });
+    expect(
+      MyApplicationListQuerySchema.safeParse({ pageSize: '50' }).success,
+    ).toBe(true);
+    expect(
+      MyApplicationListQuerySchema.safeParse({ pageSize: '51' }).success,
+    ).toBe(false);
+    expect(
+      MyApplicationListQuerySchema.safeParse({ page: '1001' }).success,
+    ).toBe(false);
+  });
+
+  it('AdminApplicationListQuery: default 100, 101 fails, unknown status fails', () => {
+    expect(AdminApplicationListQuerySchema.parse({})).toEqual({
+      page: 1,
+      pageSize: 100,
+    });
+    expect(
+      AdminApplicationListQuerySchema.safeParse({ pageSize: '101' }).success,
+    ).toBe(false);
+    expect(
+      AdminApplicationListQuerySchema.safeParse({ status: 'CONFIRMED' })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('MemberListQuery.ids (SPEC-003 D11)', () => {
+  const uuid = (n: number) =>
+    `00000000-0000-4000-8000-${n.toString().padStart(12, '0')}`;
+  const ids = (count: number) =>
+    Array.from({ length: count }, (_, index) => uuid(index)).join(',');
+
+  it('accepts 1 and 100 ids (pageSize large enough) and splits them', () => {
+    expect(MemberListQuerySchema.parse({ ids: uuid(1) }).ids).toEqual([
+      uuid(1),
+    ]);
+    expect(
+      MemberListQuerySchema.parse({ ids: ids(100), pageSize: '100' }).ids,
+    ).toHaveLength(100);
+  });
+
+  it('rejects 101 ids, a non-UUID, an empty string and an empty item', () => {
+    for (const value of [
+      ids(101),
+      `${uuid(1)},x`,
+      '',
+      `${uuid(1)},,${uuid(2)}`,
+    ]) {
+      expectRejected(
+        MemberListQuerySchema.safeParse({ ids: value, pageSize: '100' }),
+        value === '' ? undefined : value,
+      );
+    }
+  });
+
+  it('rejects more ids than pageSize', () => {
+    expect(MemberListQuerySchema.safeParse({ ids: ids(21) }).success).toBe(
+      false,
+    );
+    expect(
+      MemberListQuerySchema.safeParse({ ids: ids(21), pageSize: '21' }).success,
+    ).toBe(true);
   });
 });
