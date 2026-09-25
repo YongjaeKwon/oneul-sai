@@ -175,16 +175,39 @@ describe('route list — default deny (integration, 12절)', () => {
     (!route.isPublic &&
       JSON.stringify(route.roles) === JSON.stringify(['ADMIN'])) ||
     // (c) 내부 토큰 예외 경로(/health)
-    INTERNAL_AUTH_EXEMPT_PATHS.includes(route.path);
+    INTERNAL_AUTH_EXEMPT_PATHS.includes(route.path) ||
+    // (d) MEMBER 전용이고 공개가 아니며 /api/v1/applications 아래(SPEC-003 D6)
+    (!route.isPublic &&
+      JSON.stringify(route.roles) === JSON.stringify(['MEMBER']) &&
+      (route.path === '/api/v1/applications' ||
+        route.path.startsWith('/api/v1/applications/')));
 
-  it('every registered handler is public-events GET, ADMIN-only, or /health', () => {
+  it('every registered handler is public-events GET, ADMIN-only, /health, or MEMBER-only applications', () => {
     const found = routes();
-    // 공개 2 + 상품 4 + 회차 7 + health 1 — 열거가 실제로 핸들러를 찾는지도 확인한다
-    expect(found).toHaveLength(14);
+    // 공개 2 + 상품 4 + 회차 7 + health 1 + 신청(회원 3 · 운영자 2) — 열거가 실제로 핸들러를 찾는지도 확인한다
+    expect(found).toHaveLength(19);
     const violations = found
       .filter((route) => !allowed(route))
       .map((route) => `${RequestMethod[route.method]} ${route.path}`);
     expect(violations).toEqual([]);
+  });
+
+  it.each([
+    [
+      'without @Roles under /api/v1/applications',
+      '/api/v1/applications/x',
+      undefined,
+    ],
+    ['MEMBER-only under /api/v1/meetups', '/api/v1/meetups/x', ['MEMBER']],
+    [
+      'MEMBER-only outside /api/v1/applications',
+      '/api/v1/applicationsx',
+      ['MEMBER'],
+    ],
+  ])('would reject a handler %s', (_label, path, roles) => {
+    expect(
+      allowed({ method: RequestMethod.GET, path, isPublic: false, roles }),
+    ).toBe(false);
   });
 
   it('would reject a handler without @Roles under /api/v1/meetups', () => {

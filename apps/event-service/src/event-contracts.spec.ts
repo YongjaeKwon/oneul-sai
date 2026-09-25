@@ -9,6 +9,7 @@ import {
   MeetupListQuerySchema,
   MemberListQuerySchema,
   MyApplicationListQuerySchema,
+  MyApplicationSchema,
   PublicScheduleListQuerySchema,
   PublicScheduleSchema,
   UpdateApplicationStatusRequestSchema,
@@ -484,5 +485,21 @@ describe('schedule responses with applications (SPEC-003 D10)', () => {
     expect(adminKeys).toEqual(
       expect.arrayContaining(['appliedMale', 'appliedFemale']),
     );
+  });
+});
+
+describe('MyApplication keeps schedule fields public (SPEC-003 13절 · SPEC-002 12절)', () => {
+  it('has no private venue keys or cancel reason under schedule', () => {
+    const keys = Object.keys(MyApplicationSchema.shape.schedule.shape);
+    for (const key of [
+      'venueName',
+      'venueAddress',
+      'venueDirections',
+      'venueMapUrl',
+      'cancelReason',
+      'meetupId',
+    ]) {
+      expect(keys).not.toContain(key);
+    }
   });
 });

@@ -9,6 +9,8 @@ import { dbErrorFields } from './db-error.js';
 /**
  * `SET LOCAL lock_timeout = '2s'`. 그 트랜잭션이 끝나면(커밋 · 롤백) 풀린다 —
  * 풀로 돌아간 연결의 다음 요청에는 남지 않는다.
+ * 제한은 잠금을 얻으려 할 때마다 따로 걸린다. 같은 행을 기다리는 `FOR UPDATE`는 튜플 잠금 → 쥔 트랜잭션 순서로
+ * 두 번 기다릴 수 있어, 한 문장의 최대 대기는 약 4초다(SPEC-003 17절).
  */
 export async function setLockTimeout(
   tx: Pick<Prisma.TransactionClient, '$executeRaw'>,
