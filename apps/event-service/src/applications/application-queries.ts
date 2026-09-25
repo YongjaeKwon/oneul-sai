@@ -1,4 +1,8 @@
-import type { Gender, Prisma } from '../generated/prisma/client.js';
+import type {
+  ApplicationStatus,
+  Gender,
+  Prisma,
+} from '../generated/prisma/client.js';
 
 // SPEC-003 10절. `Application` 테이블 접근은 applications 모듈이 소유한다 — 회차 모듈은 이 함수만 부른다(D8).
 // Nest provider가 아니라 트랜잭션 클라이언트를 받는 함수라 schedules ↔ applications 사이에 모듈 순환이 없다.
@@ -8,6 +12,11 @@ import type { Gender, Prisma } from '../generated/prisma/client.js';
 export const ACTIVE_APPLICATION_WHERE = {
   status: { not: 'CANCELLED' },
 } as const satisfies Prisma.ApplicationWhereInput;
+
+/** `ACTIVE_APPLICATION_WHERE`와 같은 조건을 이미 읽은 행에 적용한다. 활성 조건을 바꾸면 둘을 함께 바꾼다. */
+export function isActive(status: ApplicationStatus): boolean {
+  return status !== 'CANCELLED';
+}
 
 type ApplicationDb = Pick<Prisma.TransactionClient, 'application'>;
 

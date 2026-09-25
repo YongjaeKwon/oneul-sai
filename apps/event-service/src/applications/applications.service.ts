@@ -22,7 +22,7 @@ import {
 } from '../common/db-lock.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import type { MemberLookup } from '../members/member-client.js';
-import { countActive } from './application-queries.js';
+import { countActive, isActive } from './application-queries.js';
 import {
   decideApply,
   decideCancel,
@@ -221,7 +221,7 @@ export class ApplicationsService {
             schedule,
             now,
             applicant,
-            hasActiveHere: mine.some((row) => row.status !== 'CANCELLED'),
+            hasActiveHere: mine.some((row) => isActive(row.status)),
             adminCancelledHere: mine.some((row) => row.cancelledBy === 'ADMIN'),
             pendingElsewhere,
             activeOfMyGender,
@@ -248,7 +248,7 @@ export class ApplicationsService {
           }
           throw error;
         }),
-      this.logBusy(scheduleId, requestId),
+      this.logBusy({ scheduleId }, requestId),
     );
 
     if (outcome.kind === 'reject') {
@@ -327,7 +327,8 @@ export class ApplicationsService {
         });
         return { row, changed: true };
       }),
-      this.logBusy(undefined, requestId),
+      // 잠금 전에는 회차를 모른다 — 신청 ID를 남긴다
+      this.logBusy({ applicationId }, requestId),
     );
     if (changed) {
       this.logger.info('application.cancelled', {
@@ -411,7 +412,7 @@ export class ApplicationsService {
         });
         return { row, changed: true };
       }),
-      this.logBusy(scheduleId, requestId),
+      this.logBusy({ scheduleId }, requestId),
     );
     if (changed) {
       this.logger.info('application.cancelled', {
@@ -439,14 +440,10 @@ export class ApplicationsService {
 
   /** 503으로 끝난 신청 · 취소의 원인(SPEC-003 14절 `application.busy`). */
   private logBusy(
-    scheduleId: string | undefined,
+    target: { scheduleId: string } | { applicationId: string },
     requestId: string,
   ): (cause: BusyCause) => void {
     return (cause) =>
-      this.logger.warn('application.busy', {
-        ...(scheduleId !== undefined && { scheduleId }),
-        cause,
-        requestId,
-      });
+      this.logger.warn('application.busy', { ...target, cause, requestId });
   }
 }
