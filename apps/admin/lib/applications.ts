@@ -9,6 +9,8 @@ import {
 } from '@oneul-sai/contracts';
 import type { BadgeTone } from '@oneul-sai/ui';
 
+import { describeError, isApiClientError } from './errors';
+
 // SPEC-003 4절 "운영자 웹" A6 · A8 · A10의 표시 도우미와 문구. 판정의 원천은 서버다.
 
 type AppliedCounts = Pick<
@@ -91,13 +93,48 @@ export function memberIdsOf(
   return [...new Set(applications.map((application) => application.memberId))];
 }
 
-/** 운영자 취소 확인 창의 질문. 이름을 모르면(탈퇴 · 회원 정보 조회 실패) "이 신청을 취소할까요?". */
+const ADMIN_CANCEL_AFTERWORD =
+  '취소하면 이 회원은 이 일정에 다시 신청할 수 없습니다. 신청자에게는 따로 안내해 주세요.';
+
+/**
+ * 운영자 취소 확인 창의 질문(A10). 탈퇴한 회원은 4절대로 "이 신청을 취소할까요?" 한 문장 — 다시 신청할 수도, 따로 안내할
+ * 연락처도 없다. 회원 정보를 불러오지 못해 이름만 모르면 앞 문장만 바꾸고 뒤 문장은 둔다.
+ */
 export function adminCancelQuestion(member: MemberSummary | null): string {
+  if (member?.status === 'WITHDRAWN') {
+    return '이 신청을 취소할까요?';
+  }
   const who =
     member?.name != null
       ? `${member.name}님의 신청을 취소할까요?`
       : '이 신청을 취소할까요?';
-  return `${who} 취소하면 이 회원은 이 일정에 다시 신청할 수 없습니다. 신청자에게는 따로 안내해 주세요.`;
+  return `${who} ${ADMIN_CANCEL_AFTERWORD}`;
+}
+
+/** 계정 상태 칸 — 정지 · 탈퇴일 때만 보인다(4절 A10). */
+export function accountNoteOf(member: MemberSummary | null): string {
+  switch (member?.status) {
+    case 'SUSPENDED':
+      return '정지';
+    case 'WITHDRAWN':
+      return '탈퇴한 회원';
+    default:
+      return '';
+  }
+}
+
+/**
+ * `GET /members?ids=` 실패의 안내. 401은 세션을 끝내므로 null, 그 밖의 4xx는 코드 문구(SPEC-001 admin 규칙 — 예: 403 정지),
+ * 5xx · 네트워크는 4절 표의 "회원 정보를 불러오지 못했습니다…".
+ */
+export function memberLookupNotice(error: unknown): string | null {
+  if (error === null || error === undefined) {
+    return null;
+  }
+  if (isApiClientError(error) && error.status < 500) {
+    return error.status === 401 ? null : describeError(error);
+  }
+  return MEMBER_LOOKUP_FAILED_MESSAGE;
 }
 
 // ----- A8 회차 수정 · 취소 -----
@@ -153,6 +190,20 @@ export function scheduleCancelApplicantsNote(
   return count === 0
     ? null
     : `신청 ${count}건도 함께 취소됩니다. 취소한 뒤 신청 목록에서 연락처를 확인할 수 있습니다. 신청자에게는 따로 안내해 주세요.`;
+}
+
+/**
+ * A8 정원 칸의 안내(D8 — 화면 편의): 칸 값을 저장된 정원에서 바꿨고 그 성별의 신청 수보다 작을 때만. 저장을 막지 않는다 —
+ * 신청 수는 화면을 연 뒤에도 바뀌므로 판정은 서버의 409가 한다.
+ */
+export function capacityNotice(
+  value: unknown,
+  applied: number,
+  saved: number,
+): string | undefined {
+  return typeof value === 'number' && value !== saved && value < applied
+    ? capacityBelowMessage(applied)
+    : undefined;
 }
 
 /** 정원을 그 성별의 신청 수보다 작게 넣었을 때(폼 · 409 `CAPACITY_BELOW_APPLICATIONS` 같은 문구). */

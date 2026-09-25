@@ -7,7 +7,7 @@ import {
 } from '@oneul-sai/contracts';
 import { Badge, Button, Dialog } from '@oneul-sai/ui';
 import Link from 'next/link';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 
 import {
   APPLICATION_ERROR_OVERRIDES,
@@ -15,23 +15,24 @@ import {
   APPLICATION_STATUS_LABELS,
   APPLICATION_STATUS_TONES,
   CANCELLED_BY_LABELS,
-  MEMBER_LOOKUP_FAILED_MESSAGE,
+  accountNoteOf,
   adminCancelQuestion,
   applicationFilterOf,
   formatAppliedCounts,
   memberIdsOf,
+  memberLookupNotice,
   mergeApplicants,
   type ApplicationFilter,
   type ApplicationRow,
 } from '@/lib/applications';
 import { useEndSessionOn401 } from '@/lib/auth-provider';
-import { describeEventError, isApiClientError } from '@/lib/errors';
+import { describeEventError } from '@/lib/errors';
 import {
   EMPTY,
   GENDER_LABELS,
-  formatDateTime,
   formatPhone,
   formatScheduleRange,
+  formatScheduleTime,
   formatWon,
 } from '@/lib/format';
 import {
@@ -204,9 +205,14 @@ function ApplicationTable({
     data === undefined ? [] : memberIdsOf(data.items),
   );
   const cancel = useCancelApplication(meetupId, scheduleId);
-  useEndSessionOn401(error ?? members.error ?? cancel.error);
-  const [target, setTarget] = useState<ApplicationRow | null>(null);
+  useEndSessionOn401(error);
+  useEndSessionOn401(members.error);
+  useEndSessionOn401(cancel.error);
+  // 확인 창은 신청 ID만 쥐고 회원은 지금의 행에서 읽는다 — 창을 연 뒤 도착한 이름도 질문에 들어가게
+  const [targetId, setTargetId] = useState<string | null>(null);
   const questionId = useId();
+  // 취소한 행의 버튼이 사라져도 키보드 포커스가 갈 곳
+  const tableRef = useRef<HTMLDivElement>(null);
 
   if (error) {
     return <Notice tone="danger">{describeEventError(error)}</Notice>;
@@ -220,14 +226,16 @@ function ApplicationTable({
   }
 
   const rows = mergeApplicants(data.items, members.data?.items);
-  const memberLookupFailed =
-    members.error !== null &&
-    !(isApiClientError(members.error) && members.error.status === 401);
+  const memberNotice = memberLookupNotice(members.error);
+  const target: ApplicationRow | undefined = rows.find(
+    (row) => row.application.id === targetId,
+  );
+  const closeDialog = () => setTargetId(null);
 
   return (
     <div className="flex flex-col gap-4">
-      {memberLookupFailed ? (
-        <Notice tone="danger">{MEMBER_LOOKUP_FAILED_MESSAGE}</Notice>
+      {memberNotice !== null ? (
+        <Notice tone="danger">{memberNotice}</Notice>
       ) : null}
       {cancel.error ? (
         <Notice tone="danger">
@@ -236,6 +244,8 @@ function ApplicationTable({
       ) : null}
 
       <div
+        ref={tableRef}
+        tabIndex={-1}
         aria-busy={isFetching}
         className={[
           'overflow-x-auto rounded-card border border-line bg-surface transition-opacity',
@@ -277,7 +287,7 @@ function ApplicationTable({
                   cancelDisabled={cancel.isPending}
                   onCancel={() => {
                     cancel.reset();
-                    setTarget(row);
+                    setTargetId(row.application.id);
                   }}
                 />
               ))
@@ -295,12 +305,12 @@ function ApplicationTable({
       />
 
       <Dialog
-        open={target !== null}
+        open={target !== undefined}
         title="신청 취소"
-        onClose={() => setTarget(null)}
+        onClose={closeDialog}
         describedBy={questionId}
       >
-        {target !== null ? (
+        {target !== undefined ? (
           <>
             <p id={questionId}>{adminCancelQuestion(target.member)}</p>
             <div className="flex flex-wrap gap-2">
@@ -308,7 +318,10 @@ function ApplicationTable({
                 disabled={cancel.isPending}
                 onClick={() =>
                   cancel.mutate(target.application.id, {
-                    onSettled: () => setTarget(null),
+                    onSettled: () => {
+                      closeDialog();
+                      tableRef.current?.focus();
+                    },
                   })
                 }
               >
@@ -319,7 +332,7 @@ function ApplicationTable({
                 variant="ghost"
                 data-autofocus
                 disabled={cancel.isPending}
-                onClick={() => setTarget(null)}
+                onClick={closeDialog}
               >
                 닫기
               </Button>
@@ -341,23 +354,20 @@ function ApplicationRowView({
   onCancel: () => void;
 }) {
   const cancelled = application.status === 'CANCELLED';
-  const accountNote =
-    member?.status === 'SUSPENDED'
-      ? '정지'
-      : member?.status === 'WITHDRAWN'
-        ? '탈퇴한 회원'
-        : '';
+  const appliedAt = formatScheduleTime(application.createdAt);
+  // 이름을 모르는 행(탈퇴 · 조회 실패 · 불러오는 중)도 서로 가를 수 있게 신청 시각을 넣는다
+  const who = member?.name ?? `${appliedAt} 신청자`;
 
   return (
     <tr className="align-top hover:bg-ivory">
       <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
-        {formatDateTime(application.createdAt)}
+        {appliedAt}
       </td>
       <td className="px-4 py-3 whitespace-nowrap">
         <Link
           href={`/members/${application.memberId}`}
           className={linkClasses}
-          aria-label={member?.name ? undefined : '회원 상세'}
+          aria-label={member?.name ? undefined : `${who} 회원 상세`}
         >
           {member?.name ?? EMPTY}
         </Link>
@@ -371,7 +381,9 @@ function ApplicationRowView({
       <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
         {formatPhone(member?.phone ?? null)}
       </td>
-      <td className="px-4 py-3 whitespace-nowrap text-ink">{accountNote}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-ink">
+        {accountNoteOf(member)}
+      </td>
       <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
         {formatWon(application.price)}
       </td>
@@ -386,14 +398,14 @@ function ApplicationRowView({
         ) : null}
       </td>
       <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
-        {cancelled ? formatDateTime(application.updatedAt) : ''}
+        {cancelled ? formatScheduleTime(application.updatedAt) : ''}
       </td>
       <td className="px-4 py-3 text-right">
         {cancelled ? null : (
           <Button
             variant="secondary"
             disabled={cancelDisabled}
-            aria-label={`${member?.name ?? '이 회원'}의 신청 취소`}
+            aria-label={`${who}의 신청 취소`}
             onClick={onCancel}
           >
             취소

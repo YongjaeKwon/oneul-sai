@@ -163,42 +163,6 @@ describe('scheduleFormSchema → request', () => {
     );
     expect(issue?.message).toBe(NOT_A_NUMBER_MESSAGE);
   });
-
-  // SPEC-003 D8 — 화면 편의(원천은 서버 409 CAPACITY_BELOW_APPLICATIONS)
-  it('blocks a capacity below that gender’s active applications, but accepts equal', () => {
-    const applied = { male: 3, female: 5 };
-    const below = scheduleFormSchema(undefined, applied).safeParse(
-      formValues({ capacityMale: 2, capacityFemale: 5 }),
-    );
-    expect(
-      below.error?.issues.map((issue) => [issue.path.join('.'), issue.message]),
-    ).toEqual([
-      [
-        'capacityMale',
-        '정원을 지금 신청 수(3명)보다 작게 줄일 수 없습니다. 신청을 먼저 취소해 주세요.',
-      ],
-    ]);
-    expect(
-      scheduleFormSchema(undefined, applied).safeParse(
-        formValues({ capacityMale: 3, capacityFemale: 5 }),
-      ).success,
-    ).toBe(true);
-    // 신청 수를 모르는 화면(A7 · A9)은 막지 않는다
-    expect(
-      scheduleFormSchema().safeParse(formValues({ capacityMale: 2 })).success,
-    ).toBe(true);
-  });
-
-  it('keeps the contracts message when the capacity is not a number', () => {
-    const result = scheduleFormSchema(undefined, {
-      male: 3,
-      female: 0,
-    }).safeParse(formValues({ capacityMale: Number.NaN }));
-    const messages = result.error?.issues
-      .filter((issue) => issue.path[0] === 'capacityMale')
-      .map((issue) => issue.message);
-    expect(messages).toEqual([NOT_A_NUMBER_MESSAGE]);
-  });
 });
 
 describe('toNumberOrNull (정수 칸)', () => {

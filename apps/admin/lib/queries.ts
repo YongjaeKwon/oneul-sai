@@ -268,6 +268,7 @@ export function useScheduleApplications(
 
 /**
  * A10 한 페이지 신청자의 회원 정보(`GET /members?ids=`, D11). 신청이 없으면 부르지 않는다.
+ * 목록 화면이 떠나면 캐시는 기본 시간 뒤 버려지고, 로그아웃하면 `queryClient.clear()`로 지워진다.
  * `pageSize`를 ID 개수로 맞춘다 — 서버는 ID가 페이지 크기보다 많으면 400이다.
  */
 export function useMembersByIds(ids: readonly string[]) {
@@ -276,6 +277,8 @@ export function useMembersByIds(ids: readonly string[]) {
     queryKey: memberKeys.list(params),
     queryFn: () => apiClient.listMembers(params),
     enabled: ids.length > 0,
+    // 취소 · 페이지 이동으로 ID가 바뀌어도 남은 행의 이름이 비지 않게(합치기는 ID로 한다)
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -18,6 +18,7 @@ import {
   capacityBelowMessage,
   capacityConflictCount,
 } from '@/lib/applications';
+import { apiClient } from '@/lib/api';
 import { useEndSessionOn401 } from '@/lib/auth-provider';
 import { describeEventError, isApiClientError } from '@/lib/errors';
 import {
@@ -78,18 +79,7 @@ export function ScheduleForm({
   const [baseline, setBaseline] = useState(schedule);
   // 마지막으로 보낸 수정 — 409 `CAPACITY_BELOW_APPLICATIONS` 문구의 N을 고른다
   const [sent, setSent] = useState<UpdateScheduleRequest | null>(null);
-  const appliedMale = schedule?.appliedMale;
-  const appliedFemale = schedule?.appliedFemale;
-  const schema = useMemo(
-    () =>
-      scheduleFormSchema(
-        baseline,
-        appliedMale === undefined || appliedFemale === undefined
-          ? undefined
-          : { male: appliedMale, female: appliedFemale },
-      ),
-    [baseline, appliedMale, appliedFemale],
-  );
+  const schema = useMemo(() => scheduleFormSchema(baseline), [baseline]);
   const [defaults] = useState(() => scheduleFormDefaults(baseline, Date.now()));
   const form = useForm<ScheduleFormValues, unknown, CreateScheduleRequest>({
     resolver: zodResolver(schema),
@@ -141,7 +131,23 @@ export function ScheduleForm({
     }
   };
 
-  const onSubmit = handleSubmit((request) => {
+  /**
+   * 저장 전 안내(H)의 신청 수는 회차를 새로 읽어 쓴다 — 화면을 연 뒤 들어온 신청도 안내에 잡히게. 읽기가 실패하면 가진 값으로.
+   * 받은 값은 캐시에도 들어가 정원 칸 옆 신청 수 · 요약 카드도 함께 새로워진다.
+   */
+  const freshApplied = async (current: AdminSchedule) => {
+    try {
+      return await queryClient.fetchQuery({
+        queryKey: meetupKeys.schedule(meetupId, current.id),
+        queryFn: () => apiClient.getSchedule(meetupId, current.id),
+        staleTime: 0,
+      });
+    } catch {
+      return current;
+    }
+  };
+
+  const onSubmit = handleSubmit(async (request) => {
     setNotice(null);
     const changes =
       baseline === undefined ? null : scheduleChanges(request, baseline);
@@ -152,7 +158,7 @@ export function ScheduleForm({
     const warnings = [
       ...scheduleWarnings(request, changes ?? undefined),
       ...(changes !== null && schedule !== undefined
-        ? applicantWarnings(schedule, changes)
+        ? applicantWarnings(await freshApplied(schedule), changes)
         : []),
     ];
     const next = { request, changes, warnings };
@@ -254,10 +260,19 @@ export function ScheduleForm({
         </div>
 
         <ScheduleSharedFields
-          applied={
-            appliedMale === undefined || appliedFemale === undefined
+          capacity={
+            schedule === undefined || baseline === undefined
               ? undefined
-              : { male: appliedMale, female: appliedFemale }
+              : {
+                  applied: {
+                    male: schedule.appliedMale,
+                    female: schedule.appliedFemale,
+                  },
+                  saved: {
+                    male: baseline.capacityMale,
+                    female: baseline.capacityFemale,
+                  },
+                }
           }
         />
 
