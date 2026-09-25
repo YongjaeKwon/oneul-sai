@@ -1,10 +1,12 @@
 import {
   formatDateTime,
+  formatFee,
   formatMaleAgeRange,
   formatPrice,
   formatTimeRange,
   isRecruitmentClosed,
   normalizePage,
+  scheduleBadgeLabel,
 } from './format';
 
 // SPEC-002 13절 단위 "web 표시 도우미". vitest.config.mts가 TZ=UTC로 돌린다 — 서버(UTC)에서도 서울 시각이어야 한다.
@@ -91,5 +93,45 @@ describe('normalizePage', () => {
   it('keeps a valid page', () => {
     expect(normalizePage('3')).toBe(3);
     expect(normalizePage('1000')).toBe(1000);
+  });
+});
+
+describe('scheduleBadgeLabel (SPEC-003 E)', () => {
+  const now = Date.parse('2026-10-01T00:00:00.000Z');
+  const open = {
+    status: 'OPEN',
+    applyDeadlineAt: '2026-10-03T15:00:00.000Z',
+    maleFull: false,
+    femaleFull: false,
+  } as const;
+
+  it.each([
+    [false, false, null],
+    [true, false, '남성 자리 마감'],
+    [false, true, '여성 자리 마감'],
+    [true, true, '남녀 자리 모두 마감'],
+  ])(
+    'open, male full %s · female full %s → %s',
+    (maleFull, femaleFull, expected) => {
+      expect(scheduleBadgeLabel({ ...open, maleFull, femaleFull }, now)).toBe(
+        expected,
+      );
+    },
+  );
+
+  it('closed recruitment wins and is never mixed with a full gender', () => {
+    const full = { ...open, maleFull: true, femaleFull: true };
+    expect(scheduleBadgeLabel({ ...full, status: 'CLOSED' }, now)).toBe(
+      '모집 마감',
+    );
+    expect(
+      scheduleBadgeLabel(full, Date.parse('2026-10-03T15:00:00.000Z')),
+    ).toBe('모집 마감');
+  });
+});
+
+describe('formatFee (D6)', () => {
+  it('shows the amount fixed at application time', () => {
+    expect(formatFee(25_000)).toBe('참가비 25,000원');
   });
 });

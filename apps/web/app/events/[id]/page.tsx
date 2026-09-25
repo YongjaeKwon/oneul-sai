@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, unstable_rethrow } from 'next/navigation';
 
+import { ApplyArea } from '@/components/apply-area';
 import { FormAlert } from '@/components/form-alert';
 import { PageTitle } from '@/components/page-title';
 import { isApiClientError } from '@/lib/errors';
@@ -15,7 +16,7 @@ import {
   formatPrice,
   formatTimeRange,
   hasStarted,
-  isRecruitmentClosed,
+  scheduleBadgeLabel,
 } from '@/lib/format';
 import { getPublicEvent } from '@/lib/public-api';
 
@@ -29,7 +30,7 @@ interface EventPageProps {
 }
 
 // W9 일정 상세(SPEC-002 4절). 장소는 지역만 — 정확한 장소는 공개 응답에 없다(D4).
-// 신청 버튼과 신청 방법 문구는 두지 않는다 — 결정 예정 (Step 3).
+// 본문 아래 참가 신청 영역은 클라이언트 컴포넌트다(SPEC-003 4절) — 신청 데이터는 서버 렌더 · 캐시에 들어가지 않는다.
 export default async function EventPage({ params }: EventPageProps) {
   const { id } = await params;
 
@@ -64,12 +65,14 @@ export default async function EventPage({ params }: EventPageProps) {
     schedule.maleMinBirthYear,
     schedule.maleMaxBirthYear,
   );
+  const badge = scheduleBadgeLabel(schedule);
+  const started = hasStarted(schedule);
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-8 px-6 py-12">
       <PageTitle title={schedule.title} />
 
-      {hasStarted(schedule) ? (
+      {started ? (
         <p className="text-center text-sm text-ink-soft">지난 일정입니다.</p>
       ) : null}
 
@@ -84,7 +87,7 @@ export default async function EventPage({ params }: EventPageProps) {
           <p className="font-display text-lg font-semibold text-ink tabular-nums">
             {formatTimeRange(schedule.startsAt, schedule.endsAt)}
           </p>
-          {isRecruitmentClosed(schedule) ? <Badge>모집 마감</Badge> : null}
+          {badge !== null ? <Badge>{badge}</Badge> : null}
         </div>
         <ul className="flex flex-col gap-3 text-sm text-ink">
           <li className="tabular-nums">
@@ -110,6 +113,9 @@ export default async function EventPage({ params }: EventPageProps) {
           </li>
         </ul>
       </section>
+
+      {/* (a) 지난 일정에는 신청 영역을 두지 않는다 */}
+      {started ? null : <ApplyArea schedule={schedule} />}
 
       <p className="text-sm text-ink-soft">
         행사 당일에는 출생연도와 본인 확인이 가능한 신분증을 지참해 주세요.

@@ -1,9 +1,12 @@
 import { SERVICE_TIME_ZONE } from '@oneul-sai/constants';
 import {
   ListPageSchema,
+  type ApplicationCancelledBy,
+  type ApplicationStatus,
   type Gender,
   type PublicSchedule,
 } from '@oneul-sai/contracts';
+import type { BadgeTone } from '@oneul-sai/ui';
 
 // 화면 표기는 docs/overview/glossary.md의 한국어 용어를 따른다.
 
@@ -72,16 +75,24 @@ export function formatTimeRange(startsAt: string, endsAt: string): string {
   return `${start.date} ${start.time}~${endLabel}`;
 }
 
-const won = (amount: number) => `${amount.toLocaleString('ko-KR')}원`;
+/** "30,000원". */
+export function formatWon(amount: number): string {
+  return `${amount.toLocaleString('ko-KR')}원`;
+}
 
 /** 같으면 "참가비 30,000원", 다르면 "참가비 남 30,000원 · 여 25,000원"(D3). */
 export function formatPrice(priceMale: number, priceFemale: number): string {
   return priceMale === priceFemale
-    ? `참가비 ${won(priceMale)}`
-    : `참가비 남 ${won(priceMale)} · 여 ${won(priceFemale)}`;
+    ? formatFee(priceMale)
+    : `참가비 남 ${formatWon(priceMale)} · 여 ${formatWon(priceFemale)}`;
 }
 
-/** "정원 남 7 · 여 7". 남은 자리는 Step 3. */
+/** "참가비 30,000원" — 신청 한 건에는 신청 때 고정한 금액(`price`, SPEC-003 D6)을 보인다. */
+export function formatFee(price: number): string {
+  return `참가비 ${formatWon(price)}`;
+}
+
+/** "정원 남 7 · 여 7". 남은 자리 수는 보이지 않는다 — 찼는지만(`scheduleBadgeLabel`, SPEC-003 D10). */
 export function formatCapacity(
   capacityMale: number,
   capacityFemale: number,
@@ -122,6 +133,29 @@ export function isRecruitmentClosed(
   );
 }
 
+/**
+ * W8 · W9 배지(SPEC-003 E). 모집 마감이 먼저이고, 모집 중일 때만 성별 자리 마감을 보인다 — 두 표시를 섞지 않는다.
+ * 공개 조회는 30초 캐시라 늦게 보일 수 있다 — 신청 판정의 원천은 서버다.
+ */
+export function scheduleBadgeLabel(
+  schedule: Pick<
+    PublicSchedule,
+    'status' | 'applyDeadlineAt' | 'maleFull' | 'femaleFull'
+  >,
+  now: number = Date.now(),
+): string | null {
+  if (isRecruitmentClosed(schedule, now)) {
+    return '모집 마감';
+  }
+  if (schedule.maleFull && schedule.femaleFull) {
+    return '남녀 자리 모두 마감';
+  }
+  if (schedule.maleFull) {
+    return '남성 자리 마감';
+  }
+  return schedule.femaleFull ? '여성 자리 마감' : null;
+}
+
 /** "지난 일정입니다." 표시: 시작 시각이 지났다. */
 export function hasStarted(
   schedule: Pick<PublicSchedule, 'startsAt'>,
@@ -135,3 +169,23 @@ export function normalizePage(value: unknown): number {
   const result = ListPageSchema.safeParse(value);
   return result.success ? result.data : 1;
 }
+
+// ----- 참가 신청 (SPEC-003 4절 W9 · W10) -----
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  PENDING: '입금 대기',
+  CANCELLED: '취소',
+};
+
+/** 디자인 파운데이션 5절 `Badge` — 입금 대기 `warning`, 취소 `danger`. 뜻은 글자가 전한다. */
+export const APPLICATION_STATUS_TONES: Record<ApplicationStatus, BadgeTone> = {
+  PENDING: 'warning',
+  CANCELLED: 'danger',
+};
+
+/** W10 취소된 신청 카드의 한 줄 — 누가 취소했는지. */
+export const CANCELLED_BY_NOTES: Record<ApplicationCancelledBy, string> = {
+  MEMBER: '직접 취소했습니다.',
+  ADMIN: '오늘사이에서 취소했습니다.',
+  SCHEDULE: '일정이 취소되었습니다.',
+};

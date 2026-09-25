@@ -11,7 +11,7 @@ import {
   formatDateTime,
   formatMaleAgeRange,
   formatPrice,
-  isRecruitmentClosed,
+  scheduleBadgeLabel,
 } from '@/lib/format';
 import { listPublicEvents } from '@/lib/public-api';
 
@@ -25,7 +25,7 @@ interface EventsPageProps {
 }
 
 // W8 일정 목록(SPEC-002 4절). 서버 렌더 — 공개 조회는 lib/public-api.ts의 데이터 캐시(30초)를 거친다.
-// 남은 자리는 보여 주지 않고(Step 3), 회차별로 "N명과 대화"를 약속하지 않는다(결정 예정 (Step 5)).
+// 남은 자리 수 대신 모집 마감 · 성별 자리 마감만 보이고(SPEC-003 E · D10), 회차별로 "N명과 대화"를 약속하지 않는다(결정 예정 (Step 5)).
 export default async function EventsPage({ searchParams }: EventsPageProps) {
   const { page } = await searchParams;
 
@@ -65,6 +65,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               schedule.maleMinBirthYear,
               schedule.maleMaxBirthYear,
             );
+            const badge = scheduleBadgeLabel(schedule);
             return (
               <li key={schedule.id}>
                 <Link
@@ -75,9 +76,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                     <p className="font-display text-lg font-semibold text-ink tabular-nums">
                       {formatDateTime(schedule.startsAt)}
                     </p>
-                    {isRecruitmentClosed(schedule) ? (
-                      <Badge>모집 마감</Badge>
-                    ) : null}
+                    {badge !== null ? <Badge>{badge}</Badge> : null}
                   </div>
                   <h2 className="text-base font-semibold text-ink">
                     {schedule.title}
