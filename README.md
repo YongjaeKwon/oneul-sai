@@ -206,6 +206,8 @@ pnpm --filter @oneul-sai/member-service dev   # Member        http://localhost:4
 pnpm --filter @oneul-sai/event-service dev    # Event         http://localhost:4002
 ```
 
+참가 신청은 event-service가 member-service에 신청자 본인 정보를 묻습니다(ADR-011). 신청을 시험하려면 member-service도 떠 있어야 합니다 — 없으면 신청이 503 `SERVICE_BUSY`가 됩니다.
+
 각 백엔드 서비스는 다음 엔드포인트를 제공합니다.
 
 - Swagger: `http://localhost:<port>/docs`

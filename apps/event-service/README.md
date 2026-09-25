@@ -6,35 +6,42 @@
 
 오프라인 소개팅 운영 핵심을 담당한다: Meetup(모임 상품) · Schedule(회차, 참가자 화면의 '일정') · Application · Participant · Check-in · Rotation. 모두 내부 도메인이며 별도 서비스로 분리하지 않는다.
 
-지금 구현된 것은 Step 2([SPEC-002](../../docs/specs/SPEC-002-meetup-schedule.md))다:
+지금 구현된 것은 Step 2([SPEC-002](../../docs/specs/SPEC-002-meetup-schedule.md))와 Step 3 참가 신청([SPEC-003](../../docs/specs/SPEC-003-application.md))이다:
 
 - **모임 상품** `Meetup` — 제목 · 설명만. 회차가 함께 쓰는 틀이다. 등록 · 수정만 있다(상태 · 삭제 없음).
 - **회차** `Schedule` — 시각(시작 · 종료 · 신청 마감), 남녀 참가비 · 정원, 남성 연령대(출생연도 범위, 선택), 장소(공개 지역 + 운영자 전용 장소 안내 넷), 상태 `DRAFT → OPEN ⇄ CLOSED → CANCELLED`(6절 전이 표). 여러 회차 한 번에 등록(D15).
 - **참가자 공개 조회** — OPEN · CLOSED 회차의 공개 필드만. 정확한 장소(`venueName` · `venueAddress` · `venueDirections` · `venueMapUrl`)와 취소 사유는 공개 경로에 절대 나오지 않는다 — 경로 · select · 응답 스키마가 나뉘어 있다(SPEC-002 12절).
 
-신청 · 좌석 계산은 Step 3, 체크인 · 로테이션은 Step 5다. 이 서비스는 다른 서비스를 부르지 않고 Kafka도 쓰지 않는다(Step 2).
+- **참가 신청** `Application` — 회원이 일정에 신청하면 입금 대기(`PENDING`)로 그 성별의 자리를 잡는다. 회차 행을 `FOR UPDATE`로 잠근 뒤 판정해 정원을 넘지 않는다(잠금 대기 상한 `lock_timeout` 2초). 본인 취소(신청 마감 전) · 운영자 취소 · 회차 취소 연쇄. 참가 확정 · 입금 기한은 Step 4다.
+
+신청할 때 member-service `GET /api/v1/members/me`를 한 번 부른다(위임 호출, [ADR-011](../../docs/adr/ADR-011-service-to-service-calls.md)) — **신청은 member-service가 떠 있어야 된다**(없으면 503 `SERVICE_BUSY`). 체크인 · 로테이션은 Step 5다. Kafka는 쓰지 않는다.
 
 ## API
 
 모든 경로는 Gateway(`:4000`) 경유다. `/health`를 뺀 모든 핸들러는 `x-internal-token`을 먼저 확인한다(`@oneul-sai/service-kit`의 `InternalAuthGuard`). 요청 · 응답 스키마는 `@oneul-sai/contracts`의 `src/event/`, 에러는 `ApiErrorResponse` + `code`. 인증 열의 원천은 컨트롤러의 `@Public()` · `@Roles('ADMIN')`이다.
 
-| 메서드 | 경로                                                     | 인증  | 요청 → 응답                                                        |
-| ------ | -------------------------------------------------------- | ----- | ------------------------------------------------------------------ |
-| GET    | `/api/v1/events`                                         | 공개  | `PublicScheduleListQuery` → `PublicScheduleListResponse`           |
-| GET    | `/api/v1/events/:id`                                     | 공개  | → `PublicSchedule` (DRAFT · CANCELLED · 없음은 같은 404)           |
-| GET    | `/api/v1/meetups`                                        | ADMIN | `MeetupListQuery` → `MeetupListResponse`                           |
-| POST   | `/api/v1/meetups`                                        | ADMIN | `CreateMeetupRequest` → 201 `Meetup`                               |
-| GET    | `/api/v1/meetups/:meetupId`                              | ADMIN | → `Meetup`                                                         |
-| PATCH  | `/api/v1/meetups/:meetupId`                              | ADMIN | `UpdateMeetupRequest` → `Meetup`                                   |
-| GET    | `/api/v1/meetups/:meetupId/schedules`                    | ADMIN | `AdminScheduleListQuery` → `AdminScheduleListResponse`             |
-| POST   | `/api/v1/meetups/:meetupId/schedules`                    | ADMIN | `CreateScheduleRequest` → 201 `AdminSchedule`(DRAFT)               |
-| POST   | `/api/v1/meetups/:meetupId/schedules/batch`              | ADMIN | `BatchCreateSchedulesRequest` → 201 `BatchCreateSchedulesResponse` |
-| GET    | `/api/v1/meetups/:meetupId/schedules/:scheduleId`        | ADMIN | → `AdminSchedule`                                                  |
-| PATCH  | `/api/v1/meetups/:meetupId/schedules/:scheduleId`        | ADMIN | `UpdateScheduleRequest` → `AdminSchedule`                          |
-| PATCH  | `/api/v1/meetups/:meetupId/schedules/:scheduleId/status` | ADMIN | `UpdateScheduleStatusRequest` → `AdminSchedule`                    |
-| DELETE | `/api/v1/meetups/:meetupId/schedules/:scheduleId`        | ADMIN | → 204 (DRAFT만)                                                    |
+| 메서드 | 경로                                                                                 | 인증  | 요청 → 응답                                                        |
+| ------ | ------------------------------------------------------------------------------------ | ----- | ------------------------------------------------------------------ |
+| GET    | `/api/v1/events`                                                                     | 공개  | `PublicScheduleListQuery` → `PublicScheduleListResponse`           |
+| GET    | `/api/v1/events/:id`                                                                 | 공개  | → `PublicSchedule` (DRAFT · CANCELLED · 없음은 같은 404)           |
+| GET    | `/api/v1/meetups`                                                                    | ADMIN | `MeetupListQuery` → `MeetupListResponse`                           |
+| POST   | `/api/v1/meetups`                                                                    | ADMIN | `CreateMeetupRequest` → 201 `Meetup`                               |
+| GET    | `/api/v1/meetups/:meetupId`                                                          | ADMIN | → `Meetup`                                                         |
+| PATCH  | `/api/v1/meetups/:meetupId`                                                          | ADMIN | `UpdateMeetupRequest` → `Meetup`                                   |
+| GET    | `/api/v1/meetups/:meetupId/schedules`                                                | ADMIN | `AdminScheduleListQuery` → `AdminScheduleListResponse`             |
+| POST   | `/api/v1/meetups/:meetupId/schedules`                                                | ADMIN | `CreateScheduleRequest` → 201 `AdminSchedule`(DRAFT)               |
+| POST   | `/api/v1/meetups/:meetupId/schedules/batch`                                          | ADMIN | `BatchCreateSchedulesRequest` → 201 `BatchCreateSchedulesResponse` |
+| GET    | `/api/v1/meetups/:meetupId/schedules/:scheduleId`                                    | ADMIN | → `AdminSchedule`                                                  |
+| PATCH  | `/api/v1/meetups/:meetupId/schedules/:scheduleId`                                    | ADMIN | `UpdateScheduleRequest` → `AdminSchedule`                          |
+| PATCH  | `/api/v1/meetups/:meetupId/schedules/:scheduleId/status`                             | ADMIN | `UpdateScheduleStatusRequest` → `AdminSchedule`                    |
+| DELETE | `/api/v1/meetups/:meetupId/schedules/:scheduleId`                                    | ADMIN | → 204 (DRAFT만)                                                    |
+| POST   | `/api/v1/applications`                                                               | 회원  | `CreateApplicationRequest` → 201 `MyApplication`                   |
+| GET    | `/api/v1/applications`                                                               | 회원  | `MyApplicationListQuery` → `MyApplicationListResponse`             |
+| PATCH  | `/api/v1/applications/:applicationId/status`                                         | 회원  | `UpdateApplicationStatusRequest` → `MyApplication`                 |
+| GET    | `/api/v1/meetups/:meetupId/schedules/:scheduleId/applications`                       | ADMIN | `AdminApplicationListQuery` → `AdminApplicationListResponse`       |
+| PATCH  | `/api/v1/meetups/:meetupId/schedules/:scheduleId/applications/:applicationId/status` | ADMIN | `UpdateApplicationStatusRequest` → `AdminApplication`              |
 
-- `/api/v1/meetups/**` 응답에는 `Cache-Control: no-store`가 붙는다. 공개 응답은 호출자 역할과 무관하게 같다(운영자도 공개 경로에서는 비공개 필드를 받지 않는다).
+- `/api/v1/meetups/**`와 `/api/v1/applications/**` 응답에는 `Cache-Control: no-store`가 붙는다. 신청 경로는 MEMBER만(ADMIN은 403). 공개 응답은 호출자 역할과 무관하게 같다(운영자도 공개 경로에서는 비공개 필드를 받지 않는다).
 - 에러 코드: 400 `VALIDATION_FAILED` · `SCHEDULE_TIME_INVALID` · `BIRTH_YEAR_RANGE_INVALID`, 401 `UNAUTHENTICATED` · `INTERNAL_TOKEN_INVALID`, 403 `FORBIDDEN`, 404 `MEETUP_NOT_FOUND` · `SCHEDULE_NOT_FOUND`, 409 `INVALID_STATUS_TRANSITION` · `SCHEDULE_NOT_EDITABLE` · `CAPACITY_BELOW_APPLICATIONS`(회차 수정에서 정원 < 그 성별 활성 신청 수), 503 `SERVICE_BUSY` + `Retry-After: 1`(회차 쓰기가 잠금 2초 · 트랜잭션 연결을 기다리다 끝남)(SPEC-002 · SPEC-003 7절 에러 코드 표).
 - 운영자 회차 응답에는 모두 신청 수 `appliedMale` · `appliedFemale`과 `maleFull` · `femaleFull`이, 공개 응답에는 `maleFull` · `femaleFull`만 실린다(SPEC-003 D10). 회차를 취소하면 같은 트랜잭션에서 그 회차의 활성 신청이 모두 취소된다(`cancelledBy: SCHEDULE`).
 - 여러 회차 등록은 전부 또는 없음이다. 문제 항목은 `message`의 `items.<순번>`(0부터)으로 알린다 — Zod 실패는 `items.3.capacityMale: 범위` 형식, 시간 · 연령대 규칙 위반은 첫 위반 항목 하나를 `items.5: 시간 규칙` · `items.2: 연령대 규칙`으로 준다.

@@ -30,16 +30,16 @@ request-id → 요청 로거 → CORS → Origin 확인 → rate limit → auth(
 
 `src/proxy/routes.ts`의 `createProxyRoutes(env)`. prefix 매칭은 함수 `pathFilter`(`pathname === prefix || pathname.startsWith(prefix + '/')`)다 — http-proxy-middleware v3는 일반 문자열과 글롭을 섞은 배열(`['/api/v1/members', '/api/v1/members/**']`)을 거부하고, 단일 문자열은 `indexOf === 0`이라 `/api/v1/membersX`까지 잡기 때문이다. `POST /api/v1/members`(끝 슬래시 없음)와 `/api/v1/meetups` · `/api/v1/meetups/<id>/schedules` · `/api/v1/meetups/<id>/schedules/batch`가 프록시되고 `/api/v1/meetupsX`는 프록시되지 않는 것을 `src/proxy/proxy-req.spec.ts`가 실제 http-proxy-middleware로, 경로별 대상 서비스는 `src/proxy/path-filter.spec.ts`가 확인한다.
 
-| Path prefix            | 대상 서비스             | 인증 필요 (SPEC-001 · SPEC-002 기준 · 원천은 서비스의 `@Public()` · `@Roles()`) |
-| ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
-| `/api/v1/members`      | member-service (4001)   | `POST /members` 공개 · `/members/me` 회원 · 목록 · 상세 · 상태 변경 ADMIN       |
-| `/api/v1/auth`         | member-service (4001)   | `login` · `refresh` · `logout` 공개 · `password` · `logout-all` 회원            |
-| `/api/v1/events`       | event-service (4002)    | 공개 — 목록 · 상세(읽기 전용)                                                   |
-| `/api/v1/meetups`      | event-service (4002)    | ADMIN — 상품 · 회차 관리 전부                                                   |
-| `/api/v1/applications` | event-service (4002)    | 결정 예정 (Step 3)                                                              |
-| `/api/v1/matches`      | matching-service (4003) | 결정 예정 (Step 6)                                                              |
-| `/api/v1/preferences`  | matching-service (4003) | 결정 예정 (Step 6)                                                              |
-| `/api/v1/payments`     | payment-service (4005)  | 결정 예정 (Step 4)                                                              |
+| Path prefix            | 대상 서비스             | 인증 필요 (SPEC-001 · SPEC-002 기준 · 원천은 서비스의 `@Public()` · `@Roles()`)           |
+| ---------------------- | ----------------------- | ----------------------------------------------------------------------------------------- |
+| `/api/v1/members`      | member-service (4001)   | `POST /members` 공개 · `/members/me` 회원 · 목록 · 상세 · 상태 변경 ADMIN                 |
+| `/api/v1/auth`         | member-service (4001)   | `login` · `refresh` · `logout` 공개 · `password` · `logout-all` 회원                      |
+| `/api/v1/events`       | event-service (4002)    | 공개 — 목록 · 상세(읽기 전용)                                                             |
+| `/api/v1/meetups`      | event-service (4002)    | ADMIN — 상품 · 회차 관리 전부                                                             |
+| `/api/v1/applications` | event-service (4002)    | 회원(MEMBER 전용) — 신청 · 내 신청 · 본인 취소. 운영자 신청 관리는 `/api/v1/meetups` 아래 |
+| `/api/v1/matches`      | matching-service (4003) | 결정 예정 (Step 6)                                                                        |
+| `/api/v1/preferences`  | matching-service (4003) | 결정 예정 (Step 6)                                                                        |
+| `/api/v1/payments`     | payment-service (4005)  | 결정 예정 (Step 4)                                                                        |
 
 notification-service는 외부 API를 노출하지 않는다(이벤트 기반).
 
