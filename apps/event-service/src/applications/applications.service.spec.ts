@@ -414,6 +414,20 @@ describe('ApplicationsService cancel', () => {
     expect(logger.info).not.toHaveBeenCalled();
   });
 
+  it('member: a lock timeout → 503 with application.busy naming the application (the schedule is unknown before the lock)', async () => {
+    const { service, tx, logger } = build();
+    tx.$queryRaw.mockRejectedValueOnce(dbError('55P03'));
+    const error = await errorOf(
+      service.cancelMine(CALLER, APPLICATION_ID, 'r'),
+    );
+    expect(error.getStatus()).toBe(503);
+    expect(logger.warn).toHaveBeenCalledWith('application.busy', {
+      applicationId: APPLICATION_ID,
+      cause: 'lock_timeout',
+      requestId: 'r',
+    });
+  });
+
   it('operator: checks the schedule belongs to the meetup first, then locks the application of that schedule', async () => {
     const { service, prisma, calls, logger } = build();
     await service.cancelByAdmin(

@@ -187,6 +187,8 @@ describe('ordering forced (integration, 11절)', () => {
       s.id,
       () => callers.map((caller) => apply(caller, s.id)),
       async () => {
+        // 8건이 마감 전에 줄을 섰어야 이 테스트가 뜻이 있다 — 느린 러너면 조용히 통과하지 않고 실패한다
+        expect(Date.now()).toBeLessThan(deadline.getTime());
         // now를 잠금 뒤에 읽는 구현만 마감 뒤로 판정한다
         const left = deadline.getTime() - Date.now() + 200;
         if (left > 0) await new Promise((resolve) => setTimeout(resolve, left));
