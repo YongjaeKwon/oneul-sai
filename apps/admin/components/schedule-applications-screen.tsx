@@ -223,7 +223,8 @@ function ApplicationTable({
     }
   }, [cancelsSettled]);
 
-  if (error) {
+  // 가진 목록이 있으면(다시 부르기만 실패) 표 · 열린 창 · 취소 오류를 그대로 두고 위에 안내만 더한다
+  if (error && data === undefined) {
     return <Notice tone="danger">{describeEventError(error)}</Notice>;
   }
   if (data === undefined) {
@@ -243,6 +244,9 @@ function ApplicationTable({
 
   return (
     <div className="flex flex-col gap-4">
+      {error ? (
+        <Notice tone="danger">{describeEventError(error)}</Notice>
+      ) : null}
       {memberNotice !== null ? (
         <Notice tone="danger">{memberNotice}</Notice>
       ) : null}
@@ -361,15 +365,15 @@ function ApplicationRowView({
   onCancel,
 }: {
   row: ApplicationRow;
-  /** 신청 순 번호(페이지를 넘어 이어진다) — 이름을 모르는 행을 서로 가르는 데 쓴다. */
+  /** 지금 목록에서의 줄 번호(페이지를 넘어 이어진다, 필터마다 다르다) — 이름을 모르는 행을 한 화면 안에서 가르는 데 쓴다. */
   ordinal: number;
   cancelDisabled: boolean;
   onCancel: () => void;
 }) {
   const cancelled = application.status === 'CANCELLED';
   const appliedAt = formatScheduleTime(application.createdAt);
-  // 이름을 모르는 행(탈퇴 · 조회 실패 · 불러오는 중)도 서로 가를 수 있게 신청 순번을 넣는다(같은 분의 신청도 갈린다)
-  const who = member?.name ?? `${ordinal}번째 신청자`;
+  // 이름을 모르는 행(탈퇴 · 조회 실패 · 불러오는 중)도 서로 가를 수 있게 목록 줄 번호와 신청 시각을 넣는다
+  const who = member?.name ?? `${ordinal}번째 줄(${appliedAt} 신청)`;
 
   return (
     <tr className="align-top hover:bg-ivory">

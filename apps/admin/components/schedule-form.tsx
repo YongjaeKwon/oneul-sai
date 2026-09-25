@@ -9,7 +9,7 @@ import {
 } from '@oneul-sai/contracts';
 import { Button, Dialog, Input } from '@oneul-sai/ui';
 import { useRouter } from 'next/navigation';
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
 import {
@@ -64,10 +64,17 @@ export function ScheduleForm({
   const mutation = creating ? create : update;
   useEndSessionOn401(mutation.error);
   // 만들기는 성공하면 상세로 떠나므로 그때까지 잠근다(다시 누르면 한 번 더 만들어진다). 수정은 이 화면에 남아 다시 저장할 수 있다.
+  // 저장 전 안내를 위해 회차를 새로 읽는 동안에도 잠근다 — 두 번 누르면 PATCH가 두 번 나간다. 잠그면 포커스가 버튼에서
+  // 빠지므로 확인 창을 닫을 때 저장 버튼으로 돌려놓는다(`focusSubmit`)
   const [refreshing, setRefreshing] = useState(false);
-  // 저장 전 안내를 위해 회차를 새로 읽는 동안에도 잠근다 — 두 번 누르면 PATCH가 두 번 나간다
   const locked =
     mutation.isPending || refreshing || (creating && mutation.isSuccess);
+  const busy = mutation.isPending || refreshing;
+  const formRef = useRef<HTMLFormElement>(null);
+  const focusSubmit = () =>
+    formRef.current
+      ?.querySelector<HTMLButtonElement>('button[type="submit"]')
+      ?.focus();
 
   const [pending, setPending] = useState<Pending | null>(null);
   const [notice, setNotice] = useState<{
@@ -207,10 +214,11 @@ export function ScheduleForm({
   return (
     <FormProvider {...form}>
       <form
+        ref={formRef}
         onSubmit={onSubmit}
         noValidate
         className="flex flex-col gap-5"
-        aria-busy={mutation.isPending}
+        aria-busy={busy}
       >
         <div className="grid gap-4 sm:grid-cols-3">
           <FormField
@@ -290,11 +298,7 @@ export function ScheduleForm({
         ) : null}
         <div>
           <Button type="submit" disabled={locked}>
-            {mutation.isPending
-              ? '처리 중…'
-              : creating
-                ? '회차 만들기'
-                : '저장'}
+            {busy ? '처리 중…' : creating ? '회차 만들기' : '저장'}
           </Button>
         </div>
       </form>
@@ -302,7 +306,11 @@ export function ScheduleForm({
       <Dialog
         open={pending !== null}
         title="확인"
-        onClose={() => setPending(null)}
+        onClose={() => {
+          setPending(null);
+          // 닫힌 뒤(브라우저의 포커스 복원 다음) 저장 버튼으로 — 새로 읽는 동안 잠겨 포커스가 빠졌다
+          focusSubmit();
+        }}
         describedBy={questionId}
       >
         {pending !== null ? (
