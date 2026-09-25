@@ -38,6 +38,10 @@ const saved: AdminSchedule = {
   cancelReason: null,
   createdAt: '2026-09-20T00:00:00.000Z',
   updatedAt: '2026-09-20T00:00:00.000Z',
+  maleFull: false,
+  femaleFull: false,
+  appliedMale: 0,
+  appliedFemale: 0,
 };
 
 function formValues(

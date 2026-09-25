@@ -43,19 +43,35 @@ const leakyRow = {
   cancelReason: 'SECRET-REASON',
 };
 
-function build(row: typeof leakyRow | null) {
+function build(
+  row: typeof leakyRow | null,
+  groups: {
+    scheduleId: string;
+    gender: 'MALE' | 'FEMALE';
+    count: number;
+  }[] = [],
+) {
   const schedule = {
     findMany: vi.fn(async () => (row === null ? [] : [row])),
     count: vi.fn(async () => (row === null ? 0 : 1)),
     findFirst: vi.fn(async () => row),
   };
+  const application = {
+    groupBy: vi.fn(async () =>
+      groups.map(({ scheduleId, gender, count }) => ({
+        scheduleId,
+        gender,
+        _count: { _all: count },
+      })),
+    ),
+  };
   const service = new PublicEventsService(
-    { schedule } as unknown as ConstructorParameters<
+    { schedule, application } as unknown as ConstructorParameters<
       typeof PublicEventsService
     >[0],
     () => NOW,
   );
-  return { service, schedule };
+  return { service, schedule, application };
 }
 
 describe('public field isolation', () => {
@@ -104,6 +120,33 @@ describe('PublicEventsService queries', () => {
       skip: 20,
       take: 10,
     });
+  });
+
+  it('shows whether each gender is full without the counts (SPEC-003 D10)', async () => {
+    // 정원 남 7 · 여 6(leakyRow)
+    const { service, application } = build(leakyRow, [
+      { scheduleId: ID, gender: 'MALE', count: 7 },
+      { scheduleId: ID, gender: 'FEMALE', count: 5 },
+    ]);
+    const list = await service.list({ page: 1, pageSize: 20 });
+    const detail = await service.detail(ID);
+    for (const response of [list.items[0], detail]) {
+      expect(response).toMatchObject({ maleFull: true, femaleFull: false });
+      expect(response).not.toHaveProperty('appliedMale');
+      expect(response).not.toHaveProperty('appliedFemale');
+    }
+    expect(application.groupBy).toHaveBeenCalledWith({
+      by: ['scheduleId', 'gender'],
+      where: { scheduleId: { in: [ID] }, status: { not: 'CANCELLED' } },
+      _count: { _all: true },
+    });
+  });
+
+  it('skips the count query for an empty page', async () => {
+    const { service, application } = build(null);
+    const list = await service.list({ page: 1, pageSize: 20 });
+    expect(list.items).toEqual([]);
+    expect(application.groupBy).not.toHaveBeenCalled();
   });
 
   it('answers 404 SCHEDULE_NOT_FOUND when no public row matches', async () => {

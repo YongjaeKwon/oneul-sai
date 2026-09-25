@@ -43,7 +43,7 @@ export class PublicEventsController {
   })
   @ApiOkResponse({
     description:
-      'PublicScheduleListResponse — { items: PublicSchedule[], total, page, pageSize }',
+      'PublicScheduleListResponse — { items: PublicSchedule[], total, page, pageSize }. 성별 자리 마감은 maleFull · femaleFull(숫자 없음, SPEC-003)',
   })
   @ApiBadRequestResponse({ description: 'VALIDATION_FAILED' })
   list(
@@ -61,7 +61,9 @@ export class PublicEventsController {
       'DRAFT · CANCELLED · 없음은 모두 같은 본문의 404 SCHEDULE_NOT_FOUND(requestId · timestamp · path만 다르다).',
   })
   @ApiParam({ name: 'id', description: '회차 ID (UUID)' })
-  @ApiOkResponse({ description: 'PublicSchedule' })
+  @ApiOkResponse({
+    description: 'PublicSchedule(+ maleFull · femaleFull, SPEC-003)',
+  })
   @ApiBadRequestResponse({ description: 'VALIDATION_FAILED (UUID 아님)' })
   @ApiNotFoundResponse({ description: 'SCHEDULE_NOT_FOUND' })
   detail(

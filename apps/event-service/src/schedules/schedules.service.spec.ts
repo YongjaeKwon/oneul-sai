@@ -9,6 +9,7 @@ import type { AdminScheduleRow } from './schedule-select.js';
 import { SchedulesService } from './schedules.service.js';
 
 // SPEC-002 13절 단위: SchedulesService(가짜 prisma) — 여러 회차 등록(D15), FOR UPDATE 후 판정, 소속 404, 로그.
+// SPEC-003 13절 단위: 잠금 대기 상한(SET LOCAL lock_timeout → FOR UPDATE), 정원 축소 검사, 회차 취소 연쇄, 55P03 → 503.
 
 const NOW = new Date('2026-10-01T00:00:00.000Z');
 const MEETUP_ID = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
@@ -66,6 +67,12 @@ interface BuildOptions {
   /** FOR UPDATE가 행을 찾지 못함 = 다른 상품의 회차 또는 없음 */
   locked?: boolean;
   failCreateAt?: number;
+  /** 성별 활성 신청 수(`countActive`) */
+  active?: { MALE?: number; FEMALE?: number };
+  /** 회차 취소가 함께 취소한 신청 수(`updateMany`) */
+  cancelled?: number;
+  /** 잠금 문장이 던질 에러(잠금 대기 상한 초과 등) */
+  lockError?: unknown;
 }
 
 function build(options: BuildOptions = {}) {
@@ -86,10 +93,28 @@ function build(options: BuildOptions = {}) {
     });
   };
   const tx = {
+    $executeRaw: vi.fn(async (strings: TemplateStringsArray) => {
+      calls.push(`sql:${strings.join('?')}`);
+      return 0;
+    }),
     $queryRaw: vi.fn(async (strings: TemplateStringsArray) => {
       calls.push(`lock:${strings.join('?')}`);
+      if (options.lockError !== undefined) throw options.lockError;
       return options.locked === false ? [] : [{ id: stored.id }];
     }),
+    application: {
+      count: vi.fn(
+        async ({ where }: { where: { gender: 'MALE' | 'FEMALE' } }) => {
+          calls.push(`count:${where.gender}`);
+          return options.active?.[where.gender] ?? 0;
+        },
+      ),
+      updateMany: vi.fn(async () => {
+        calls.push('cancelApplications');
+        return { count: options.cancelled ?? 0 };
+      }),
+      groupBy: vi.fn(async () => []),
+    },
     schedule: {
       findUniqueOrThrow: vi.fn(async () => {
         calls.push('read');
@@ -97,7 +122,13 @@ function build(options: BuildOptions = {}) {
       }),
       update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
         calls.push('update');
-        return { ...stored, ...data };
+        // Prisma처럼 undefined인 필드는 건너뛴다
+        return {
+          ...stored,
+          ...Object.fromEntries(
+            Object.entries(data).filter(([, value]) => value !== undefined),
+          ),
+        };
       }),
       delete: vi.fn(async () => {
         calls.push('delete');
@@ -117,6 +148,7 @@ function build(options: BuildOptions = {}) {
       create: vi.fn(createRow),
       findFirst: vi.fn(async () => null),
     },
+    application: { groupBy: vi.fn(async () => []) },
     $transaction: vi.fn(async (fn: (client: typeof tx) => Promise<unknown>) =>
       fn(tx),
     ),
@@ -240,8 +272,9 @@ describe('SchedulesService — lock first, then judge', () => {
       { priceMale: 45_000, venueName: 'NEW-SECRET', venueArea: '성수' },
       'req',
     );
-    expect(calls[0]).toContain('FOR UPDATE');
-    expect(calls.slice(1)).toEqual(['read', 'update']);
+    expect(calls[0]).toBe("sql:SET LOCAL lock_timeout = '2s'");
+    expect(calls[1]).toContain('FOR UPDATE');
+    expect(calls.slice(2)).toEqual(['read', 'update']);
     // venueArea는 같은 값이라 쓰지 않는다
     expect(tx.schedule.update.mock.calls[0]?.[0].data).toEqual({
       priceMale: 45_000,
@@ -321,7 +354,7 @@ describe('SchedulesService — lock first, then judge', () => {
       { status: 'CANCELLED', cancelReason: 'SECRET-REASON' },
       'req',
     );
-    expect(calls[0]).toContain('FOR UPDATE');
+    expect(calls[1]).toContain('FOR UPDATE');
     expect(result.cancelReason).toBe('SECRET-REASON');
     expect(logger.info).toHaveBeenCalledWith('schedule.status_changed', {
       adminId: ADMIN.id,
@@ -329,6 +362,7 @@ describe('SchedulesService — lock first, then judge', () => {
       scheduleId: SCHEDULE_ID,
       from: 'OPEN',
       to: 'CANCELLED',
+      cancelledApplications: 0,
       requestId: 'req',
     });
     expect(loggedText(logger)).not.toContain('SECRET');
@@ -377,7 +411,7 @@ describe('SchedulesService — lock first, then judge', () => {
 
     const draft = build();
     await draft.service.remove(ADMIN, MEETUP_ID, SCHEDULE_ID, 'req');
-    expect(draft.calls.slice(1)).toEqual(['read', 'delete']);
+    expect(draft.calls.slice(2)).toEqual(['read', 'delete']);
     expect(draft.logger.info).toHaveBeenCalledWith('schedule.deleted', {
       adminId: ADMIN.id,
       meetupId: MEETUP_ID,
@@ -392,5 +426,166 @@ describe('SchedulesService — lock first, then judge', () => {
       service.create(ADMIN, MEETUP_ID, input(4), 'req'),
     );
     expect(error.code).toBe(API_ERROR_CODES.MEETUP_NOT_FOUND);
+  });
+});
+
+describe('SchedulesService — applications on the schedule side (SPEC-003 D8)', () => {
+  it('update: a capacity change counts active applications after the lock', async () => {
+    const { service, calls, tx } = build({
+      stored: row({ status: 'OPEN' }),
+      active: { MALE: 3 },
+    });
+    await service.update(
+      ADMIN,
+      MEETUP_ID,
+      SCHEDULE_ID,
+      { capacityMale: 3 },
+      'req',
+    );
+    expect(calls.slice(0, 4)).toEqual([
+      "sql:SET LOCAL lock_timeout = '2s'",
+      expect.stringContaining('FOR UPDATE'),
+      'read',
+      'count:MALE',
+    ]);
+    expect(tx.application.count).toHaveBeenCalledWith({
+      where: {
+        scheduleId: SCHEDULE_ID,
+        gender: 'MALE',
+        status: { not: 'CANCELLED' },
+      },
+    });
+    expect(tx.schedule.update).toHaveBeenCalled();
+  });
+
+  it.each([
+    ['capacityMale', 'MALE'],
+    ['capacityFemale', 'FEMALE'],
+  ] as const)(
+    'update: %s below the active count → 409 CAPACITY_BELOW_APPLICATIONS without writing',
+    async (field, gender) => {
+      const { service, tx } = build({
+        stored: row({ status: 'OPEN' }),
+        active: { [gender]: 3 },
+      });
+      const error = await errorOf(
+        service.update(ADMIN, MEETUP_ID, SCHEDULE_ID, { [field]: 2 }, 'req'),
+      );
+      expect(error.getStatus()).toBe(409);
+      expect(error.code).toBe(API_ERROR_CODES.CAPACITY_BELOW_APPLICATIONS);
+      expect(tx.schedule.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('update: a change without capacity does not count applications', async () => {
+    const { service, tx } = build({ stored: row({ status: 'OPEN' }) });
+    await service.update(
+      ADMIN,
+      MEETUP_ID,
+      SCHEDULE_ID,
+      { priceMale: 45_000 },
+      'req',
+    );
+    expect(tx.application.count).not.toHaveBeenCalled();
+  });
+
+  it('status: → CANCELLED cancels the active applications in the same transaction and logs the count', async () => {
+    const { service, calls, tx, logger } = build({
+      stored: row({ status: 'OPEN' }),
+      cancelled: 4,
+    });
+    await service.updateStatus(
+      ADMIN,
+      MEETUP_ID,
+      SCHEDULE_ID,
+      { status: 'CANCELLED', cancelReason: '사유' },
+      'req',
+    );
+    expect(calls.slice(3)).toEqual(['update', 'cancelApplications']);
+    expect(tx.application.updateMany).toHaveBeenCalledWith({
+      where: { scheduleId: SCHEDULE_ID, status: { not: 'CANCELLED' } },
+      data: { status: 'CANCELLED', cancelledBy: 'SCHEDULE' },
+    });
+    expect(logger.info).toHaveBeenCalledWith(
+      'schedule.status_changed',
+      expect.objectContaining({ cancelledApplications: 4 }),
+    );
+  });
+
+  it('status: OPEN → CLOSED leaves applications alone and logs no count', async () => {
+    const { service, tx, logger } = build({ stored: row({ status: 'OPEN' }) });
+    await service.updateStatus(
+      ADMIN,
+      MEETUP_ID,
+      SCHEDULE_ID,
+      { status: 'CLOSED' },
+      'req',
+    );
+    expect(tx.application.updateMany).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith('schedule.status_changed', {
+      adminId: ADMIN.id,
+      meetupId: MEETUP_ID,
+      scheduleId: SCHEDULE_ID,
+      from: 'OPEN',
+      to: 'CLOSED',
+      requestId: 'req',
+    });
+  });
+
+  // PrismaPg가 올리는 잠금 대기 상한 초과의 모양(meta.driverAdapterError.cause.originalCode)
+  const lockTimeout = Object.assign(new Error('lock timeout'), {
+    code: 'P2010',
+    meta: { driverAdapterError: { cause: { originalCode: '55P03' } } },
+  });
+
+  it.each([
+    [
+      'update',
+      (s: SchedulesService) =>
+        s.update(ADMIN, MEETUP_ID, SCHEDULE_ID, { priceMale: 1 }, 'r'),
+    ],
+    [
+      'status',
+      (s: SchedulesService) =>
+        s.updateStatus(ADMIN, MEETUP_ID, SCHEDULE_ID, { status: 'OPEN' }, 'r'),
+    ],
+    [
+      'delete',
+      (s: SchedulesService) => s.remove(ADMIN, MEETUP_ID, SCHEDULE_ID, 'r'),
+    ],
+  ])(
+    '%s: waiting past the lock timeout (55P03) → 503 SERVICE_BUSY',
+    async (_label, act) => {
+      const { service } = build({ lockError: lockTimeout });
+      const error = await errorOf(act(service));
+      expect(error.getStatus()).toBe(503);
+      expect(error.code).toBe(API_ERROR_CODES.SERVICE_BUSY);
+    },
+  );
+
+  it('get · list: the response carries the four seat values from one groupBy', async () => {
+    const { service, prisma } = build({ stored: row({ status: 'OPEN' }) });
+    prisma.schedule.findFirst.mockResolvedValueOnce(
+      row({ status: 'OPEN', capacityMale: 2 }) as never,
+    );
+    prisma.application.groupBy.mockResolvedValueOnce([
+      { scheduleId: SCHEDULE_ID, gender: 'MALE', _count: { _all: 2 } },
+      { scheduleId: SCHEDULE_ID, gender: 'FEMALE', _count: { _all: 1 } },
+    ] as never);
+    const detail = await service.get(MEETUP_ID, SCHEDULE_ID);
+    expect(detail).toMatchObject({
+      appliedMale: 2,
+      appliedFemale: 1,
+      maleFull: true,
+      femaleFull: false,
+    });
+    expect(prisma.application.groupBy).toHaveBeenCalledWith({
+      by: ['scheduleId', 'gender'],
+      where: {
+        scheduleId: { in: [SCHEDULE_ID] },
+        status: { not: 'CANCELLED' },
+      },
+      _count: { _all: true },
+    });
   });
 });

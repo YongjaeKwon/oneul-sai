@@ -7,6 +7,11 @@ import {
   type PublicScheduleListResponse,
 } from '@oneul-sai/contracts';
 import { apiError } from '@oneul-sai/service-kit';
+import {
+  activeCountsBySchedule,
+  seatsOf,
+  type ApplicationCounts,
+} from '../applications/application-queries.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import {
   flattenScheduleRow,
@@ -17,15 +22,24 @@ import {
 // 참가자 공개 조회만 (SPEC-002 7절 · 12절). 공개 select와 공개 스키마만 쓴다 — 운영자 select · 스키마를 알지 못한다.
 // 공개 응답은 역할에 따라 바뀌지 않는다(D9). DRAFT · CANCELLED · 없음은 같은 본문의 404다(D14).
 
-type EventsPrisma = Pick<PrismaClient, 'schedule'>;
+type EventsPrisma = Pick<PrismaClient, 'schedule' | 'application'>;
 
 const PUBLIC_STATUS_WHERE = {
   status: { in: [...PUBLIC_SCHEDULE_STATUSES] },
 } satisfies Prisma.ScheduleWhereInput;
 
-/** 응답 스키마가 모르는 키(비공개 열이 select에 섞여도)를 떼어 낸다 — 12절 세 번째 겹. */
-export function toPublicSchedule(row: PublicScheduleRow): PublicSchedule {
-  return PublicScheduleSchema.parse(flattenScheduleRow(row));
+/**
+ * 응답 스키마가 모르는 키(비공개 열이 select에 섞여도)를 떼어 낸다 — 12절 세 번째 겹.
+ * 신청 수는 싣지 않고 성별 자리 마감 여부만 싣는다(SPEC-003 D10) — 스키마가 `applied*`를 떼어 낸다.
+ */
+export function toPublicSchedule(
+  row: PublicScheduleRow,
+  counts?: ApplicationCounts,
+): PublicSchedule {
+  return PublicScheduleSchema.parse({
+    ...flattenScheduleRow(row),
+    ...seatsOf(row, counts),
+  });
 }
 
 export class PublicEventsService {
@@ -52,8 +66,12 @@ export class PublicEventsService {
       }),
       this.prisma.schedule.count({ where }),
     ]);
+    const counts = await activeCountsBySchedule(
+      this.prisma,
+      rows.map((row) => row.id),
+    );
     return {
-      items: rows.map(toPublicSchedule),
+      items: rows.map((row) => toPublicSchedule(row, counts.get(row.id))),
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -73,6 +91,7 @@ export class PublicEventsService {
         '일정을 찾을 수 없습니다.',
       );
     }
-    return toPublicSchedule(row);
+    const counts = await activeCountsBySchedule(this.prisma, [row.id]);
+    return toPublicSchedule(row, counts.get(row.id));
   }
 }
