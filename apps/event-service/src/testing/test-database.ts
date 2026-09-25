@@ -27,5 +27,5 @@ export async function resetTestDatabase(
       `테스트 DB가 아닌 ${name ?? '(알 수 없음)'}에 연결되어 비우지 않습니다`,
     );
   }
-  await prisma.$executeRaw`TRUNCATE "Schedule", "Meetup"`;
+  await prisma.$executeRaw`TRUNCATE "Application", "Schedule", "Meetup"`;
 }

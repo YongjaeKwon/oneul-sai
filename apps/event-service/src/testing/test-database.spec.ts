@@ -39,13 +39,15 @@ describe('resetTestDatabase', () => {
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
   });
 
-  it('truncates Schedule and Meetup on event_test_db', async () => {
+  it('truncates Application, Schedule and Meetup on event_test_db', async () => {
     const { prisma, client } = fakePrisma('event_test_db');
     await resetTestDatabase(client);
     expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
     const [strings] = prisma.$executeRaw.mock.calls[0] as unknown as [
       TemplateStringsArray,
     ];
-    expect(strings.join('')).toBe('TRUNCATE "Schedule", "Meetup"');
+    expect(strings.join('')).toBe(
+      'TRUNCATE "Application", "Schedule", "Meetup"',
+    );
   });
 });
