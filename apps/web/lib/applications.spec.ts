@@ -186,6 +186,9 @@ describe('applicationErrorCopy', () => {
     expect(applicationErrorCopy('FEMALE')).toEqual({
       SCHEDULE_FULL: '여성 자리가 모두 찼습니다.',
     });
+    expect(applicationErrorCopy('MALE')).toEqual({
+      SCHEDULE_FULL: '남성 자리가 모두 찼습니다.',
+    });
     expect(applicationErrorCopy(null)).toEqual({});
   });
 
@@ -232,7 +235,7 @@ describe('describeApplicationError (4절 오류 문구)', () => {
       message: 'server text',
     });
 
-  it('maps application codes, preferring the caller’s gender or age copy', () => {
+  it('maps application codes, preferring the caller’s gender copy', () => {
     expect(describeApplicationError(error(409, 'APPLICATION_CLOSED'))).toBe(
       '모집이 마감되었습니다.',
     );

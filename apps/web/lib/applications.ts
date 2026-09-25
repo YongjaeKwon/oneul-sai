@@ -33,7 +33,7 @@ export function genderFullMessage(gender: Gender): string {
   return `${GENDER_LABELS[gender]} 자리가 모두 찼습니다.`;
 }
 
-/** "이 일정은 남성 1990~1995년생만 신청하실 수 있습니다." — (h)와 409 `BIRTH_YEAR_OUT_OF_RANGE`(SPEC-002 D5 표기). */
+/** "이 일정은 남성 1990~1995년생만 신청하실 수 있습니다." — (h)의 본문(SPEC-002 D5 표기). 409 `BIRTH_YEAR_OUT_OF_RANGE`에는 쓰지 않는다(`applicationErrorCopy`). */
 export function birthYearRuleMessage(
   min: number | null,
   max: number | null,
@@ -159,8 +159,8 @@ const APPLICATION_MESSAGES: Partial<Record<string, string>> = {
 };
 
 /**
- * 신청 · 본인 취소의 오류 문구(SPEC-003 4절 "참가자 화면 오류 문구"). `extra`는 내 성별 · 연령대로 고르는 문구
- * (`SCHEDULE_FULL` · `BIRTH_YEAR_OUT_OF_RANGE`). 5xx · 네트워크는 한 문구, `SERVICE_BUSY`는 web 기존 문구.
+ * 신청 · 본인 취소의 오류 문구(SPEC-003 4절 "참가자 화면 오류 문구"). `extra`는 내 성별로 고르는 `SCHEDULE_FULL` 문구
+ * (`applicationErrorCopy`). 5xx · 네트워크는 한 문구, `SERVICE_BUSY`는 web 기존 문구.
  * 401은 부르는 쪽이 세션을 끝낸다(`isSessionEnded`).
  */
 export function describeApplicationError(
