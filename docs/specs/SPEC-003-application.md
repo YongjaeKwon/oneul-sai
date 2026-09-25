@@ -1064,3 +1064,9 @@ SPEC-002 13절의 방식 그대로다: 단위는 vitest, 소스 옆 `*.spec.ts`,
 | 절  | 설계 | 실제 | 이유 |
 | --- | ---- | ---- | ---- |
 |     |      |      |      |
+
+**3번 PR 확인 (2026-09-25) — 설계와 차이 없음.**
+
+- 9절의 `@@unique([scheduleId, memberId], map: "Application_active_member_key", where: raw("\"status\" <> 'CANCELLED'"))` 문법이 Prisma 7.10 `partialIndexes`에서 그대로 통과했고, 마이그레이션 `20260925001239_add_application`에 `CREATE UNIQUE INDEX "Application_active_member_key" ON "Application"("scheduleId", "memberId") WHERE ("status" <> 'CANCELLED')`가 생성됐다. N의 대안(인덱스 빼기)은 쓰지 않았다.
+- 드리프트: `prisma migrate diff --from-migrations`는 shadow DB 설정(`datasource.shadowDatabaseUrl`)을 요구해, 마이그레이션을 적용한 개발 DB와 스키마를 비교했다 — `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma` 결과 "This is an empty migration."(드리프트 없음). 손으로 넣은 CHECK는 Prisma가 비교하지 않는다.
+- 생성된 클라이언트에 `ApplicationWhereUniqueInput.scheduleId_memberId`가 **있다**. 9 · 10절 규칙대로 쓰지 않는다 — `git grep scheduleId_memberId -- apps/event-service/src ':!**/generated/**'` 결과 0곳(기술 스택 함정 11).
