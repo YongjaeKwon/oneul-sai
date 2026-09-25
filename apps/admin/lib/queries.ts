@@ -1,4 +1,5 @@
 import type {
+  AdminApplicationListParams,
   AdminScheduleListParams,
   MeetupListParams,
   MemberListParams,
@@ -80,6 +81,17 @@ export const meetupKeys = {
     [...meetupKeys.schedules(meetupId), 'list', params] as const,
   schedule: (meetupId: string, scheduleId: string) =>
     [...meetupKeys.schedules(meetupId), 'detail', scheduleId] as const,
+  /** 회차 상세 키 아래 — 회차를 무효화하면 신청 목록도 함께 새로 부른다. */
+  applications: (
+    meetupId: string,
+    scheduleId: string,
+    params: AdminApplicationListParams,
+  ) =>
+    [
+      ...meetupKeys.schedule(meetupId, scheduleId),
+      'applications',
+      params,
+    ] as const,
 };
 
 /** A4 상품 목록 · A9 상품 선택. */
@@ -235,5 +247,48 @@ export function useDeleteSchedule(meetupId: string, scheduleId: string) {
         queryKey: [...meetupKeys.schedules(meetupId), 'list'],
       });
     },
+  });
+}
+
+// ----- 참가 신청 (SPEC-003 4절 A10) -----
+
+/** A10 회차의 신청 목록(신청 순, 100개씩). */
+export function useScheduleApplications(
+  meetupId: string,
+  scheduleId: string,
+  params: AdminApplicationListParams,
+) {
+  return useQuery({
+    queryKey: meetupKeys.applications(meetupId, scheduleId, params),
+    queryFn: () =>
+      apiClient.listScheduleApplications(meetupId, scheduleId, params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * A10 한 페이지 신청자의 회원 정보(`GET /members?ids=`, D11). 신청이 없으면 부르지 않는다.
+ * `pageSize`를 ID 개수로 맞춘다 — 서버는 ID가 페이지 크기보다 많으면 400이다.
+ */
+export function useMembersByIds(ids: readonly string[]) {
+  const params: MemberListParams = { ids: [...ids], pageSize: ids.length };
+  return useQuery({
+    queryKey: memberKeys.list(params),
+    queryFn: () => apiClient.listMembers(params),
+    enabled: ids.length > 0,
+  });
+}
+
+/** A10 운영자 취소. 성공이든 실패든 그 상품의 회차 · 신청을 새로 부른다(신청 수 · 목록이 함께 바뀐다). */
+export function useCancelApplication(meetupId: string, scheduleId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (applicationId: string) =>
+      apiClient.cancelApplication(meetupId, scheduleId, applicationId),
+    onSettled: () =>
+      queryClient.invalidateQueries({
+        queryKey: meetupKeys.schedules(meetupId),
+      }),
   });
 }

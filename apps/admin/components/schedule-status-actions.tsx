@@ -10,10 +10,11 @@ import {
 } from '@oneul-sai/contracts';
 import { Button, Dialog } from '@oneul-sai/ui';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { useEndSessionOn401 } from '@/lib/auth-provider';
+import { scheduleCancelApplicantsNote } from '@/lib/applications';
 import { STATUS_TIME_INVALID_MESSAGE, describeEventError } from '@/lib/errors';
 import { textareaClasses } from '@/lib/form-styles';
 import { useDeleteSchedule, useUpdateScheduleStatus } from '@/lib/queries';
@@ -43,6 +44,8 @@ export function ScheduleStatusActions({
   const deleteMutation = useDeleteSchedule(schedule.meetupId, schedule.id);
   useEndSessionOn401(statusMutation.error ?? deleteMutation.error);
   const [dialog, setDialog] = useState<'cancel' | 'delete' | null>(null);
+  const deleteQuestionId = useId();
+  const applicantsNote = scheduleCancelApplicantsNote(schedule);
 
   const cancelForm = useForm<UpdateScheduleStatusRequest>({
     resolver: zodResolver(UpdateScheduleStatusRequestSchema),
@@ -135,7 +138,11 @@ export function ScheduleStatusActions({
         onClose={closeDialog}
       >
         <form onSubmit={onCancel} noValidate className="flex flex-col gap-4">
-          <p>취소한 회차는 참가자 화면에서 사라지고 되돌릴 수 없습니다.</p>
+          <p>
+            취소한 회차는 참가자 화면에서 사라지고 되돌릴 수 없습니다.
+            {/* SPEC-003 I — 활성 신청도 같은 트랜잭션에서 취소된다 */}
+            {applicantsNote === null ? null : ` ${applicantsNote}`}
+          </p>
           <FormField
             label="취소 사유"
             required
@@ -179,8 +186,11 @@ export function ScheduleStatusActions({
         open={dialog === 'delete'}
         title="회차 삭제"
         onClose={closeDialog}
+        describedBy={deleteQuestionId}
       >
-        <p>이 회차를 삭제할까요? 삭제하면 되돌릴 수 없습니다.</p>
+        <p id={deleteQuestionId}>
+          이 회차를 삭제할까요? 삭제하면 되돌릴 수 없습니다.
+        </p>
         <div className="flex flex-wrap gap-2">
           <Button
             disabled={deleteMutation.isPending}

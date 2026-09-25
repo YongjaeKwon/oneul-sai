@@ -11,7 +11,11 @@ import { useId, type ReactNode } from 'react';
 import { useFormContext } from 'react-hook-form';
 
 import { textareaClasses } from '@/lib/form-styles';
-import { toNumberOrNull, type ScheduleSharedValues } from '@/lib/schedule-form';
+import {
+  toNumberOrNull,
+  type AppliedByGender,
+  type ScheduleSharedValues,
+} from '@/lib/schedule-form';
 import { FormField } from './form-field';
 
 // 숫자 칸은 텍스트 칸(`inputMode="numeric"`)이다 — `type="number"`는 "19-9" 같은 입력을 빈 값으로 넘겨 조용히 지운다.
@@ -43,8 +47,13 @@ function FieldGroup({
 /**
  * 회차 폼(A7 · A8)과 여러 회차 등록 공통 값(A9)이 함께 쓰는 칸: 참가비("남녀 같은 금액"), 성별 정원,
  * 남성 연령대, 지역 · 장소 안내. 필드 이름이 요청 필드와 같아 contracts 스키마의 오류가 그 칸에 붙는다.
+ * `applied`가 있으면(A8) 정원 칸 아래에 그 성별의 신청 수를 보인다(SPEC-003 A8).
  */
-export function ScheduleSharedFields() {
+export function ScheduleSharedFields({
+  applied,
+}: {
+  applied?: AppliedByGender;
+} = {}) {
   const {
     register,
     watch,
@@ -120,6 +129,7 @@ export function ScheduleSharedFields() {
           <FormField
             label="남 정원(명)"
             required
+            help={applied === undefined ? undefined : `신청 ${applied.male}명`}
             error={errors.capacityMale?.message}
           >
             {(control) => (
@@ -134,6 +144,9 @@ export function ScheduleSharedFields() {
           <FormField
             label="여 정원(명)"
             required
+            help={
+              applied === undefined ? undefined : `신청 ${applied.female}명`
+            }
             error={errors.capacityFemale?.message}
           >
             {(control) => (

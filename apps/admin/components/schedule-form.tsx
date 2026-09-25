@@ -1,18 +1,25 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import type {
-  AdminSchedule,
-  CreateScheduleRequest,
-  UpdateScheduleRequest,
+import {
+  API_ERROR_CODES,
+  type AdminSchedule,
+  type CreateScheduleRequest,
+  type UpdateScheduleRequest,
 } from '@oneul-sai/contracts';
 import { Button, Dialog, Input } from '@oneul-sai/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
+import {
+  applicantWarnings,
+  capacityBelowMessage,
+  capacityConflictCount,
+} from '@/lib/applications';
 import { useEndSessionOn401 } from '@/lib/auth-provider';
-import { describeEventError } from '@/lib/errors';
+import { describeEventError, isApiClientError } from '@/lib/errors';
 import {
   scheduleChanges,
   scheduleFormDefaults,
@@ -21,7 +28,11 @@ import {
   type ScheduleFormValues,
   type TimeField,
 } from '@/lib/schedule-form';
-import { useCreateSchedule, useUpdateSchedule } from '@/lib/queries';
+import {
+  meetupKeys,
+  useCreateSchedule,
+  useUpdateSchedule,
+} from '@/lib/queries';
 import { FormField } from './form-field';
 import { Notice } from './notice';
 import { ScheduleSharedFields } from './schedule-shared-fields';
@@ -35,7 +46,8 @@ interface Pending {
 /**
  * A7 회차 만들기(`schedule` 없음 → `POST`, 항상 DRAFT → A8) · A8 회차 수정(바꾼 필드만 `PATCH`, 비운 선택 칸은 `null`).
  * 입력 시각은 브라우저 시간대와 무관하게 서울 시각으로 보낸다(`+09:00`). 일요일이 아니거나 남녀 정원이 다르면
- * 제출 전에 한 번 묻는다 — 경고일 뿐 막지 않는다(D2 · D6).
+ * 제출 전에 한 번 묻는다 — 경고일 뿐 막지 않는다(D2 · D6). A8은 활성 신청이 있는 회차의 시각 · 장소 · 참가비를 바꿀 때도
+ * 묻고(SPEC-003 H), 정원을 그 성별의 신청 수보다 작게 넣으면 칸에 알린다(D8 — 신청 수는 가장 최근에 불러온 회차 값).
  */
 export function ScheduleForm({
   meetupId,
@@ -45,6 +57,8 @@ export function ScheduleForm({
   schedule?: AdminSchedule;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const questionId = useId();
   const creating = schedule === undefined;
   const create = useCreateSchedule(meetupId);
   const update = useUpdateSchedule(meetupId, schedule?.id ?? '');
@@ -62,7 +76,20 @@ export function ScheduleForm({
   // 폼이 보여 주는 저장본. 다시 불러온 `schedule`(캐시 갱신)로 바꾸지 않는다 — 그러면 손대지 않은 칸이 "바뀜"으로 보내진다.
   // 저장에 성공하면 응답으로 바꾼다.
   const [baseline, setBaseline] = useState(schedule);
-  const schema = useMemo(() => scheduleFormSchema(baseline), [baseline]);
+  // 마지막으로 보낸 수정 — 409 `CAPACITY_BELOW_APPLICATIONS` 문구의 N을 고른다
+  const [sent, setSent] = useState<UpdateScheduleRequest | null>(null);
+  const appliedMale = schedule?.appliedMale;
+  const appliedFemale = schedule?.appliedFemale;
+  const schema = useMemo(
+    () =>
+      scheduleFormSchema(
+        baseline,
+        appliedMale === undefined || appliedFemale === undefined
+          ? undefined
+          : { male: appliedMale, female: appliedFemale },
+      ),
+    [baseline, appliedMale, appliedFemale],
+  );
   const [defaults] = useState(() => scheduleFormDefaults(baseline, Date.now()));
   const form = useForm<ScheduleFormValues, unknown, CreateScheduleRequest>({
     resolver: zodResolver(schema),
@@ -91,7 +118,20 @@ export function ScheduleForm({
       return;
     }
     if (changes !== null) {
+      setSent(changes);
       update.mutate(changes, {
+        onError: (error) => {
+          // 폼을 연 뒤 신청이 늘었다 — 회차를 다시 불러 칸 옆 신청 수와 문구의 N을 맞춘다
+          if (
+            isApiClientError(error) &&
+            error.code === API_ERROR_CODES.CAPACITY_BELOW_APPLICATIONS &&
+            schedule !== undefined
+          ) {
+            void queryClient.invalidateQueries({
+              queryKey: meetupKeys.schedule(meetupId, schedule.id),
+            });
+          }
+        },
         onSuccess: (saved) => {
           setBaseline(saved);
           reset(scheduleFormDefaults(saved, Date.now()));
@@ -109,7 +149,12 @@ export function ScheduleForm({
       setNotice({ tone: 'info', text: '바뀐 내용이 없습니다.' });
       return;
     }
-    const warnings = scheduleWarnings(request, changes ?? undefined);
+    const warnings = [
+      ...scheduleWarnings(request, changes ?? undefined),
+      ...(changes !== null && schedule !== undefined
+        ? applicantWarnings(schedule, changes)
+        : []),
+    ];
     const next = { request, changes, warnings };
     if (warnings.length > 0) {
       setPending(next);
@@ -143,6 +188,16 @@ export function ScheduleForm({
     schedule !== undefined &&
     (schedule.status === 'OPEN' || schedule.status === 'CLOSED');
   const actionLabel = creating ? '등록' : '저장';
+  const conflictCount =
+    sent !== null && schedule !== undefined
+      ? capacityConflictCount(sent, schedule)
+      : null;
+  const errorOverrides = {
+    [API_ERROR_CODES.CAPACITY_BELOW_APPLICATIONS]:
+      conflictCount === null
+        ? '정원을 지금 신청 수보다 작게 줄일 수 없습니다. 신청을 먼저 취소해 주세요.'
+        : capacityBelowMessage(conflictCount),
+  };
 
   return (
     <FormProvider {...form}>
@@ -198,10 +253,18 @@ export function ScheduleForm({
           </FormField>
         </div>
 
-        <ScheduleSharedFields />
+        <ScheduleSharedFields
+          applied={
+            appliedMale === undefined || appliedFemale === undefined
+              ? undefined
+              : { male: appliedMale, female: appliedFemale }
+          }
+        />
 
         {mutation.error ? (
-          <Notice tone="danger">{describeEventError(mutation.error)}</Notice>
+          <Notice tone="danger">
+            {describeEventError(mutation.error, errorOverrides)}
+          </Notice>
         ) : null}
         {notice !== null ? (
           <Notice tone={notice.tone}>{notice.text}</Notice>
@@ -226,10 +289,11 @@ export function ScheduleForm({
         open={pending !== null}
         title="확인"
         onClose={() => setPending(null)}
+        describedBy={questionId}
       >
         {pending !== null ? (
           <>
-            <p>
+            <p id={questionId}>
               {pending.warnings.join(' ')} 이대로 {actionLabel}할까요?
             </p>
             <div className="flex flex-wrap gap-2">
