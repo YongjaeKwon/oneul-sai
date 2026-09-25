@@ -55,6 +55,9 @@ export const PublicScheduleSchema = z.object({
   maleMaxBirthYear: z.number().int().nullable(),
   venueArea: z.string(),
   status: PublicScheduleStatusSchema,
+  /** 그 성별의 활성 신청 수 ≥ 정원 — 숫자 없이 "남성 · 여성 자리 마감"으로 보인다(SPEC-003 D10). */
+  maleFull: z.boolean(),
+  femaleFull: z.boolean(),
 });
 export type PublicSchedule = z.infer<typeof PublicScheduleSchema>;
 
@@ -78,6 +81,9 @@ export const AdminScheduleSchema = PublicScheduleSchema.extend({
   cancelReason: z.string().nullable(),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
+  /** 성별 활성 신청 수(취소되지 않은 신청). 운영자 화면에만 숫자로 보인다(SPEC-003 D10). */
+  appliedMale: z.number().int().min(0),
+  appliedFemale: z.number().int().min(0),
 });
 export type AdminSchedule = z.infer<typeof AdminScheduleSchema>;
 

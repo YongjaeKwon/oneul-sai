@@ -20,6 +20,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiParam,
   ApiQuery,
   ApiTags,
@@ -170,9 +171,18 @@ export class AdminSchedulesController {
       'UpdateScheduleRequest (@oneul-sai/contracts). 선택 필드는 null로 비운다',
     schema: { type: 'object' },
   })
-  @ApiOkResponse({ description: 'AdminSchedule' })
+  @ApiOkResponse({
+    description:
+      'AdminSchedule(+ appliedMale · appliedFemale · maleFull · femaleFull)',
+  })
   @ApiNotFoundResponse({ description: 'SCHEDULE_NOT_FOUND' })
-  @ApiConflictResponse({ description: 'SCHEDULE_NOT_EDITABLE (CANCELLED)' })
+  @ApiConflictResponse({
+    description:
+      'SCHEDULE_NOT_EDITABLE (CANCELLED) · CAPACITY_BELOW_APPLICATIONS (정원 < 그 성별 활성 신청 수, SPEC-003)',
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'SERVICE_BUSY — 회차 잠금 대기 2초 초과(Retry-After: 1)',
+  })
   update(
     @CurrentUser() admin: CallerUser,
     @Param('meetupId', meetupIdPipe) meetupId: string,
@@ -196,9 +206,16 @@ export class AdminSchedulesController {
       "UpdateScheduleStatusRequest (@oneul-sai/contracts) — { status: 'OPEN' | 'CLOSED' | 'CANCELLED', cancelReason? }",
     schema: { type: 'object' },
   })
-  @ApiOkResponse({ description: 'AdminSchedule' })
+  @ApiOkResponse({
+    description:
+      'AdminSchedule. → CANCELLED면 같은 트랜잭션에서 그 회차의 활성 신청이 모두 취소된다(cancelledBy SCHEDULE, SPEC-003)',
+  })
   @ApiNotFoundResponse({ description: 'SCHEDULE_NOT_FOUND' })
   @ApiConflictResponse({ description: 'INVALID_STATUS_TRANSITION' })
+  @ApiServiceUnavailableResponse({
+    description:
+      'SERVICE_BUSY — 회차 · 신청 잠금 대기 2초 초과(Retry-After: 1)',
+  })
   updateStatus(
     @CurrentUser() admin: CallerUser,
     @Param('meetupId', meetupIdPipe) meetupId: string,
@@ -223,6 +240,9 @@ export class AdminSchedulesController {
   @ApiNoContentResponse({ description: '삭제됨' })
   @ApiNotFoundResponse({ description: 'SCHEDULE_NOT_FOUND' })
   @ApiConflictResponse({ description: 'SCHEDULE_NOT_EDITABLE (DRAFT 아님)' })
+  @ApiServiceUnavailableResponse({
+    description: 'SERVICE_BUSY — 회차 잠금 대기 2초 초과(Retry-After: 1)',
+  })
   remove(
     @CurrentUser() admin: CallerUser,
     @Param('meetupId', meetupIdPipe) meetupId: string,

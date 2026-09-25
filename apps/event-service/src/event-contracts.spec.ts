@@ -10,6 +10,7 @@ import {
   MemberListQuerySchema,
   MyApplicationListQuerySchema,
   PublicScheduleListQuerySchema,
+  PublicScheduleSchema,
   UpdateApplicationStatusRequestSchema,
   UpdateScheduleRequestSchema,
   UpdateScheduleStatusRequestSchema,
@@ -348,6 +349,10 @@ describe('venueMapUrl (D4)', () => {
       cancelReason: null,
       createdAt: '2026-09-23T00:00:00.000Z',
       updatedAt: '2026-09-23T00:00:00.000Z',
+      maleFull: false,
+      femaleFull: false,
+      appliedMale: 0,
+      appliedFemale: 0,
     };
     expect(AdminScheduleSchema.parse(row).venueMapUrl).toBe(
       'https://old.example/',
@@ -460,5 +465,24 @@ describe('MemberListQuery.ids (SPEC-003 D11)', () => {
     expect(
       MemberListQuerySchema.safeParse({ ids: ids(21), pageSize: '21' }).success,
     ).toBe(true);
+  });
+});
+
+describe('schedule responses with applications (SPEC-003 D10)', () => {
+  it('PublicScheduleSchema requires maleFull · femaleFull and has no counts', () => {
+    const keys = Object.keys(PublicScheduleSchema.shape);
+    expect(keys).toEqual(expect.arrayContaining(['maleFull', 'femaleFull']));
+    expect(keys).not.toContain('appliedMale');
+    expect(keys).not.toContain('appliedFemale');
+  });
+
+  it('AdminScheduleSchema keeps every public key and adds appliedMale · appliedFemale', () => {
+    const adminKeys = Object.keys(AdminScheduleSchema.shape);
+    for (const key of Object.keys(PublicScheduleSchema.shape)) {
+      expect(adminKeys).toContain(key);
+    }
+    expect(adminKeys).toEqual(
+      expect.arrayContaining(['appliedMale', 'appliedFemale']),
+    );
   });
 });
