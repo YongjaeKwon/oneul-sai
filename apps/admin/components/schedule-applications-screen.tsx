@@ -110,7 +110,8 @@ function ScheduleApplications({
     </BackLink>
   );
 
-  if (!validId || error) {
+  // 다시 부르기만 실패했으면(가진 회차가 있으면) 목록을 그대로 둔다
+  if (!validId || (error && schedule === undefined)) {
     return (
       <div className="flex flex-col gap-6">
         {back}
@@ -213,14 +214,14 @@ function ApplicationTable({
   const questionId = useId();
   // 취소한 행의 버튼이 사라져도 키보드 포커스가 갈 곳. 창이 닫힐 때(`dialog.close()`) 브라우저가 포커스를 연 버튼으로
   // 되돌리므로, 창이 닫힌 뒤(자식 Dialog의 effect 다음)에 옮긴다
+  // 취소가 끝날 때마다 늘린다 — 행이 먼저 사라져 창이 이미 닫혔어도 포커스를 옮기게(targetId 변화에 기대지 않는다)
   const tableRef = useRef<HTMLDivElement>(null);
-  const returnFocus = useRef(false);
+  const [cancelsSettled, setCancelsSettled] = useState(0);
   useEffect(() => {
-    if (targetId === null && returnFocus.current) {
-      returnFocus.current = false;
+    if (cancelsSettled > 0) {
       tableRef.current?.focus();
     }
-  }, [targetId]);
+  }, [cancelsSettled]);
 
   if (error) {
     return <Notice tone="danger">{describeEventError(error)}</Notice>;
@@ -328,8 +329,8 @@ function ApplicationTable({
                 onClick={() =>
                   cancel.mutate(target.application.id, {
                     onSettled: () => {
-                      returnFocus.current = true;
                       closeDialog();
+                      setCancelsSettled((count) => count + 1);
                     },
                   })
                 }
