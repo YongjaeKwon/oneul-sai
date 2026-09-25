@@ -5,5 +5,6 @@ export { FieldError, type FieldErrorProps } from './field-error';
 export { Input, type InputProps } from './input';
 export { Label, type LabelProps } from './label';
 export { Badge, type BadgeProps, type BadgeTone } from './badge';
+export { Dialog, type DialogProps } from './dialog';
 export { Divider, type DividerProps } from './divider';
 export { Highlight, type HighlightProps } from './highlight';

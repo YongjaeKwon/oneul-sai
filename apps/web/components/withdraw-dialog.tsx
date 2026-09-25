@@ -1,11 +1,10 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@oneul-sai/ui';
+import { Button, Dialog } from '@oneul-sai/ui';
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 
-import { Dialog } from '@/components/dialog';
 import { FormAlert } from '@/components/form-alert';
 import { TextField } from '@/components/text-field';
 import { useAuth } from '@/lib/auth';
