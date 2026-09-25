@@ -49,7 +49,10 @@ export function MyApplicationsScreen({ page }: { page: number }) {
   const me = useMe();
   // 운영자 계정은 `/api/v1/applications`가 403이라 부르지 않는다(W9 (d)와 같다).
   const isMember = me.data?.role === 'MEMBER';
-  const { data, error } = useMyApplications({ page }, isMember);
+  const { data, error, isPlaceholderData } = useMyApplications(
+    { page },
+    isMember,
+  );
   const loadError = me.error ?? error;
   useEndSessionOn401(loadError);
   const cancel = useCancelMyApplication();
@@ -124,7 +127,8 @@ export function MyApplicationsScreen({ page }: { page: number }) {
                   ? failure.message
                   : null
               }
-              cancelDisabled={cancel.isPending}
+              // 다음 페이지를 불러오는 동안 보이는 이전 페이지 카드로는 확인 창을 열지 않는다
+              cancelDisabled={cancel.isPending || isPlaceholderData}
               onCancel={() => setTarget(application.id)}
             />
           </li>

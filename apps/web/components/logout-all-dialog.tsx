@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, Dialog } from '@oneul-sai/ui';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { FormAlert } from '@/components/form-alert';
 import { useAuth } from '@/lib/auth';
@@ -17,6 +17,7 @@ export function LogoutAllDialog({ open, onClose }: LogoutAllDialogProps) {
   const { logoutAll } = useAuth();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const questionId = useId();
 
   const close = () => {
     setError(null);
@@ -39,8 +40,13 @@ export function LogoutAllDialog({ open, onClose }: LogoutAllDialogProps) {
   };
 
   return (
-    <Dialog open={open} onClose={close} title="모든 기기에서 로그아웃">
-      <p className="text-sm text-ink-soft">
+    <Dialog
+      open={open}
+      onClose={close}
+      title="모든 기기에서 로그아웃"
+      describedBy={questionId}
+    >
+      <p id={questionId} className="text-sm text-ink-soft">
         다른 기기 · 브라우저의 로그인도 모두 끊깁니다.
       </p>
       {error !== null ? <FormAlert>{error}</FormAlert> : null}
