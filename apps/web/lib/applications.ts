@@ -41,6 +41,26 @@ export function birthYearRuleMessage(
   return `이 일정은 ${formatMaleAgeRange(min, max)}만 신청하실 수 있습니다.`;
 }
 
+/**
+ * 신청 409 가운데 내 성별 · 이 일정의 연령대로 고르는 문구(`SCHEDULE_FULL` · `BIRTH_YEAR_OUT_OF_RANGE`).
+ * 화면이 가진 일정(서버 렌더, 최대 30초 캐시)에 연령대가 없으면 — 운영자가 막 범위를 넣은 경우 — 연령 문구를 만들지 않고
+ * 기본 문구로 둔다. 빈 범위로 문장을 만들면 깨지고, 설계서에 없는 문구를 지어내지 않는다.
+ */
+export function applicationErrorCopy(
+  gender: Gender | null,
+  schedule: Pick<PublicSchedule, 'maleMinBirthYear' | 'maleMaxBirthYear'>,
+): Partial<Record<string, string>> {
+  const { maleMinBirthYear: min, maleMaxBirthYear: max } = schedule;
+  return {
+    ...(gender !== null && {
+      [API_ERROR_CODES.SCHEDULE_FULL]: genderFullMessage(gender),
+    }),
+    ...((min !== null || max !== null) && {
+      [API_ERROR_CODES.BIRTH_YEAR_OUT_OF_RANGE]: birthYearRuleMessage(min, max),
+    }),
+  };
+}
+
 /** 서버 `outsideMaleBirthYears`와 같은 규칙(경계 포함). 범위가 없는 쪽은 열려 있다. */
 export function outsideMaleBirthYears(
   schedule: Pick<PublicSchedule, 'maleMinBirthYear' | 'maleMaxBirthYear'>,
@@ -86,7 +106,8 @@ export type ApplyAreaState =
 
 /**
  * 위에서부터 먼저 맞는 하나(SPEC-003 4절 W9). `mine`은 이 일정의 내 신청(모든 상태) — 운영자 계정은 조회하지 않으므로
- * `undefined`로 넘긴다. 연령(h)을 만석(i)보다 먼저 보는 것은 서버 판정 순서(D7)와 같다.
+ * `undefined`로 넘긴다. (f)~(i)의 순서(모집 마감 → 다시 신청 불가 → 연령 → 만석)는 서버 판정 순서(D7)와 같다.
+ * (e) 내 신청은 W9대로 (f)보다 먼저 본다 — 서버는 신청을 받을 때 마감을 먼저 본다.
  */
 export function applyAreaState(
   schedule: ApplyAreaSchedule,

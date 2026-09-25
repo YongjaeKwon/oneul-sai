@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, Dialog } from '@oneul-sai/ui';
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -16,7 +16,8 @@ export interface ConfirmDialogProps {
 
 /**
  * 묻기만 하는 확인 창(참가 신청 · 신청 취소, SPEC-003 4절). 처음 포커스는 "닫기" — Enter 한 번에 신청 · 취소되지 않게
- * (디자인 파운데이션 5절). 제출 중에는 두 버튼을 막는다.
+ * (디자인 파운데이션 5절). 질문 문장은 `aria-describedby`로 읽힌다. 버튼 순서는 참가자 웹의 다른 창처럼 [닫기][확인].
+ * 제출 중에는 두 버튼을 막는다.
  */
 export function ConfirmDialog({
   open,
@@ -28,13 +29,17 @@ export function ConfirmDialog({
   onClose,
   children,
 }: ConfirmDialogProps) {
+  const questionId = useId();
+
   return (
-    <Dialog open={open} title={title} onClose={onClose}>
-      <p>{children}</p>
+    <Dialog
+      open={open}
+      title={title}
+      onClose={onClose}
+      describedBy={questionId}
+    >
+      <p id={questionId}>{children}</p>
       <div className="flex flex-wrap justify-end gap-2">
-        <Button disabled={pending} onClick={onConfirm}>
-          {pending ? pendingLabel : confirmLabel}
-        </Button>
         <Button
           variant="secondary"
           data-autofocus
@@ -42,6 +47,9 @@ export function ConfirmDialog({
           onClick={onClose}
         >
           닫기
+        </Button>
+        <Button disabled={pending} onClick={onConfirm}>
+          {pending ? pendingLabel : confirmLabel}
         </Button>
       </div>
     </Dialog>

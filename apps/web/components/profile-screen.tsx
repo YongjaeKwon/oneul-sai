@@ -91,12 +91,14 @@ export function ProfileScreen() {
         <Button variant="secondary" onClick={() => router.push('/me/password')}>
           비밀번호 변경
         </Button>
-        <Button
-          variant="secondary"
-          onClick={() => router.push('/me/applications')}
-        >
-          내 신청
-        </Button>
+        {me.role === 'MEMBER' ? (
+          <Button
+            variant="secondary"
+            onClick={() => router.push('/me/applications')}
+          >
+            내 신청
+          </Button>
+        ) : null}
       </div>
 
       <Divider />

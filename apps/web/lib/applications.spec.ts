@@ -2,6 +2,7 @@ import { ApiClientError } from '@oneul-sai/api-client';
 import type { MyApplication } from '@oneul-sai/contracts';
 
 import {
+  applicationErrorCopy,
   applyAreaState,
   birthYearRuleMessage,
   canCancelMine,
@@ -146,6 +147,18 @@ describe('applyAreaState — the first matching row of W9 (d)~(j)', () => {
     });
   });
 
+  it('(g) an operator-cancelled application is checked before the birth years and a full gender', () => {
+    const fullAndOld = { ...schedule, maleFull: true };
+    expect(
+      applyAreaState(
+        fullAndOld,
+        { ...man, birthYear: 1980 },
+        [cancelledByAdmin],
+        NOW,
+      ),
+    ).toEqual({ kind: 'reapply-blocked' });
+  });
+
   it('(i) only my gender being full matters', () => {
     const menFull = { ...schedule, maleFull: true };
     expect(applyAreaState(menFull, man, [], NOW)).toEqual({
@@ -156,6 +169,48 @@ describe('applyAreaState — the first matching row of W9 (d)~(j)', () => {
       kind: 'apply',
       price: 25_000,
     });
+    const womenFull = { ...schedule, femaleFull: true };
+    expect(applyAreaState(womenFull, woman, [], NOW)).toEqual({
+      kind: 'full',
+      gender: 'FEMALE',
+    });
+    expect(applyAreaState(womenFull, man, [], NOW)).toEqual({
+      kind: 'apply',
+      price: 30_000,
+    });
+  });
+});
+
+describe('applicationErrorCopy', () => {
+  it('picks the full-seat copy by my gender and the age copy by the schedule range', () => {
+    expect(applicationErrorCopy('FEMALE', schedule)).toEqual({
+      SCHEDULE_FULL: '여성 자리가 모두 찼습니다.',
+      BIRTH_YEAR_OUT_OF_RANGE:
+        '이 일정은 남성 1990~1995년생만 신청하실 수 있습니다.',
+    });
+  });
+
+  it('leaves the age copy out when the page has no range (a stale page) instead of a broken sentence', () => {
+    const copy = applicationErrorCopy('MALE', {
+      maleMinBirthYear: null,
+      maleMaxBirthYear: null,
+    });
+    expect(copy).toEqual({ SCHEDULE_FULL: '남성 자리가 모두 찼습니다.' });
+    const error = new ApiClientError(409, {
+      statusCode: 409,
+      error: 'Conflict',
+      code: 'BIRTH_YEAR_OUT_OF_RANGE',
+      message: 'server text',
+    });
+    expect(describeApplicationError(error, copy)).toBe(
+      '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    );
+  });
+
+  it('has no gender copy for an account without a gender', () => {
+    expect(applicationErrorCopy(null, schedule)).not.toHaveProperty(
+      'SCHEDULE_FULL',
+    );
   });
 });
 

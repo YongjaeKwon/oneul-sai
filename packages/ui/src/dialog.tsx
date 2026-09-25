@@ -7,6 +7,8 @@ export interface DialogProps {
   title: string;
   /** Esc · 닫기 버튼 등으로 닫혔을 때. 부모가 `open`을 false로 바꾼다. */
   onClose: () => void;
+  /** 묻기만 하는 창의 질문 문장 id — 처음 포커스가 버튼이라도 스크린 리더가 질문을 읽는다(`aria-describedby`). */
+  describedBy?: string;
   children: ReactNode;
 }
 
@@ -16,7 +18,13 @@ export interface DialogProps {
  * (React의 `autoFocus`는 창이 닫힌 채 마운트될 때 실행되어 `showModal()` 뒤에는 남지 않는다).
  * 표면은 카드와 같다(surface + line, 그림자 없음 — 디자인 파운데이션 4절 6 · 5절). 운영자 웹 · 참가자 웹이 함께 쓴다.
  */
-export function Dialog({ open, title, onClose, children }: DialogProps) {
+export function Dialog({
+  open,
+  title,
+  onClose,
+  describedBy,
+  children,
+}: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -37,6 +45,7 @@ export function Dialog({ open, title, onClose, children }: DialogProps) {
     <dialog
       ref={ref}
       aria-labelledby={titleId}
+      aria-describedby={describedBy}
       onClose={onClose}
       className="m-auto w-[calc(100%-2rem)] max-w-md rounded-card border border-line bg-surface p-6 text-ink backdrop:bg-ink-muted/40"
     >
