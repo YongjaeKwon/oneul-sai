@@ -1,7 +1,13 @@
 'use client';
 
-import { ScheduleIdSchema, type Meetup } from '@oneul-sai/contracts';
+import {
+  ScheduleIdSchema,
+  type AdminSchedule,
+  type Meetup,
+} from '@oneul-sai/contracts';
+import Link from 'next/link';
 
+import { formatAppliedCounts } from '@/lib/applications';
 import { useEndSessionOn401 } from '@/lib/auth-provider';
 import { describeEventError } from '@/lib/errors';
 import {
@@ -122,6 +128,7 @@ function ScheduleDetail({
       {cancelled ? (
         <>
           <Notice>취소한 회차입니다. 고치거나 상태를 바꿀 수 없습니다.</Notice>
+          <ApplicationSummary schedule={schedule} />
           <Section title="회차 정보">
             <DetailList
               items={[
@@ -173,6 +180,7 @@ function ScheduleDetail({
           <Section title="상태">
             <ScheduleStatusActions schedule={schedule} now={dataUpdatedAt} />
           </Section>
+          <ApplicationSummary schedule={schedule} />
           <Section title="회차 정보">
             <ScheduleForm meetupId={meetup.id} schedule={schedule} />
           </Section>
@@ -183,5 +191,37 @@ function ScheduleDetail({
         <VenuePreview schedule={schedule} />
       </Section>
     </div>
+  );
+}
+
+/**
+ * A8 신청 요약 카드(SPEC-003 4절): "신청 남 a/b · 여 c/d" + 신청 목록(A10). DRAFT는 아직 신청을 받지 않는다.
+ * 취소된 회차에도 남아 A10을 "취소" 필터로 연다 — 신청자 연락처 확인용(I).
+ */
+function ApplicationSummary({ schedule }: { schedule: AdminSchedule }) {
+  if (schedule.status === 'DRAFT') {
+    return (
+      <Section title="신청">
+        <p className="text-sm text-ink-soft">공개한 뒤에 신청을 받습니다.</p>
+      </Section>
+    );
+  }
+  const listHref = `/meetups/${schedule.meetupId}/schedules/${schedule.id}/applications${
+    schedule.status === 'CANCELLED' ? '?status=CANCELLED' : ''
+  }`;
+  return (
+    <Section title="신청">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className="text-base text-ink tabular-nums">
+          신청 {formatAppliedCounts(schedule)}
+        </p>
+        <Link
+          href={listHref}
+          className="text-sm whitespace-nowrap text-ink underline decoration-line-strong underline-offset-4 hover:decoration-rose"
+        >
+          신청 목록 보기
+        </Link>
+      </div>
+    </Section>
   );
 }

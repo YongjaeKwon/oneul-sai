@@ -1,0 +1,190 @@
+import {
+  API_ERROR_CODES,
+  type AdminApplication,
+  type AdminSchedule,
+  type ApplicationCancelledBy,
+  type ApplicationStatus,
+  type MemberSummary,
+  type UpdateScheduleRequest,
+} from '@oneul-sai/contracts';
+import type { BadgeTone } from '@oneul-sai/ui';
+
+// SPEC-003 4절 "운영자 웹" A6 · A8 · A10의 표시 도우미와 문구. 판정의 원천은 서버다.
+
+type AppliedCounts = Pick<
+  AdminSchedule,
+  'appliedMale' | 'capacityMale' | 'appliedFemale' | 'capacityFemale'
+>;
+
+/** "남 3/7 · 여 5/7" — 성별 활성 신청 수 / 정원. 문장 속에서는 앞에 "신청"을 붙인다. */
+export function formatAppliedCounts(schedule: AppliedCounts): string {
+  return `남 ${schedule.appliedMale}/${schedule.capacityMale} · 여 ${schedule.appliedFemale}/${schedule.capacityFemale}`;
+}
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  PENDING: '입금 대기',
+  CANCELLED: '취소',
+};
+
+/** 디자인 파운데이션 5절 `Badge` — 입금 대기 `warning`, 취소 `danger`. 뜻은 글자가 전한다. */
+export const APPLICATION_STATUS_TONES: Record<ApplicationStatus, BadgeTone> = {
+  PENDING: 'warning',
+  CANCELLED: 'danger',
+};
+
+/** 취소 배지 옆 보조 글자 — 누가 취소했는지. */
+export const CANCELLED_BY_LABELS: Record<ApplicationCancelledBy, string> = {
+  MEMBER: '본인',
+  ADMIN: '운영자',
+  SCHEDULE: '회차 취소',
+};
+
+// ----- A10 상태 필터(주소의 `?status=`) -----
+
+export type ApplicationFilter = ApplicationStatus | 'ALL';
+
+export const APPLICATION_FILTERS: readonly {
+  value: ApplicationFilter;
+  label: string;
+}[] = [
+  { value: 'PENDING', label: '입금 대기' },
+  { value: 'CANCELLED', label: '취소' },
+  { value: 'ALL', label: '전체' },
+];
+
+/** `?status=` → 필터. 없거나 모르는 값이면 기본값 — 입금 대기, 취소된 회차면 취소(연락처 확인용, I). */
+export function applicationFilterOf(
+  value: unknown,
+  scheduleCancelled: boolean,
+): ApplicationFilter {
+  const known = APPLICATION_FILTERS.find((filter) => filter.value === value);
+  if (known !== undefined) {
+    return known.value;
+  }
+  return scheduleCancelled ? 'CANCELLED' : 'PENDING';
+}
+
+// ----- A10 신청 · 회원 합치기(D11) -----
+
+export interface ApplicationRow {
+  application: AdminApplication;
+  /** 회원 정보를 불러오지 못했거나 결과에 없으면 null — 신청 정보만 보인다. */
+  member: MemberSummary | null;
+}
+
+/** 한 페이지의 신청에 `GET /members?ids=` 결과를 `memberId`로 붙인다. 순서는 신청 순 그대로. */
+export function mergeApplicants(
+  applications: readonly AdminApplication[],
+  members: readonly MemberSummary[] | undefined,
+): ApplicationRow[] {
+  const byId = new Map((members ?? []).map((member) => [member.id, member]));
+  return applications.map((application) => ({
+    application,
+    member: byId.get(application.memberId) ?? null,
+  }));
+}
+
+/** 한 번의 `ids` 조회에 넣을 회원 ID — 같은 회원의 여러 신청(취소 뒤 다시 신청)은 한 번만. */
+export function memberIdsOf(
+  applications: readonly AdminApplication[],
+): string[] {
+  return [...new Set(applications.map((application) => application.memberId))];
+}
+
+/** 운영자 취소 확인 창의 질문. 이름을 모르면(탈퇴 · 회원 정보 조회 실패) "이 신청을 취소할까요?". */
+export function adminCancelQuestion(member: MemberSummary | null): string {
+  const who =
+    member?.name != null
+      ? `${member.name}님의 신청을 취소할까요?`
+      : '이 신청을 취소할까요?';
+  return `${who} 취소하면 이 회원은 이 일정에 다시 신청할 수 없습니다. 신청자에게는 따로 안내해 주세요.`;
+}
+
+// ----- A8 회차 수정 · 취소 -----
+
+/** 활성 신청 수(남녀 합). */
+export function activeApplicationCount(
+  schedule: Pick<AdminSchedule, 'appliedMale' | 'appliedFemale'>,
+): number {
+  return schedule.appliedMale + schedule.appliedFemale;
+}
+
+const NOTIFY_FIELDS = [
+  'startsAt',
+  'endsAt',
+  'applyDeadlineAt',
+  'venueArea',
+  'venueName',
+  'venueAddress',
+  'venueDirections',
+  'venueMapUrl',
+  'priceMale',
+  'priceFemale',
+] as const satisfies readonly (keyof UpdateScheduleRequest)[];
+
+/**
+ * 저장 전 안내(H): 활성 신청이 있는 회차에서 시각 · 장소 · 참가비를 바꾸면 한 번 묻는다(경고일 뿐).
+ * 신청 마감 시각을 바꾸면 본인 취소 기간도 바뀐다는 문장을 더한다(C · D4). 폼이 끝에 "이대로 저장할까요?"를 붙인다.
+ */
+export function applicantWarnings(
+  schedule: Pick<AdminSchedule, 'appliedMale' | 'appliedFemale'>,
+  changes: UpdateScheduleRequest,
+): string[] {
+  const count = activeApplicationCount(schedule);
+  if (count === 0 || !NOTIFY_FIELDS.some((field) => field in changes)) {
+    return [];
+  }
+  const warnings = [
+    `신청자 ${count}명이 있습니다. 바뀐 내용은 신청자에게 따로 안내해 주세요. 참가비를 바꿔도 이미 한 신청의 금액은 그대로입니다.`,
+  ];
+  if ('applyDeadlineAt' in changes) {
+    warnings.push(
+      '신청 마감 시각을 바꾸면 신청자가 직접 취소할 수 있는 기간도 함께 바뀝니다.',
+    );
+  }
+  return warnings;
+}
+
+/** 회차 취소 창에 더하는 문장(I). 활성 신청이 없으면 null. */
+export function scheduleCancelApplicantsNote(
+  schedule: Pick<AdminSchedule, 'appliedMale' | 'appliedFemale'>,
+): string | null {
+  const count = activeApplicationCount(schedule);
+  return count === 0
+    ? null
+    : `신청 ${count}건도 함께 취소됩니다. 취소한 뒤 신청 목록에서 연락처를 확인할 수 있습니다. 신청자에게는 따로 안내해 주세요.`;
+}
+
+/** 정원을 그 성별의 신청 수보다 작게 넣었을 때(폼 · 409 `CAPACITY_BELOW_APPLICATIONS` 같은 문구). */
+export function capacityBelowMessage(applied: number): string {
+  return `정원을 지금 신청 수(${applied}명)보다 작게 줄일 수 없습니다. 신청을 먼저 취소해 주세요.`;
+}
+
+/**
+ * 409 `CAPACITY_BELOW_APPLICATIONS`의 N — 409 뒤 다시 불러온 회차에서, 보낸 정원이 신청 수보다 작은 성별의 신청 수.
+ * 둘 다 작으면 남성부터. 다시 불러온 값으로도 가를 수 없으면 null(기본 문구).
+ */
+export function capacityConflictCount(
+  sent: Pick<UpdateScheduleRequest, 'capacityMale' | 'capacityFemale'>,
+  schedule: Pick<AdminSchedule, 'appliedMale' | 'appliedFemale'>,
+): number | null {
+  if (sent.capacityMale != null && sent.capacityMale < schedule.appliedMale) {
+    return schedule.appliedMale;
+  }
+  if (
+    sent.capacityFemale != null &&
+    sent.capacityFemale < schedule.appliedFemale
+  ) {
+    return schedule.appliedFemale;
+  }
+  return null;
+}
+
+/** 운영자 신청 화면의 오류 코드 문구(SPEC-003 4절 "운영자 화면 오류 문구"). */
+export const APPLICATION_ERROR_OVERRIDES: Partial<Record<string, string>> = {
+  [API_ERROR_CODES.APPLICATION_NOT_FOUND]:
+    '찾을 수 없는 신청입니다. 목록을 새로 고쳐 주세요.',
+};
+
+export const MEMBER_LOOKUP_FAILED_MESSAGE =
+  '회원 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';

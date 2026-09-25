@@ -118,6 +118,8 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
   const weeksId = useId();
   const pickDateId = useId();
   const dateErrorId = useId();
+  const rebuildQuestionId = useId();
+  const submitQuestionId = useId();
   const tableRef = useRef<HTMLDivElement>(null);
 
   const meetups = useMeetupList({ pageSize: ADMIN_LIST_MAX_PAGE_SIZE });
@@ -670,8 +672,11 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
         open={pendingTable !== null}
         title="미리보기 다시 만들기"
         onClose={() => setPendingTable(null)}
+        describedBy={rebuildQuestionId}
       >
-        <p>행에서 고친 내용이 사라집니다. 다시 만들까요?</p>
+        <p id={rebuildQuestionId}>
+          행에서 고친 내용이 사라집니다. 다시 만들까요?
+        </p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => applyTable(pendingTable)}>다시 만들기</Button>
           {/* 행에서 고친 내용을 버리는 동작이라 처음 포커스는 "닫기" */}
@@ -689,8 +694,9 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
         open={confirmSubmit}
         title="확인"
         onClose={() => setConfirmSubmit(false)}
+        describedBy={submitQuestionId}
       >
-        <p>
+        <p id={submitQuestionId}>
           남녀 정원이 다르거나 일요일이 아닌 회차가 있습니다. 이대로 등록할까요?
         </p>
         <div className="flex flex-wrap gap-2">

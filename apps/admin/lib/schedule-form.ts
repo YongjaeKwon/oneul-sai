@@ -9,6 +9,7 @@ import {
 } from '@oneul-sai/contracts';
 import { z } from 'zod';
 
+import { capacityBelowMessage } from './applications';
 import { fromSeoulLocal, toSeoulLocal, weekdayOf } from './format';
 
 // SPEC-002 4절 A7 · A8 · A9 회차 폼. 형식은 contracts의 `CreateScheduleRequestSchema`가 판정하고,
@@ -207,14 +208,22 @@ export function toFieldIssues(
   }));
 }
 
+/** A8에서 정원 칸이 넘어야 하는 그 성별의 활성 신청 수(SPEC-003 D8 — 화면 편의, 원천은 서버의 409). */
+export interface AppliedByGender {
+  male: number;
+  female: number;
+}
+
 /**
  * 폼 값 → 요청으로 바꿔 contracts 스키마로 검사하고(필드 이름이 같아 오류가 그 칸에 붙는다), 빈 시각 칸은 "입력해 주세요"로
- * 알린다. 시각 칸이 모두 맞으면 다른 칸의 오류와 상관없이 시간 규칙도 확인한다. 모두 통과해야 `request`가 있다.
+ * 알린다. 시각 칸이 모두 맞으면 다른 칸의 오류와 상관없이 시간 규칙도 확인한다. `applied`가 있으면(A8) 정원이 신청 수보다
+ * 작을 때 그 칸에 알린다. 모두 통과해야 `request`가 있다.
  */
 export function checkScheduleValues(
   values: ScheduleFormValues,
   now: number,
   original?: AdminSchedule,
+  applied?: AppliedByGender,
 ): { request: CreateScheduleRequest | null; issues: FieldIssue[] } {
   const input = toScheduleRequestInput(values);
   const parsed = CreateScheduleRequestSchema.safeParse(input);
@@ -236,19 +245,38 @@ export function checkScheduleValues(
       issues.push({ path: [issue.field], message: issue.message });
     }
   }
+  if (applied !== undefined) {
+    for (const [field, count] of [
+      ['capacityMale', applied.male],
+      ['capacityFemale', applied.female],
+    ] as const) {
+      const capacity = input[field];
+      const hasIssue = issues.some((issue) => issue.path[0] === field);
+      if (!hasIssue && capacity !== null && capacity < count) {
+        issues.push({ path: [field], message: capacityBelowMessage(count) });
+      }
+    }
+  }
   return {
     request: parsed.success && issues.length === 0 ? parsed.data : null,
     issues,
   };
 }
 
-/** A7 · A8 폼 스키마. 결과는 `CreateScheduleRequest`(수정이면 `scheduleChanges`로 바꾼 필드만 고른다). */
-export function scheduleFormSchema(original?: AdminSchedule) {
+/**
+ * A7 · A8 폼 스키마. 결과는 `CreateScheduleRequest`(수정이면 `scheduleChanges`로 바꾼 필드만 고른다).
+ * `applied`는 가장 최근에 불러온 회차의 성별 신청 수 — 폼의 기준값(`original`)과 따로 받는다(신청은 폼을 연 뒤에도 늘어난다).
+ */
+export function scheduleFormSchema(
+  original?: AdminSchedule,
+  applied?: AppliedByGender,
+) {
   return ScheduleFormFieldsSchema.transform((values, ctx) => {
     const { request, issues } = checkScheduleValues(
       values,
       Date.now(),
       original,
+      applied,
     );
     for (const { path, message } of issues) {
       ctx.issues.push({ code: 'custom', path, message, input: values });

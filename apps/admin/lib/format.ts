@@ -127,13 +127,16 @@ export function formatScheduleRange(startsAt: string, endsAt: string): string {
   return `${formatScheduleDate(start)} ${start.slice(11, 16)}~${endText}`;
 }
 
-const won = (amount: number): string => `${amount.toLocaleString('ko-KR')}원`;
+/** "30,000원". */
+export function formatWon(amount: number): string {
+  return `${amount.toLocaleString('ko-KR')}원`;
+}
 
 /** 참가비 문구(D3): 같으면 "참가비 30,000원", 다르면 "참가비 남 30,000원 · 여 25,000원". */
 export function formatPrice(priceMale: number, priceFemale: number): string {
   return priceMale === priceFemale
-    ? `참가비 ${won(priceMale)}`
-    : `참가비 남 ${won(priceMale)} · 여 ${won(priceFemale)}`;
+    ? `참가비 ${formatWon(priceMale)}`
+    : `참가비 남 ${formatWon(priceMale)} · 여 ${formatWon(priceFemale)}`;
 }
 
 /** "정원 남 7 · 여 7". */
