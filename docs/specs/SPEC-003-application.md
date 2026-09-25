@@ -1071,7 +1071,7 @@ SPEC-002 13절의 방식 그대로다: 단위는 vitest, 소스 옆 `*.spec.ts`,
 - 드리프트: `prisma migrate diff --from-migrations`는 shadow DB 설정(`datasource.shadowDatabaseUrl`)을 요구해, 마이그레이션을 적용한 개발 DB와 스키마를 비교했다 — `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma` 결과 "This is an empty migration."(드리프트 없음). 손으로 넣은 CHECK는 Prisma가 비교하지 않는다.
 - 생성된 클라이언트에 `ApplicationWhereUniqueInput.scheduleId_memberId`가 **있다**. 9 · 10절 규칙대로 쓰지 않는다 — `git grep scheduleId_memberId -- apps/event-service/src ':!**/generated/**'` 결과 0곳(기술 스택 함정 11).
 
-**5a PR 확인 (2026-09-25) — 설계와 차이 없음.**
+**5a PR 확인 (2026-09-25) — 설계와 차이 없음.** 리뷰에서 빠진 것을 찾아 같은 PR에서 넣었다: 503으로 바꿀 때 warn `schedule.busy`(14절, cause `lock_timeout` · `pool`). 503은 HttpException이라 예상 밖 에러 필터가 로그를 남기지 않으므로 `busyAsServiceUnavailable`이 원인을 넘겨받아 남긴다. 여러 회차 등록도 회차 쓰기라 P2028이면 503이다(7절 "회차 쓰기 모두") — 이 경우 `schedule.busy`에는 `scheduleId`가 없다.
 
 - `cancelActiveForSchedule`(`updateMany`)의 생성 SQL은 조건을 담은 UPDATE **한 문장**이다: `UPDATE "public"."Application" SET "status" = …, "cancelledBy" = …, "updatedAt" = $3 WHERE ("public"."Application"."scheduleId" = $4 AND "public"."Application"."status" <> CAST($5::text AS "public"."ApplicationStatus"))`. `$executeRaw`로 고정할 필요가 없었다. Prisma 쿼리 로그로 확인하는 통합 테스트를 남겼다(`src/applications/application-queries.integration.spec.ts`).
 - `SET LOCAL lock_timeout = '2s'`는 PrismaPg 대화형 트랜잭션 안에서만 걸린다 — 연결 하나짜리 풀에서 트랜잭션 안 `SHOW lock_timeout` = `2s`, 뒤 요청 = `0`(같은 테스트 파일). 잠금 대기 초과(SQLSTATE 55P03)는 기존 `dbErrorFields`로 가를 수 있었다 — 회차 행을 3초 쥔 동안의 `PATCH`가 503 `SERVICE_BUSY` + `Retry-After: 1`로 끝나는 통합 테스트로 확인했다.
