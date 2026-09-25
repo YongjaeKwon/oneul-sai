@@ -173,6 +173,12 @@ export class MembersController {
   @ApiQuery({ name: 'query', required: false })
   @ApiQuery({ name: 'status', required: false })
   @ApiQuery({ name: 'role', required: false })
+  @ApiQuery({
+    name: 'ids',
+    required: false,
+    description:
+      '쉼표로 이은 회원 UUID 1~100개(pageSize 이하). 다른 필터와 AND. 접속기록에 돌려준 회원 ID가 남는다 (SPEC-003 D11)',
+  })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'pageSize', required: false })
   @ApiOkResponse({
