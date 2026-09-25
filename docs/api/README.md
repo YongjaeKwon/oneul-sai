@@ -3,12 +3,12 @@
 오늘사이 백엔드 API의 공통 규칙과 엔드포인트 인덱스다. 요청 · 응답 필드는 여기에 다시 적지 않는다 — 원천은 각 서비스의 Swagger(8.1절)와 `packages/contracts`의 Zod 스키마다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-23 (Step 1 회원/인증 엔드포인트, 인증 · 쿠키 · CORS · rate limit 규칙, `code` 필드)
+- 최종 갱신: 2026-09-25 (Step 3 — 서비스 간 호출 5.6절(ADR-011), 1절 직접 호출 문장. 그 전: 2026-09-23 Step 1 회원/인증 엔드포인트, 인증 · 쿠키 · CORS · rate limit 규칙, `code` 필드)
 
 ## 1. 모든 외부 접근은 Gateway 경유
 
 - 클라이언트(Web/Admin/Mobile)는 **API Gateway(:4000)** 만 호출한다. 마이크로서비스 포트(4001~4005)를 직접 호출하지 않는다.
-- 마이크로서비스 직접 호출은 로컬 개발/디버깅 용도로만 허용한다. 이때는 5절의 내부 토큰(`x-internal-token`)을 직접 실어야 한다.
+- 클라이언트(와 사람)의 서비스 포트 직접 호출은 로컬 개발/디버깅 용도로만 허용한다. 이때는 5절의 내부 토큰(`x-internal-token`)을 직접 실어야 한다. 서비스 간 동기 호출은 [ADR-011](../adr/ADR-011-service-to-service-calls.md)(5.6절) 규칙으로만 한다.
 - Gateway는 라우팅, Request ID 발급/전파, 공통 로깅, 공통 에러 정책에 더해 **access token 검증 · 내부 헤더 전달 · 내부 토큰 부착 · `Origin` 허용 목록 확인 · IP 단위 rate limit · CORS**를 담당한다(5절, [ADR-009](../adr/ADR-009-authentication.md)). 비즈니스 로직과 경로별 인증 정책 · 역할 판단은 두지 않는다.
 
 ## 2. 버저닝
@@ -125,6 +125,20 @@ interface ApiErrorResponse {
 - 보호 데이터(토큰이 필요한 경로)는 여전히 클라이언트 컴포넌트에서만 조회한다. 서버 컴포넌트 · Route Handler는 보호 경로를 부르지 않는다([ADR-009](../adr/ADR-009-authentication.md) 결정 5).
 - 서버용 클라이언트는 `server-only` 모듈 안에 두고 인스턴스를 내보내지 않는다. 그 모듈은 공개 조회 함수만 내보내고 항상 `auth: false`로 부른다 — 서버 프로세스의 토큰 저장소가 방문자 사이에 섞일 경로를 없앤다(참가자 웹 `apps/web/lib/public-api.ts`).
 - 서버 쪽 캐시는 요청 헤더가 키에 들어가지 않는 **데이터 단위 캐시**로 한다(키 = 함수 · `page` 또는 `id`). `fetch`의 `next.revalidate`로 캐시하면 api-client가 호출마다 붙이는 무작위 `x-request-id`가 키에 들어가 적중하지 않는다. 키가 되는 값은 캐시 앞에서 좁힌다(`page`는 [1, `PAGE_MAX`] 정수, `id`가 UUID가 아니면 부르지 않는다).
+
+### 5.6 서비스 간 호출 ([ADR-011](../adr/ADR-011-service-to-service-calls.md))
+
+- 사용자 요청을 처리하는 **동기 경로**에서, **호출자 본인의 데이터**를, 소유 서비스의 `/api/v1` **읽기(GET) API**로 읽을 때만 서비스가 다른 서비스를 직접 부른다(위임 호출). Gateway를 거치지 않고 서비스 포트로 부른다.
+- 받은 `x-user-id` · `x-user-role` · `x-request-id`를 **바꾸지 않고** 싣고 자기 `x-internal-token`을 붙인다. 헤더를 새로 만들거나 역할을 올리지 않는다. 변경 경로는 부르지 않는다.
+- 허용 목록(경로는 코드에 고정, 주소는 env):
+
+  | 호출하는 서비스 | 대상 · 경로                             | env                  | 쓰는 필드                                  |
+  | --------------- | --------------------------------------- | -------------------- | ------------------------------------------ |
+  | event-service   | member-service `GET /api/v1/members/me` | `MEMBER_SERVICE_URL` | `status` · `role` · `gender` · `birthYear` |
+
+- 응답은 (HTTP 상태, `code`) 쌍으로 해석한다. 호출자 본인의 상태(탈퇴 401 `UNAUTHENTICATED`, 정지 403 `ACCOUNT_SUSPENDED`)만 그대로 전하고, 예상 밖(401 `INTERNAL_TOKEN_INVALID` · 403 `FORBIDDEN` · 그 밖 4xx · 형식 오류)은 503 `SERVICE_BUSY` + error 로그, 5xx · 네트워크 · 시간 초과는 503 + warn 로그다(SPEC-003 7절 표). 쓰는 필드만 남긴다(`pick`).
+- 호출은 DB 트랜잭션 밖에서, 제한 시간(3초)을 두고 한 번만 한다. 로그에는 상태 · `code` · 에러 이름 · 걸린 시간 · `requestId`만 남긴다.
+- 호출자 문맥이 없는 서비스 간 조회(결제 이벤트 소비자, 알림 받는 사람 정보)는 결정 예정 (Step 4 · 7).
 
 ## 6. Request ID
 

@@ -37,7 +37,7 @@ docs/      overview specs architecture adr api database events design guides
 7. **비즈니스 기능 임의 구현 금지** — `docs/specs/SPEC-00N-<slug>.md`로 머지된 설계서가 있는 기능만 구현한다. 없으면 `docs/specs/TEMPLATE.md`로 초안을 먼저 쓰고 사람의 확인을 기다린다(001~008은 Step 1~8에 예약, 목록은 `docs/specs/README.md`).
 8. **제품 사실을 지어내지 않는다** — 팜플렛 · 운영 메시지에 있는 것만. 미정은 **"결정 예정 (Step N)"** 으로 쓴다.
 
-근거: `docs/adr/` (ADR-001~008, 인증은 [ADR-009](docs/adr/ADR-009-authentication.md), 플랫폼 패키지는 [ADR-010](docs/adr/ADR-010-platform-packages.md)). 결정을 바꾸려면 새 ADR.
+근거: `docs/adr/` (ADR-001~008, 인증은 [ADR-009](docs/adr/ADR-009-authentication.md), 플랫폼 패키지는 [ADR-010](docs/adr/ADR-010-platform-packages.md), 서비스 간 호출은 [ADR-011](docs/adr/ADR-011-service-to-service-calls.md)). 결정을 바꾸려면 새 ADR.
 
 ## 4. 자주 쓰는 커맨드
 
