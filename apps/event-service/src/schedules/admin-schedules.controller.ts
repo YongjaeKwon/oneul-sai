@@ -136,6 +136,10 @@ export class AdminSchedulesController {
       'BatchCreateSchedulesResponse — { items: AdminSchedule[] } (요청 순서)',
   })
   @ApiNotFoundResponse({ description: 'MEETUP_NOT_FOUND' })
+  @ApiServiceUnavailableResponse({
+    description:
+      'SERVICE_BUSY — 트랜잭션 연결 대기 · 제한 시간 초과(P2028, Retry-After: 1). 아무것도 만들어지지 않는다',
+  })
   createBatch(
     @CurrentUser() admin: CallerUser,
     @Param('meetupId', meetupIdPipe) meetupId: string,
