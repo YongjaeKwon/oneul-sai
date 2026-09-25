@@ -86,11 +86,15 @@ const EVENT_MESSAGES_BY_CODE: Partial<Record<string, string>> = {
 export const STATUS_TIME_INVALID_MESSAGE =
   '신청 마감이 지나 공개할 수 없습니다. 신청 마감을 바꾼 뒤 다시 눌러 주세요.';
 
-/** 모임 상품 · 회차 화면의 에러 문구. 401 · 403은 SPEC-001 admin 규칙 그대로, 5xx · 네트워크는 한 문구. */
+/** 모임 상품 · 회차 · 신청 화면의 에러 문구. 401 · 403은 SPEC-001 admin 규칙 그대로, 503 `SERVICE_BUSY`는 기존 문구, 그 밖의 5xx · 네트워크는 한 문구. */
 export function describeEventError(
   error: unknown,
   overrides: Partial<Record<string, string>> = {},
 ): string {
+  // 503 SERVICE_BUSY(잠금 · 연결 대기, SPEC-003 7절)는 기존 admin 문구 "지금 요청이 많습니다…"
+  if (isApiClientError(error) && error.code === API_ERROR_CODES.SERVICE_BUSY) {
+    return describeError(error);
+  }
   if (!isApiClientError(error) || error.status >= 500) {
     return FALLBACK_MESSAGE;
   }

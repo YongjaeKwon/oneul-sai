@@ -8,7 +8,9 @@ import {
 } from '@oneul-sai/contracts';
 import { Input } from '@oneul-sai/ui';
 import { useId, type ReactNode } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { useFormContext, useWatch } from 'react-hook-form';
+
+import { capacityNotice } from '@/lib/applications';
 
 import { textareaClasses } from '@/lib/form-styles';
 import {
@@ -47,12 +49,13 @@ function FieldGroup({
 /**
  * 회차 폼(A7 · A8)과 여러 회차 등록 공통 값(A9)이 함께 쓰는 칸: 참가비("남녀 같은 금액"), 성별 정원,
  * 남성 연령대, 지역 · 장소 안내. 필드 이름이 요청 필드와 같아 contracts 스키마의 오류가 그 칸에 붙는다.
- * `applied`가 있으면(A8) 정원 칸 아래에 그 성별의 신청 수를 보인다(SPEC-003 A8).
+ * `capacity`가 있으면(A8) 정원 칸 아래에 그 성별의 신청 수를 보이고, 저장된 정원에서 바꾼 값이 신청 수보다 작으면 칸에 알린다
+ * (SPEC-003 A8 · D8 — 막지 않는다, 판정은 서버의 409).
  */
 export function ScheduleSharedFields({
-  applied,
+  capacity,
 }: {
-  applied?: AppliedByGender;
+  capacity?: { applied: AppliedByGender; saved: AppliedByGender };
 } = {}) {
   const {
     register,
@@ -62,6 +65,20 @@ export function ScheduleSharedFields({
     formState: { errors },
   } = useFormContext<ScheduleSharedValues>();
   const samePrice = watch('samePrice');
+  const [capacityMale, capacityFemale] = useWatch<
+    ScheduleSharedValues,
+    ['capacityMale', 'capacityFemale']
+  >({ name: ['capacityMale', 'capacityFemale'] });
+  const maleNotice =
+    capacity &&
+    capacityNotice(capacityMale, capacity.applied.male, capacity.saved.male);
+  const femaleNotice =
+    capacity &&
+    capacityNotice(
+      capacityFemale,
+      capacity.applied.female,
+      capacity.saved.female,
+    );
   const samePriceId = useId();
 
   return (
@@ -129,8 +146,12 @@ export function ScheduleSharedFields({
           <FormField
             label="남 정원(명)"
             required
-            help={applied === undefined ? undefined : `신청 ${applied.male}명`}
-            error={errors.capacityMale?.message}
+            help={
+              capacity === undefined
+                ? undefined
+                : `신청 ${capacity.applied.male}명`
+            }
+            error={errors.capacityMale?.message ?? maleNotice}
           >
             {(control) => (
               <Input
@@ -145,9 +166,11 @@ export function ScheduleSharedFields({
             label="여 정원(명)"
             required
             help={
-              applied === undefined ? undefined : `신청 ${applied.female}명`
+              capacity === undefined
+                ? undefined
+                : `신청 ${capacity.applied.female}명`
             }
-            error={errors.capacityFemale?.message}
+            error={errors.capacityFemale?.message ?? femaleNotice}
           >
             {(control) => (
               <Input
