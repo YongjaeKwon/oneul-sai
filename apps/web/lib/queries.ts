@@ -4,7 +4,12 @@ import type {
   MemberProfile,
   UpdateMyProfileRequest,
 } from '@oneul-sai/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { apiClient } from './api';
 import { useAuth } from './auth';
@@ -46,7 +51,10 @@ export function useChangePassword() {
 
 // ----- 참가 신청 (SPEC-003 4절 W9 · W10) -----
 
-/** 내 신청(모든 상태, 최근 신청부터). `enabled`가 거짓이면 부르지 않는다 — 운영자 계정은 이 경로가 403이다. */
+/**
+ * 내 신청(모든 상태, 최근 신청부터). `enabled`가 거짓이면 부르지 않는다 — 운영자 계정은 이 경로가 403이다.
+ * W10에서 페이지를 옮기는 동안 이전 페이지를 보인다(`keepPreviousData` — 목록이 "불러오는 중"으로 깜빡이지 않게).
+ */
 export function useMyApplications(
   params: MyApplicationListParams,
   enabled: boolean,
@@ -57,6 +65,7 @@ export function useMyApplications(
     queryKey: [...myApplicationsKey, params],
     queryFn: () => apiClient.listMyApplications(params),
     enabled: enabled && state.status === 'authenticated',
+    placeholderData: keepPreviousData,
   });
 }
 

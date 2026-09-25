@@ -20,7 +20,15 @@ describe('eventNextPath (D12)', () => {
     `/events/${ID}#top`,
     `/events/${ID}/../../me`,
     `//evil.example/events/${ID}`,
-    `/\evil.example/events/${ID}`,
+    // 백슬래시는 String.raw로 — 보통 템플릿 리터럴에서 `\e`는 `e`가 된다
+    String.raw`/\evil.example/events/${ID}`,
+    `/events/\\${ID}`,
+    `/events/%2F${ID}`,
+    // `/events/` 접두 검사가 빠지면 통과하는 모양 — 앞 8글자만 다르고 나머지는 UUID
+    `/Events/${ID}`,
+    `/eventsX${ID}`,
+    `//x.io/?${ID}`,
+    `https:/${ID}`,
     `https://evil.example/events/${ID}`,
     `/events/not-a-uuid`,
     ` /events/${ID}`,
@@ -35,5 +43,7 @@ describe('withNext', () => {
       `/signup?next=/events/${ID}`,
     );
     expect(withNext('/login', null)).toBe('/login');
+    // 호출자가 검사하지 않은 값을 넘겨도 붙이지 않는다
+    expect(withNext('/login', '//evil.example')).toBe('/login');
   });
 });

@@ -14,10 +14,11 @@ export function eventNextPath(next: string | null | undefined): string | null {
   return ScheduleIdSchema.safeParse(id).success ? next : null;
 }
 
-/** 로그인 ↔ 가입 화면을 오갈 때 `next`를 잇는 주소. 모양이 맞지 않으면 붙이지 않는다. */
+/** 로그인 ↔ 가입 화면을 오갈 때 `next`를 잇는 주소. 모양이 맞지 않으면 붙이지 않는다(호출자를 믿지 않고 다시 검사한다). */
 export function withNext(
   path: '/login' | '/signup',
   next: string | null,
 ): string {
-  return next === null ? path : `${path}?next=${next}`;
+  const checked = eventNextPath(next);
+  return checked === null ? path : `${path}?next=${checked}`;
 }
