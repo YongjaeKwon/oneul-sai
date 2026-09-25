@@ -28,7 +28,7 @@ describe('eventNextPath (D12)', () => {
     `/Events/${ID}`,
     `/eventsX${ID}`,
     `//x.io/?${ID}`,
-    `https:/${ID}`,
+    `https://${ID}`,
     `https://evil.example/events/${ID}`,
     `/events/not-a-uuid`,
     ` /events/${ID}`,

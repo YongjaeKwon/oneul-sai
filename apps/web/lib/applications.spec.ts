@@ -182,35 +182,45 @@ describe('applyAreaState — the first matching row of W9 (d)~(j)', () => {
 });
 
 describe('applicationErrorCopy', () => {
-  it('picks the full-seat copy by my gender and the age copy by the schedule range', () => {
-    expect(applicationErrorCopy('FEMALE', schedule)).toEqual({
+  const ageError = new ApiClientError(409, {
+    statusCode: 409,
+    error: 'Conflict',
+    code: 'BIRTH_YEAR_OUT_OF_RANGE',
+    message: 'server text',
+  });
+  const DEFAULT = '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+
+  it('picks the full-seat copy by my gender', () => {
+    expect(applicationErrorCopy(woman, schedule)).toEqual({
       SCHEDULE_FULL: '여성 자리가 모두 찼습니다.',
-      BIRTH_YEAR_OUT_OF_RANGE:
-        '이 일정은 남성 1990~1995년생만 신청하실 수 있습니다.',
     });
   });
 
-  it('leaves the age copy out when the page has no range (a stale page) instead of a broken sentence', () => {
-    const copy = applicationErrorCopy('MALE', {
-      maleMinBirthYear: null,
-      maleMaxBirthYear: null,
+  it('makes the age copy only when the range on the page really excludes me (one-sided ranges too)', () => {
+    const fromNinety = { maleMinBirthYear: 1990, maleMaxBirthYear: null };
+    expect(
+      applicationErrorCopy({ ...man, birthYear: 1985 }, fromNinety),
+    ).toEqual({
+      SCHEDULE_FULL: '남성 자리가 모두 찼습니다.',
+      BIRTH_YEAR_OUT_OF_RANGE:
+        '이 일정은 남성 1990년생부터만 신청하실 수 있습니다.',
     });
-    expect(copy).toEqual({ SCHEDULE_FULL: '남성 자리가 모두 찼습니다.' });
-    const error = new ApiClientError(409, {
-      statusCode: 409,
-      error: 'Conflict',
-      code: 'BIRTH_YEAR_OUT_OF_RANGE',
-      message: 'server text',
-    });
-    expect(describeApplicationError(error, copy)).toBe(
-      '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-    );
   });
+
+  it.each([
+    ['has no range', { maleMinBirthYear: null, maleMaxBirthYear: null }],
+    ['still includes me', { maleMinBirthYear: 1985, maleMaxBirthYear: 1995 }],
+  ])(
+    'falls back to the default copy when the page %s (it is older than the operator’s change)',
+    (_label, range) => {
+      const copy = applicationErrorCopy({ ...man, birthYear: 1987 }, range);
+      expect(copy).not.toHaveProperty('BIRTH_YEAR_OUT_OF_RANGE');
+      expect(describeApplicationError(ageError, copy)).toBe(DEFAULT);
+    },
+  );
 
   it('has no gender copy for an account without a gender', () => {
-    expect(applicationErrorCopy(null, schedule)).not.toHaveProperty(
-      'SCHEDULE_FULL',
-    );
+    expect(applicationErrorCopy(admin, schedule)).toEqual({});
   });
 });
 
