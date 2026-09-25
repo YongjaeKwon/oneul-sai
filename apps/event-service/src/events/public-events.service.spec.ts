@@ -142,6 +142,32 @@ describe('PublicEventsService queries', () => {
     });
   });
 
+  it('maps each schedule in a page to its own full flags', async () => {
+    const OTHER = '3b241101-e2bb-4255-8caf-4136c566a962';
+    // 정원 남 7 · 여 6(leakyRow). ID: 남성만 마감, OTHER: 여성만 마감
+    const { service, schedule } = build(leakyRow, [
+      { scheduleId: ID, gender: 'MALE', count: 7 },
+      { scheduleId: OTHER, gender: 'FEMALE', count: 6 },
+    ]);
+    schedule.findMany.mockResolvedValueOnce([
+      leakyRow,
+      { ...leakyRow, id: OTHER },
+    ]);
+
+    const list = await service.list({ page: 1, pageSize: 20 });
+
+    expect(
+      list.items.map(({ id, maleFull, femaleFull }) => ({
+        id,
+        maleFull,
+        femaleFull,
+      })),
+    ).toEqual([
+      { id: ID, maleFull: true, femaleFull: false },
+      { id: OTHER, maleFull: false, femaleFull: true },
+    ]);
+  });
+
   it('skips the count query for an empty page', async () => {
     const { service, application } = build(null);
     const list = await service.list({ page: 1, pageSize: 20 });

@@ -16,29 +16,36 @@ export async function setLockTimeout(
   await tx.$executeRaw`SET LOCAL lock_timeout = '2s'`;
 }
 
-/** 잠금 대기 상한 초과(SQLSTATE 55P03) · 트랜잭션 연결 대기 · 제한 시간(Prisma P2028). */
-export function isServiceBusyError(error: unknown): boolean {
+/** 503으로 바꾼 이유 — 로그 `schedule.busy` · `application.busy`의 `cause`(SPEC-003 14절). */
+export type BusyCause = 'lock_timeout' | 'pool';
+
+/** 잠금 대기 상한 초과(SQLSTATE 55P03) → `lock_timeout`, 트랜잭션 연결 대기 · 제한 시간(Prisma P2028) → `pool`. */
+export function busyCauseOf(error: unknown): BusyCause | null {
   const { sqlState, prismaCode } = dbErrorFields(error);
-  return sqlState === '55P03' || prismaCode === 'P2028';
+  if (sqlState === '55P03') return 'lock_timeout';
+  if (prismaCode === 'P2028') return 'pool';
+  return null;
 }
 
 /**
- * 쓰기 트랜잭션을 감싼다. 잠금 · 연결을 기다리다 끝난 것이면 503 `SERVICE_BUSY`로 답한다
- * (`Retry-After: 1`은 service-kit 필터가 붙인다). 그 밖의 에러는 그대로 던진다.
+ * 쓰기 트랜잭션을 감싼다. 잠금 · 연결을 기다리다 끝난 것이면 `onBusy`(warn 로그)를 부르고
+ * 503 `SERVICE_BUSY`로 답한다(`Retry-After: 1`은 service-kit 필터가 붙인다). 그 밖의 에러는 그대로 던진다.
+ * 503은 HttpException이라 예상 밖 에러 필터가 로그를 남기지 않는다 — 원인은 `onBusy`가 남긴다.
  */
 export async function busyAsServiceUnavailable<T>(
   work: Promise<T>,
+  onBusy: (cause: BusyCause) => void,
 ): Promise<T> {
   try {
     return await work;
   } catch (error) {
-    if (isServiceBusyError(error)) {
-      throw apiError(
-        503,
-        API_ERROR_CODES.SERVICE_BUSY,
-        '지금 요청이 많습니다. 잠시 후 다시 시도해 주세요.',
-      );
-    }
-    throw error;
+    const cause = busyCauseOf(error);
+    if (cause === null) throw error;
+    onBusy(cause);
+    throw apiError(
+      503,
+      API_ERROR_CODES.SERVICE_BUSY,
+      '지금 요청이 많습니다. 잠시 후 다시 시도해 주세요.',
+    );
   }
 }

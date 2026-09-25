@@ -147,6 +147,8 @@ function build(options: BuildOptions = {}) {
     schedule: {
       create: vi.fn(createRow),
       findFirst: vi.fn(async () => null),
+      findMany: vi.fn(async (): Promise<AdminScheduleRow[]> => []),
+      count: vi.fn(async () => 0),
     },
     application: { groupBy: vi.fn(async () => []) },
     $transaction: vi.fn(async (fn: (client: typeof tx) => Promise<unknown>) =>
@@ -554,16 +556,57 @@ describe('SchedulesService — applications on the schedule side (SPEC-003 D8)',
       (s: SchedulesService) => s.remove(ADMIN, MEETUP_ID, SCHEDULE_ID, 'r'),
     ],
   ])(
-    '%s: waiting past the lock timeout (55P03) → 503 SERVICE_BUSY',
+    '%s: waiting past the lock timeout (55P03) → 503 SERVICE_BUSY + schedule.busy',
     async (_label, act) => {
-      const { service } = build({ lockError: lockTimeout });
+      const { service, logger } = build({ lockError: lockTimeout });
       const error = await errorOf(act(service));
       expect(error.getStatus()).toBe(503);
       expect(error.code).toBe(API_ERROR_CODES.SERVICE_BUSY);
+      expect(logger.warn).toHaveBeenCalledWith('schedule.busy', {
+        meetupId: MEETUP_ID,
+        scheduleId: SCHEDULE_ID,
+        cause: 'lock_timeout',
+        requestId: 'r',
+      });
     },
   );
 
-  it('get · list: the response carries the four seat values from one groupBy', async () => {
+  it('batch: a transaction that cannot get a connection (P2028) → 503 + schedule.busy cause pool', async () => {
+    const { service, prisma, logger } = build();
+    prisma.$transaction.mockRejectedValueOnce(
+      Object.assign(new Error('Unable to start a transaction'), {
+        code: 'P2028',
+      }),
+    );
+    const error = await errorOf(
+      service.createBatch(ADMIN, MEETUP_ID, { items: [input(4)] }, 'r'),
+    );
+    expect(error.getStatus()).toBe(503);
+    expect(error.code).toBe(API_ERROR_CODES.SERVICE_BUSY);
+    expect(logger.warn).toHaveBeenCalledWith('schedule.busy', {
+      meetupId: MEETUP_ID,
+      cause: 'pool',
+      requestId: 'r',
+    });
+    expect(logger.info).not.toHaveBeenCalled();
+  });
+
+  it('other DB errors are not turned into 503', async () => {
+    const { service, logger } = build({
+      lockError: Object.assign(new Error('check'), {
+        code: 'P2010',
+        meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
+      }),
+    });
+    const error = await errorOf(
+      service.update(ADMIN, MEETUP_ID, SCHEDULE_ID, { priceMale: 1 }, 'r'),
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect((error as unknown as { code: string }).code).toBe('P2010');
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('get: the response carries the four seat values from one groupBy', async () => {
     const { service, prisma } = build({ stored: row({ status: 'OPEN' }) });
     prisma.schedule.findFirst.mockResolvedValueOnce(
       row({ status: 'OPEN', capacityMale: 2 }) as never,
@@ -587,5 +630,44 @@ describe('SchedulesService — applications on the schedule side (SPEC-003 D8)',
       },
       _count: { _all: true },
     });
+  });
+
+  it('list: maps each schedule to its own counts, zero for a gender without applications', async () => {
+    const OTHER_ID = '3b241101-e2bb-4255-8caf-4136c566a962';
+    const { service, prisma } = build();
+    prisma.schedule.findMany.mockResolvedValueOnce([
+      row({ id: SCHEDULE_ID, status: 'OPEN', capacityMale: 2 }),
+      row({ id: OTHER_ID, status: 'OPEN', capacityFemale: 1 }),
+    ]);
+    prisma.schedule.count.mockResolvedValueOnce(2);
+    prisma.application.groupBy.mockResolvedValueOnce([
+      { scheduleId: SCHEDULE_ID, gender: 'MALE', _count: { _all: 2 } },
+      { scheduleId: OTHER_ID, gender: 'FEMALE', _count: { _all: 1 } },
+    ] as never);
+
+    const list = await service.list(MEETUP_ID, { page: 1, pageSize: 20 });
+
+    expect(list.items.map((item) => item.id)).toEqual([SCHEDULE_ID, OTHER_ID]);
+    expect(list.items[0]).toMatchObject({
+      appliedMale: 2,
+      appliedFemale: 0,
+      maleFull: true,
+      femaleFull: false,
+    });
+    expect(list.items[1]).toMatchObject({
+      appliedMale: 0,
+      appliedFemale: 1,
+      maleFull: false,
+      femaleFull: true,
+    });
+    expect(prisma.application.groupBy).toHaveBeenCalledTimes(1);
+    expect(prisma.application.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          scheduleId: { in: [SCHEDULE_ID, OTHER_ID] },
+          status: { not: 'CANCELLED' },
+        },
+      }),
+    );
   });
 });

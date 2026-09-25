@@ -22,7 +22,11 @@ import {
   seatsOf,
   type ApplicationCounts,
 } from '../applications/application-queries.js';
-import { busyAsServiceUnavailable, setLockTimeout } from '../common/db-lock.js';
+import {
+  busyAsServiceUnavailable,
+  setLockTimeout,
+  type BusyCause,
+} from '../common/db-lock.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import {
   changedFields,
@@ -211,6 +215,7 @@ export class SchedulesService {
         }
         return created;
       }),
+      this.logBusy(meetupId, undefined, requestId),
     );
     for (const row of rows) this.logCreated(admin, row, requestId);
     // 새 회차에는 신청이 없다
@@ -279,6 +284,7 @@ export class SchedulesService {
               });
         return { row, fields, counts: await countsOf(tx, current.id) };
       }),
+      this.logBusy(meetupId, scheduleId, requestId),
     );
     if (fields.length > 0) {
       this.logger.info('schedule.updated', {
@@ -332,6 +338,7 @@ export class SchedulesService {
             counts: await countsOf(tx, current.id),
           };
         }),
+        this.logBusy(meetupId, scheduleId, requestId),
       );
     if (from !== null) {
       this.logger.info('schedule.status_changed', {
@@ -360,6 +367,7 @@ export class SchedulesService {
         this.assertAllowed(current, 'DELETE', this.now());
         await tx.schedule.delete({ where: { id: current.id } });
       }),
+      this.logBusy(meetupId, scheduleId, requestId),
     );
     this.logger.info('schedule.deleted', {
       adminId: admin.id,
@@ -417,6 +425,21 @@ export class SchedulesService {
         '모임 상품을 찾을 수 없습니다.',
       );
     }
+  }
+
+  /** 503으로 끝난 회차 쓰기의 원인(SPEC-003 14절 `schedule.busy`). 여러 회차 등록에는 `scheduleId`가 없다. */
+  private logBusy(
+    meetupId: string,
+    scheduleId: string | undefined,
+    requestId: string,
+  ): (cause: BusyCause) => void {
+    return (cause) =>
+      this.logger.warn('schedule.busy', {
+        meetupId,
+        ...(scheduleId !== undefined && { scheduleId }),
+        cause,
+        requestId,
+      });
   }
 
   private logCreated(
