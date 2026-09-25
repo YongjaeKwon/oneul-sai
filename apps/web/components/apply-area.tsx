@@ -187,10 +187,7 @@ export function ApplyArea({ schedule }: { schedule: PublicSchedule }) {
     setNotice({
       message: describeApplicationError(
         error,
-        applicationErrorCopy(
-          me.data ?? { gender: null, birthYear: null },
-          schedule,
-        ),
+        applicationErrorCopy(me.data?.gender ?? null),
       ),
       myApplicationsLink:
         isApiClientError(error) &&
