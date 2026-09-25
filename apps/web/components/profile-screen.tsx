@@ -21,7 +21,7 @@ import { useMe } from '@/lib/queries';
 
 type DialogKind = 'none' | 'logout-all' | 'withdraw';
 
-/** W3 내 프로필 + W4 편집 모드 + 로그아웃 · 모든 기기 로그아웃 · W6 탈퇴(SPEC-001 4절). */
+/** W3 내 프로필 + W4 편집 모드 + 로그아웃 · 모든 기기 로그아웃 · W6 탈퇴(SPEC-001 4절), W10 내 신청으로 가는 버튼(SPEC-003 4절). */
 export function ProfileScreen() {
   const router = useRouter();
   const { logout } = useAuth();
@@ -90,6 +90,12 @@ export function ProfileScreen() {
         </Button>
         <Button variant="secondary" onClick={() => router.push('/me/password')}>
           비밀번호 변경
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={() => router.push('/me/applications')}
+        >
+          내 신청
         </Button>
       </div>
 

@@ -10,6 +10,7 @@ import { FormAlert } from '@/components/form-alert';
 import { TextField } from '@/components/text-field';
 import { useAuth } from '@/lib/auth';
 import { describeError } from '@/lib/errors';
+import { withNext } from '@/lib/next-path';
 import {
   LoginFormSchema,
   type LoginFormInput,
@@ -20,7 +21,7 @@ import {
  * W2 로그인(SPEC-001 4절). 실패 문구는 하나다. 다섯 번째 시도부터는 응답이 늦어지므로(백오프, 최대 30초)
  * 버튼을 비활성화한 채 응답을 기다린다. 성공 시 이동은 `RedirectIfAuthenticated`가 한다.
  */
-export function LoginForm() {
+export function LoginForm({ next }: { next: string | null }) {
   const { login } = useAuth();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
@@ -81,7 +82,7 @@ export function LoginForm() {
       <p className="text-center text-sm text-ink-soft">
         아직 회원이 아니신가요?{' '}
         <Link
-          href="/signup"
+          href={withNext('/signup', next)}
           className="font-medium text-ink underline underline-offset-4"
         >
           가입하기

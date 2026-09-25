@@ -14,6 +14,7 @@ import { apiClient } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { describeError, isApiClientError } from '@/lib/errors';
 import { GENDER_LABELS } from '@/lib/format';
+import { withNext } from '@/lib/next-path';
 import {
   SignupFormSchema,
   type SignupFormInput,
@@ -29,7 +30,7 @@ interface SubmitFailure {
 const linkClasses = 'font-medium text-ink underline underline-offset-4';
 
 /** W1 가입(SPEC-001 4절). 201이면 바로 로그인해 로그인 상태로 내 프로필로 간다 — 이동은 `RedirectIfAuthenticated`가 한다. */
-export function SignupForm() {
+export function SignupForm({ next }: { next: string | null }) {
   const { login } = useAuth();
   const [failure, setFailure] = useState<SubmitFailure | null>(null);
   const genderErrorId = useId();
@@ -172,7 +173,7 @@ export function SignupForm() {
           {failure.loginLink ? (
             <>
               {' '}
-              <Link href="/login" className={linkClasses}>
+              <Link href={withNext('/login', next)} className={linkClasses}>
                 로그인하기
               </Link>
             </>
@@ -186,7 +187,7 @@ export function SignupForm() {
 
       <p className="text-center text-sm text-ink-soft">
         이미 회원이신가요?{' '}
-        <Link href="/login" className={linkClasses}>
+        <Link href={withNext('/login', next)} className={linkClasses}>
           로그인
         </Link>
       </p>
