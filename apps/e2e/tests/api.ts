@@ -65,13 +65,11 @@ export interface TestSchedule {
   schedule: AdminSchedule;
 }
 
-/** 서울 시각 `YYYY-MM-DDTHH:mm:00+09:00` — n일 뒤의 hh시. */
-function seoulTime(daysAhead: number, hour: number): string {
-  const date = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
-  const seoulDate = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-  }).format(date);
-  return `${seoulDate}T${String(hour).padStart(2, '0')}:00:00+09:00`;
+/** 서울 날짜 `YYYY-MM-DD` — n일 뒤. */
+function seoulDate(daysAhead: number): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(
+    new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000),
+  );
 }
 
 /** 모집 중인 회차(OPEN, 신청 마감은 일주일 뒤). 참가비는 남녀를 달리해 화면의 금액이 성별 스냅샷인지 드러나게 한다. */
@@ -80,10 +78,14 @@ export async function openSchedule(token: string): Promise<TestSchedule> {
     token,
     body: { title: `e2e 일요일 소개팅 ${randomUUID().slice(0, 8)}` },
   });
+  // 날짜는 한 번만 읽는다 — 세 시각이 서울 자정을 사이에 두고 다른 날로 갈리지 않게
+  const day = seoulDate(7);
+  const at = (hour: number) =>
+    `${day}T${String(hour).padStart(2, '0')}:00:00+09:00`;
   const request: CreateScheduleRequest = {
-    startsAt: seoulTime(7, 14),
-    endsAt: seoulTime(7, 16),
-    applyDeadlineAt: seoulTime(7, 13),
+    startsAt: at(14),
+    endsAt: at(16),
+    applyDeadlineAt: at(13),
     priceMale: 30_000,
     priceFemale: 25_000,
     capacityMale: 7,
@@ -114,6 +116,8 @@ export interface TestMember {
   password: string;
   name: string;
   gender: Gender;
+  /** 숫자 11자리 — 운영자 목록(A10)에 `010-XXXX-XXXX`로 보인다. */
+  phone: string;
 }
 
 /** 새 회원 가입(고유 이메일). 이름은 운영자 목록 · 확인 창에서 찾을 수 있게 겹치지 않게 만든다. */
@@ -124,6 +128,7 @@ export async function signupMember(gender: Gender): Promise<TestMember> {
     password: `e2e-password-${suffix}`,
     name: `테스트${suffix.slice(0, 4)}`,
     gender,
+    phone: `010${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`,
   };
   const request: SignupRequest = {
     email: member.email,
@@ -131,7 +136,7 @@ export async function signupMember(gender: Gender): Promise<TestMember> {
     name: member.name,
     gender,
     birthYear: 1995,
-    phone: `010${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`,
+    phone: member.phone,
     consents: { privacy: true, marketing: false },
   };
   await call('POST', MEMBER_PATHS.members, { body: request });
