@@ -109,7 +109,7 @@ describe('mergeApplicants (D11)', () => {
 
 describe('adminCancelQuestion (A10)', () => {
   const rest =
-    ' 취소하면 이 회원은 이 일정에 다시 신청할 수 없습니다. 신청자에게는 따로 안내해 주세요.';
+    ' 취소하면 이 회원은 이 회차에 다시 신청할 수 없습니다. 신청자에게는 따로 안내해 주세요.';
 
   it('names the member when known', () => {
     expect(adminCancelQuestion(member(M1, '김하나'))).toBe(
