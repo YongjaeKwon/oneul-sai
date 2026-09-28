@@ -20,7 +20,7 @@
   --rose-deep: #c7827f;
   --rose-soft: #e9afae;
   --rose-wash: #f3d9d6;
-  --rose-ink: #9c4844; /* 로즈 글자 — 모든 바탕 · rose-wash 위에서 4.5:1 이상 */
+  --rose-ink: #9c4844; /* 로즈 글자 · 포커스 외곽선 · 선택 표시 — 모든 바탕 · rose-wash 위에서 4.5:1 이상 */
 
   /* 모브 — 로고 오른쪽 원 */
   --mauve: #c9b2ae;
