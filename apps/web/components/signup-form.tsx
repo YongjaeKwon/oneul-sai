@@ -118,12 +118,12 @@ export function SignupForm({ next }: { next: string | null }) {
             {GENDERS.map((gender) => (
               <label
                 key={gender}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-control border border-line bg-ivory px-4 py-2 text-base text-ink has-checked:border-rose has-checked:bg-rose-wash has-focus-visible:outline-2 has-focus-visible:outline-offset-0 has-focus-visible:outline-rose"
+                className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-control border border-line bg-ivory px-4 py-2 text-base text-ink has-checked:border-rose-ink has-checked:bg-rose-wash has-focus-visible:outline-2 has-focus-visible:outline-offset-0 has-focus-visible:outline-rose-ink"
               >
                 <input
                   type="radio"
                   value={gender}
-                  className="accent-rose"
+                  className="accent-rose-ink"
                   {...register('gender')}
                 />
                 {GENDER_LABELS[gender]}

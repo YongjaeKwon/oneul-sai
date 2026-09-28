@@ -9,7 +9,7 @@ export default function EventNotFound() {
       <p className="text-base text-ink">일정을 찾을 수 없습니다.</p>
       <Link
         href="/events"
-        className="rounded-control px-3 py-2 text-sm font-medium text-ink underline underline-offset-4 transition-colors hover:bg-rose-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+        className="rounded-control px-3 py-2 text-sm font-medium text-ink underline underline-offset-4 transition-colors hover:bg-rose-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-ink"
       >
         일정 목록으로
       </Link>

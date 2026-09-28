@@ -174,7 +174,7 @@ function FilterLinks({
             href={`${base}?status=${value}`}
             aria-current={active ? 'page' : undefined}
             className={[
-              'rounded-control border px-3 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose',
+              'rounded-control border px-3 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-ink',
               active
                 ? 'border-ink bg-surface font-medium text-ink'
                 : 'border-line text-ink-soft hover:bg-rose-wash hover:text-ink',

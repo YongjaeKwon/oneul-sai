@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 // W7(SPEC-002 4절): 모양은 `Button` primary 그대로, 동작은 `/events`로 가는 링크(버튼 안에 링크를 넣지 않는다).
 const primaryLinkClasses =
-  'inline-flex items-center justify-center rounded-control bg-ink px-5 py-2.5 text-sm font-medium text-paper transition-colors hover:bg-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose';
+  'inline-flex items-center justify-center rounded-control bg-ink px-5 py-2.5 text-sm font-medium text-paper transition-colors hover:bg-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-ink';
 
 // 팜플렛의 네 가지 개념 — 화면 카피는 마케팅 문구를 그대로 따른다.
 const concepts = [

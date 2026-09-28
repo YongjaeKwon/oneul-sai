@@ -32,7 +32,7 @@ import {
 } from '@/lib/queries';
 
 const linkClasses =
-  'rounded-control px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-rose-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose';
+  'rounded-control px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-rose-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-ink';
 
 interface Failure {
   applicationId: string;
@@ -208,7 +208,7 @@ function ApplicationCard({
         {isPublic ? (
           <Link
             href={`/events/${application.scheduleId}`}
-            className="rounded-control underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+            className="rounded-control underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-ink"
           >
             {schedule.title}
           </Link>
