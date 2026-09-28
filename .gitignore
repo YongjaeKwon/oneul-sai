@@ -22,6 +22,10 @@ out/
 
 # test
 coverage/
+# Playwright e2e 결과(trace 포함) — apps/e2e
+test-results/
+playwright-report/
+blob-report/
 
 # logs
 *.log

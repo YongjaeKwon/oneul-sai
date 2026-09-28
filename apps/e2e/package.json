@@ -1,0 +1,23 @@
+{
+  "name": "@oneul-sai/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@oneul-sai/api-client": "workspace:*",
+    "@oneul-sai/config": "workspace:*",
+    "@oneul-sai/contracts": "workspace:*",
+    "@oneul-sai/eslint-config": "workspace:*",
+    "@oneul-sai/typescript-config": "workspace:*",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24.0.0",
+    "dotenv": "^18.0.2",
+    "eslint": "^9",
+    "typescript": "~6.0.3"
+  }
+}
