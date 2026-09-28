@@ -83,11 +83,11 @@ export function WithdrawDialog({ open, onClose }: WithdrawDialogProps) {
         </fieldset>
         {submitError !== null ? <FormAlert>{submitError}</FormAlert> : null}
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={close} disabled={isSubmitting}>
-            취소
-          </Button>
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? '처리하는 중…' : '탈퇴하기'}
+          </Button>
+          <Button variant="secondary" onClick={close} disabled={isSubmitting}>
+            취소
           </Button>
         </div>
       </form>

@@ -40,6 +40,9 @@ export function ConfirmDialog({
     >
       <p id={questionId}>{children}</p>
       <div className="flex flex-wrap justify-end gap-2">
+        <Button disabled={pending} onClick={onConfirm}>
+          {pending ? pendingLabel : confirmLabel}
+        </Button>
         <Button
           variant="secondary"
           data-autofocus
@@ -47,9 +50,6 @@ export function ConfirmDialog({
           onClick={onClose}
         >
           닫기
-        </Button>
-        <Button disabled={pending} onClick={onConfirm}>
-          {pending ? pendingLabel : confirmLabel}
         </Button>
       </div>
     </Dialog>
