@@ -11,17 +11,17 @@
 
 ### 공통
 
-| 영역          | 선택                                   | 버전                            | 한 줄 이유                                                                                                                                                                           |
-| ------------- | -------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 런타임        | Node.js                                | 22 (`>=22.12`, 개발 머신 22.14) | LTS. Next 16·Expo 57·Prisma 7의 공통 하한                                                                                                                                            |
-| 언어          | TypeScript                             | `~6.0.3` (전 패키지 통일)       | strict 모드. TS 7(네이티브)은 typescript-eslint와 Nest 도구가 아직 API를 못 쓴다                                                                                                     |
-| 패키지 매니저 | pnpm                                   | 11 (`pnpm@11.24.0`)             | workspace, 엄격한 의존성 격리, `allowBuilds`로 빌드 스크립트를 명시 통제                                                                                                             |
-| 모노레포 빌드 | Turborepo                              | 2                               | 태스크 그래프·캐시. `db:generate → build/typecheck/dev` 의존을 한 곳에서 연결                                                                                                        |
-| 린트          | ESLint flat config + typescript-eslint | 9 / 8.70                        | `eslint-config-next` 16이 ESLint 9를 요구. 공유 프리셋은 `@oneul-sai/eslint-config`                                                                                                  |
-| 포맷          | Prettier                               | 3                               | single quote, trailing comma. 루트 `pnpm format`                                                                                                                                     |
-| 스키마 검증   | Zod                                    | 4                               | contracts·config·프론트 폼에서 같은 스키마를 쓴다                                                                                                                                    |
-| CI            | GitHub Actions                         | —                               | `pnpm turbo run lint typecheck test build` 한 잡. 변경 범위(`--affected`) 최적화는 이후 단계                                                                                         |
-| 브라우저 e2e  | @playwright/test                       | `1.63.0`                        | `apps/e2e`에서만. Chromium 하나, 문구 · 역할 · 주소로 확인하고 스크린샷 비교는 쓰지 않는다(SPEC-003 Q). 빌드 스크립트 없음(`playwright install chromium`으로 브라우저를 따로 받는다) |
+| 영역          | 선택                                   | 버전                            | 한 줄 이유                                                                                                                                                                                                 |
+| ------------- | -------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 런타임        | Node.js                                | 22 (`>=22.12`, 개발 머신 22.14) | LTS. Next 16·Expo 57·Prisma 7의 공통 하한                                                                                                                                                                  |
+| 언어          | TypeScript                             | `~6.0.3` (전 패키지 통일)       | strict 모드. TS 7(네이티브)은 typescript-eslint와 Nest 도구가 아직 API를 못 쓴다                                                                                                                           |
+| 패키지 매니저 | pnpm                                   | 11 (`pnpm@11.24.0`)             | workspace, 엄격한 의존성 격리, `allowBuilds`로 빌드 스크립트를 명시 통제                                                                                                                                   |
+| 모노레포 빌드 | Turborepo                              | 2                               | 태스크 그래프·캐시. `db:generate → build/typecheck/dev` 의존을 한 곳에서 연결                                                                                                                              |
+| 린트          | ESLint flat config + typescript-eslint | 9 / 8.70                        | `eslint-config-next` 16이 ESLint 9를 요구. 공유 프리셋은 `@oneul-sai/eslint-config`                                                                                                                        |
+| 포맷          | Prettier                               | 3                               | single quote, trailing comma. 루트 `pnpm format`                                                                                                                                                           |
+| 스키마 검증   | Zod                                    | 4                               | contracts·config·프론트 폼에서 같은 스키마를 쓴다                                                                                                                                                          |
+| CI            | GitHub Actions                         | —                               | 잡 셋: `ci`(`pnpm turbo run lint typecheck test build`), `integration`(Postgres 통합 테스트, `ci` 뒤), `e2e`(Playwright 브라우저 e2e, `ci` · `integration` 뒤). 변경 범위(`--affected`) 최적화는 이후 단계 |
+| 브라우저 e2e  | @playwright/test                       | `1.63.0`                        | `apps/e2e`에서만. Chromium 하나, 문구 · 역할 · 주소로 확인하고 스크린샷 비교는 쓰지 않는다(SPEC-003 Q). 빌드 스크립트 없음(`playwright install chromium`으로 브라우저를 따로 받는다)                       |
 
 ### 백엔드
 
@@ -77,7 +77,7 @@
 - 사용 통계와 Impeccable 업데이트 확인은 `DO_NOT_TRACK=1` · `IMPECCABLE_NO_UPDATE_CHECK=1`로 끈다. Claude Code는 `.claude/settings.json`의 `env`, 셸 · Codex는 setup 스크립트가 넣는다.
 - 고정을 푸는 `npx impeccable` · `npx skills add/update`는 `.claude/settings.json`에서 막아 두었다. Claude Code에서만 걸리는 보조 장치이고, 원칙은 AGENTS.md 6장 규칙이다.
 - 스킬 사본의 라이선스 전문은 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md).
-- `@playwright/test`(브라우저 e2e)는 SPEC-003 15절 9번 PR에서 들인다.
+- `@playwright/test`(브라우저 e2e)는 에이전트 도구가 아니라 `apps/e2e`의 개발 의존성이다 — 1절 공통 표(SPEC-003 9번 PR에서 들였다).
 
 ## 2. 알려진 함정
 
