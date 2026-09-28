@@ -51,11 +51,16 @@ export function LogoutAllDialog({ open, onClose }: LogoutAllDialogProps) {
       </p>
       {error !== null ? <FormAlert>{error}</FormAlert> : null}
       <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={close} disabled={pending}>
-          취소
-        </Button>
         <Button onClick={() => void confirm()} disabled={pending}>
           {pending ? '처리하는 중…' : '모두 로그아웃'}
+        </Button>
+        <Button
+          variant="secondary"
+          data-autofocus
+          onClick={close}
+          disabled={pending}
+        >
+          취소
         </Button>
       </div>
     </Dialog>
