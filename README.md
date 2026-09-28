@@ -61,6 +61,7 @@ oneul-sai/
 │   ├── web/                  # 사용자 웹 (Next.js)
 │   ├── admin/                # 운영 어드민 웹 (Next.js)
 │   ├── mobile/               # 모바일 앱 (Expo / React Native)
+│   ├── e2e/                  # 브라우저 e2e (Playwright — 참가 신청 · 운영자 신청 흐름)
 │   ├── api-gateway/          # API 게이트웨이 (NestJS, 라우팅/프록시)
 │   ├── member-service/       # 회원 도메인 마이크로서비스 (NestJS + Prisma)
 │   ├── event-service/        # 소개팅 이벤트 도메인 마이크로서비스
@@ -99,11 +100,12 @@ oneul-sai/
 
 ### Applications
 
-| 이름                | 포트 | 역할                             |
-| ------------------- | ---- | -------------------------------- |
-| `@oneul-sai/web`    | 3000 | 사용자용 웹 프론트엔드 (Next.js) |
-| `@oneul-sai/admin`  | 3001 | 운영자용 어드민 웹 (Next.js)     |
-| `@oneul-sai/mobile` | -    | 모바일 앱 (Expo / React Native)  |
+| 이름                | 포트 | 역할                                                                |
+| ------------------- | ---- | ------------------------------------------------------------------- |
+| `@oneul-sai/web`    | 3000 | 사용자용 웹 프론트엔드 (Next.js)                                    |
+| `@oneul-sai/admin`  | 3001 | 운영자용 어드민 웹 (Next.js)                                        |
+| `@oneul-sai/mobile` | -    | 모바일 앱 (Expo / React Native)                                     |
+| `@oneul-sai/e2e`    | -    | 브라우저 e2e (Playwright, `test:e2e`) — 서버 다섯 개를 띄운 뒤 실행 |
 
 ### Microservices
 
@@ -208,6 +210,13 @@ pnpm --filter @oneul-sai/event-service dev    # Event         http://localhost:4
 
 참가 신청은 event-service가 member-service에 신청자 본인 정보를 묻습니다(ADR-011). 신청을 시험하려면 member-service도 떠 있어야 합니다 — 없으면 신청이 503 `SERVICE_BUSY`가 됩니다.
 
+브라우저 e2e(참가자 신청 · 취소, 운영자 신청 목록 · 취소)는 web · admin · Gateway · member · event를 띄운 뒤 돌립니다. 처음 한 번 브라우저를 받고, `apps/e2e/.env`에 로컬 운영자 계정을 적습니다(자세히는 [apps/e2e/README.md](apps/e2e/README.md)). 개발 DB에 테스트 회원 · 회차가 남습니다.
+
+```bash
+pnpm --filter @oneul-sai/e2e exec playwright install chromium   # 처음 한 번
+pnpm --filter @oneul-sai/e2e test:e2e
+```
+
 각 백엔드 서비스는 다음 엔드포인트를 제공합니다.
 
 - Swagger: `http://localhost:<port>/docs`
@@ -258,7 +267,7 @@ docker build -f apps/member-service/Dockerfile -t oneul-sai/member-service .
 
 | 상태            | 항목                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 구현됨          | pnpm workspace + Turborepo, 앱/서비스 스캐폴드, Health 엔드포인트, Prisma DB 연결, CI (GitHub Actions — `ci` 잡 + Postgres 통합 테스트 `integration` 잡)                                                                                                                                                                                                                                                                                                                                                          |
+| 구현됨          | pnpm workspace + Turborepo, 앱/서비스 스캐폴드, Health 엔드포인트, Prisma DB 연결, CI (GitHub Actions — `ci` 잡 + Postgres 통합 테스트 `integration` 잡 + 브라우저 e2e `e2e` 잡)                                                                                                                                                                                                                                                                                                                                  |
 | 구현됨 (Step 1) | member-service: 가입 · 로그인 · refresh 회전 · 로그아웃 · 모든 기기 로그아웃 · 비밀번호 변경 · 프로필 · 탈퇴(즉시 익명화) · 운영자 회원 목록 · 상세 · 정지, 로그인 백오프, `member_db` 첫 마이그레이션 · seed. api-gateway: JWT 검증 · 내부 헤더 · 내부 토큰 · `Origin` 확인 · IP rate limit · CORS. web: 가입 · 로그인 · 내 프로필 · 비밀번호 변경 · 탈퇴. admin: 로그인 · 회원 목록 · 상세 · 계정 상태 변경                                                                                                     |
 | 구현됨 (Step 2) | event-service: 모임 상품 · 회차 등록 · 수정 · 공개 · 모집 마감 · 다시 열기 · 취소 · 삭제(비공개만), 여러 회차 등록(최대 12개, 전부 또는 없음), 공개 일정 목록 · 상세(정확한 장소는 운영자 응답에만), `event_db` 첫 마이그레이션 `init_event` · 테스트 전용 DB `event_test_db`. `@oneul-sai/service-kit`(내부 토큰 예외를 `/health` 정확히 일치로). api-gateway: `/api/v1/meetups` 라우팅. web: 다가오는 일정 목록 · 상세(서버 렌더, 30초 데이터 캐시). admin: 모임 상품 · 회차 관리, 여러 회차 등록 · 골라서 공개 |
 | 구조만 준비     | Kafka, Kubernetes/Helm, Monitoring                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |

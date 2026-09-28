@@ -4,7 +4,7 @@
 도구(commitlint, husky 등)로 강제하지 않고 **규약과 리뷰**로 지킨다. 도구 도입 여부는 팀 규모가 커질 때 다시 결정한다(결정 예정).
 
 - 상태: 확정
-- 최종 갱신: 2026-09-22
+- 최종 갱신: 2026-09-28 (2.2 scope에 `e2e` — SPEC-003 9번 PR. 그 전: 2026-09-22)
 
 ---
 
@@ -100,6 +100,7 @@ scope는 **바뀐 곳**을 말한다. 아래 목록에서 고른다. 여러 곳�
 | `docs`                                               | `docs/*` (type이 `docs`일 때는 보통 생략)         |
 | `web` `admin` `mobile`                               | 각 프론트엔드 앱                                  |
 | `gateway`                                            | `apps/api-gateway`                                |
+| `e2e`                                                | `apps/e2e` (브라우저 e2e 테스트)                  |
 | `member` `event` `matching` `notification` `payment` | 각 백엔드 서비스                                  |
 | `contracts` `ui` `config` `logger` …                 | 특정 공유 패키지 하나만 바뀔 때 패키지 이름       |
 

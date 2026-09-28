@@ -4,7 +4,7 @@ PR은 "리뷰 가능한 크기의 변경 + 그 변경이 안전하다는 증거"
 이 문서는 PR을 만드는 사람과 리뷰하는 사람이 같은 기준을 갖기 위한 규칙이다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-23 (셀프 체크에 통합 테스트 — CI `integration` 잡에 event-service 추가, SPEC-002)
+- 최종 갱신: 2026-09-28 (셀프 체크에 브라우저 e2e — CI `e2e` 잡, SPEC-003. 그 전: 2026-09-23 셀프 체크에 통합 테스트 — CI `integration` 잡에 event-service 추가, SPEC-002)
 
 리뷰를 **어떻게** 쓰고 답하는지(코멘트 머리표 · AI 리뷰 · 셀프 리뷰 순서)는 [코드 리뷰 가이드](./code-review.md)에 있다.
 
@@ -54,6 +54,7 @@ PR을 올리는 사람이 먼저 확인한다. 리뷰어의 시간을 아끼는 
 | 테스트      | `pnpm test` (새 로직에는 새 테스트)                                                                                                                                                                                |
 | 통합 테스트 | DB · API를 바꾼 서비스만 `pnpm --filter <서비스> test:integration` — CI `integration` 잡과 같다. event-service는 테스트 전용 `event_test_db`만 쓰고, member-service는 개발 DB `member_db`를 비운다(뒤에 `db:seed`) |
 | 로컬 동작   | 바뀐 서비스의 `/health`와 관련 엔드포인트를 실제로 호출                                                                                                                                                            |
+| e2e         | 참가 신청 · 운영자 신청 화면이나 흐름을 바꿨으면 서버 다섯 개를 띄우고 `pnpm --filter @oneul-sai/e2e test:e2e` — CI `e2e` 잡과 같다(개발 DB에 테스트 회원 · 회차가 남는다)                                         |
 | 문서        | [문서 갱신 규칙](./documentation-rules.md)의 표에 따라 갱신했는지                                                                                                                                                  |
 | 상황판      | 해당 Step 상태를 갱신했는지(머지 직후에 해도 된다)                                                                                                                                                                 |
 | 커밋 이력   | `wip` 커밋 정리, 각 커밋이 규약을 따르는지                                                                                                                                                                         |

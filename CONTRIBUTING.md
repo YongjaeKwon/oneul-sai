@@ -45,7 +45,7 @@ docs: README, 아키텍처 개요, ADR 8건, API/DB/이벤트 가이드
 - **작게** 만듭니다. 한 PR = 한 Step의 한 조각.
 - 제목은 커밋 규약과 같은 형식. 본문은 [PR 템플릿](.github/PULL_REQUEST_TEMPLATE.md)을 채웁니다.
 - 리뷰어 1명 이상. 초기(1인 개발) 동안은 **셀프 리뷰를 허용**합니다. 단, 템플릿의 체크리스트는 반드시 채웁니다.
-- CI(lint · typecheck · test · build)가 모두 통과해야 머지합니다.
+- CI(lint · typecheck · test · build, 통합 테스트 `integration`, 브라우저 e2e `e2e`)가 모두 통과해야 머지합니다.
 - 자세히: [Pull Request 규칙](docs/guides/pull-requests.md)
 
 ## Definition of Done

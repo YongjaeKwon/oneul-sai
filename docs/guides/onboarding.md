@@ -4,7 +4,7 @@
 위에서부터 순서대로 따라가면 첫날 안에 로컬 환경이 돌아가고, 무엇을 읽어야 하는지 알게 됩니다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-25 (Step 3 참가 신청 — 신청은 member-service가 떠 있어야 된다(2절 실행 안내), 4절 '신청이 503' 행. 그 전: 2026-09-23 seed 전 빌드를 `turbo run build`로 — 워크스페이스 의존 패키지까지 빌드해야 clone 직후에도 seed가 된다)
+- 최종 갱신: 2026-09-28 (3절 브라우저 e2e 실행(선택) — SPEC-003 9번 PR. 그 전: 2026-09-25 Step 3 참가 신청 — 신청은 member-service가 떠 있어야 된다(2절 실행 안내), 4절 '신청이 503' 행. 그 전: 2026-09-23 seed 전 빌드를 `turbo run build`로 — 워크스페이스 의존 패키지까지 빌드해야 clone 직후에도 seed가 된다)
 
 > 막히면 이 문서의 [4. 자주 겪는 문제](#4-자주-겪는-문제)를 먼저 보세요.
 > 거기에도 없으면 [버그 이슈](../../.github/ISSUE_TEMPLATE/bug.md) 형식으로 남겨 주세요. 다음 사람을 위해 이 문서에 추가합니다.
@@ -86,6 +86,7 @@ pnpm dev
 - 서비스 `/health`에서 `database: "down"`, `status: "degraded"`가 나오면 Postgres가 안 떠 있다는 뜻입니다. 아래 표를 보세요.
 - 한 개만 띄우려면 `pnpm --filter @oneul-sai/member-service dev` 처럼 `--filter`를 씁니다.
 - 마지막 확인: `pnpm typecheck && pnpm lint && pnpm test` 가 초록이면 환경 세팅은 끝입니다.
+- 브라우저 e2e(선택): 서버 다섯 개(web · admin · Gateway · member · event)를 띄운 상태에서 `pnpm --filter @oneul-sai/e2e test:e2e`. 처음 한 번 `pnpm --filter @oneul-sai/e2e exec playwright install chromium`으로 브라우저를 받고, `apps/e2e/.env.example`을 `apps/e2e/.env`로 복사해 로컬 운영자 계정(`db:seed`한 값)을 적습니다. 개발 DB에 테스트 회원 · 회차가 남습니다.
 
 ## 4. 자주 겪는 문제
 

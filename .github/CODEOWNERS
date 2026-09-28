@@ -25,6 +25,7 @@
 /apps/web/                          @YongjaeKwon
 /apps/admin/                        @YongjaeKwon
 /apps/mobile/                       @YongjaeKwon
+/apps/e2e/                          @YongjaeKwon
 
 # 백엔드 — Gateway와 서비스 5개
 /apps/api-gateway/                  @YongjaeKwon
