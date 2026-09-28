@@ -13,7 +13,7 @@ AI 코딩 에이전트(Claude Code · Codex 등)를 위한 작업 규칙의 **�
 ## 2. 구조
 
 ```
-apps/      web(3000) admin(3001) mobile(Expo) | api-gateway(4000)
+apps/      web(3000) admin(3001) mobile(Expo) e2e(Playwright) | api-gateway(4000)
            member(4001,member_db) event(4002,event_db) matching(4003,matching_db)
            notification(4004,notification_db) payment(4005,payment_db)
 packages/  contracts api-client kafka logger config service-kit types constants utils ui eslint-config typescript-config
@@ -52,6 +52,7 @@ pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-
 pnpm --filter @oneul-sai/member-service test:integration          # 실제 member_db 통합 테스트 (테이블을 비운다 → 뒤에 db:seed)
 pnpm --filter @oneul-sai/event-service exec prisma migrate dev    # 커밋된 마이그레이션 적용 (event_db)
 pnpm --filter @oneul-sai/event-service test:integration           # 테스트 전용 event_test_db만 쓴다 (없으면 만든다, event_db는 건드리지 않음)
+pnpm --filter @oneul-sai/e2e test:e2e                              # 브라우저 e2e — 서버 다섯 개를 띄운 뒤. 처음 한 번 `pnpm --filter @oneul-sai/e2e exec playwright install chromium`
 curl http://localhost:4001/health                 # {status, service, database, timestamp}
 ```
 
@@ -136,7 +137,7 @@ Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md`
 
 원천은 `docs/guides/branching-and-commits.md`(브랜치 · 커밋)와 `docs/guides/pull-requests.md`(PR · Definition of Done). 아래는 요약이다.
 
-- **커밋**: Conventional Commits + 한국어 제목, 50자 안, 본문에 "왜". scope: `repo packages services apps infra docs web admin mobile gateway member event matching notification payment` 또는 패키지명.
+- **커밋**: Conventional Commits + 한국어 제목, 50자 안, 본문에 "왜". scope: `repo packages services apps infra docs web admin mobile e2e gateway member event matching notification payment` 또는 패키지명.
   예) `feat(services): API Gateway + NestJS 서비스 5개 뼈대` / `docs: README, 아키텍처 개요, ADR 8건, API/DB/이벤트 가이드`
 - **의미 단위로 쪼갠다.** 설계서 / Contract / 구현 / 문서는 별도 커밋. 각 커밋은 빌드 가능해야 한다.
 - 커밋 트레일러에 AI를 `Co-Authored-By`로 적지 않는다 — 저자는 항상 사람이다(프로젝트 방침). 사람이 시키지 않으면 commit · push 하지 않는다.

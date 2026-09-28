@@ -3,7 +3,7 @@
 오늘사이가 쓰는 기술과 버전, 각 선택의 이유, 그리고 알려진 함정을 기록한다. 버전을 올리거나 새 기술을 들일 때 이 문서를 먼저 읽고, 바꾼 뒤 이 문서를 갱신한다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-25 (event-service `partialIndexes` 미리보기 · 함정 11. 그 전: 2026-09-24 에이전트 디자인 · 확인 도구 표 추가. 그 전: 2026-09-22 npm registry 실측 + 공식 템플릿 생성으로 확정)
+- 최종 갱신: 2026-09-28 (브라우저 e2e `@playwright/test` 행 — SPEC-003 9번 PR. 그 전: 2026-09-25 event-service `partialIndexes` 미리보기 · 함정 11. 그 전: 2026-09-24 에이전트 디자인 · 확인 도구 표 추가. 그 전: 2026-09-22 npm registry 실측 + 공식 템플릿 생성으로 확정)
 - 원천: 루트 `package.json`, `pnpm-workspace.yaml`, 각 앱·패키지의 `package.json`과 tsconfig. 이 문서와 다르면 코드가 맞다. 이 문서를 고친다.
 - 구조와 통신 원칙은 [아키텍처 개요](./overview.md), 결정의 배경은 [ADR](../adr/README.md).
 
@@ -11,16 +11,17 @@
 
 ### 공통
 
-| 영역          | 선택                                   | 버전                            | 한 줄 이유                                                                                   |
-| ------------- | -------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
-| 런타임        | Node.js                                | 22 (`>=22.12`, 개발 머신 22.14) | LTS. Next 16·Expo 57·Prisma 7의 공통 하한                                                    |
-| 언어          | TypeScript                             | `~6.0.3` (전 패키지 통일)       | strict 모드. TS 7(네이티브)은 typescript-eslint와 Nest 도구가 아직 API를 못 쓴다             |
-| 패키지 매니저 | pnpm                                   | 11 (`pnpm@11.24.0`)             | workspace, 엄격한 의존성 격리, `allowBuilds`로 빌드 스크립트를 명시 통제                     |
-| 모노레포 빌드 | Turborepo                              | 2                               | 태스크 그래프·캐시. `db:generate → build/typecheck/dev` 의존을 한 곳에서 연결                |
-| 린트          | ESLint flat config + typescript-eslint | 9 / 8.70                        | `eslint-config-next` 16이 ESLint 9를 요구. 공유 프리셋은 `@oneul-sai/eslint-config`          |
-| 포맷          | Prettier                               | 3                               | single quote, trailing comma. 루트 `pnpm format`                                             |
-| 스키마 검증   | Zod                                    | 4                               | contracts·config·프론트 폼에서 같은 스키마를 쓴다                                            |
-| CI            | GitHub Actions                         | —                               | `pnpm turbo run lint typecheck test build` 한 잡. 변경 범위(`--affected`) 최적화는 이후 단계 |
+| 영역          | 선택                                   | 버전                            | 한 줄 이유                                                                                                                                                                           |
+| ------------- | -------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 런타임        | Node.js                                | 22 (`>=22.12`, 개발 머신 22.14) | LTS. Next 16·Expo 57·Prisma 7의 공통 하한                                                                                                                                            |
+| 언어          | TypeScript                             | `~6.0.3` (전 패키지 통일)       | strict 모드. TS 7(네이티브)은 typescript-eslint와 Nest 도구가 아직 API를 못 쓴다                                                                                                     |
+| 패키지 매니저 | pnpm                                   | 11 (`pnpm@11.24.0`)             | workspace, 엄격한 의존성 격리, `allowBuilds`로 빌드 스크립트를 명시 통제                                                                                                             |
+| 모노레포 빌드 | Turborepo                              | 2                               | 태스크 그래프·캐시. `db:generate → build/typecheck/dev` 의존을 한 곳에서 연결                                                                                                        |
+| 린트          | ESLint flat config + typescript-eslint | 9 / 8.70                        | `eslint-config-next` 16이 ESLint 9를 요구. 공유 프리셋은 `@oneul-sai/eslint-config`                                                                                                  |
+| 포맷          | Prettier                               | 3                               | single quote, trailing comma. 루트 `pnpm format`                                                                                                                                     |
+| 스키마 검증   | Zod                                    | 4                               | contracts·config·프론트 폼에서 같은 스키마를 쓴다                                                                                                                                    |
+| CI            | GitHub Actions                         | —                               | `pnpm turbo run lint typecheck test build` 한 잡. 변경 범위(`--affected`) 최적화는 이후 단계                                                                                         |
+| 브라우저 e2e  | @playwright/test                       | `1.63.0`                        | `apps/e2e`에서만. Chromium 하나, 문구 · 역할 · 주소로 확인하고 스크린샷 비교는 쓰지 않는다(SPEC-003 Q). 빌드 스크립트 없음(`playwright install chromium`으로 브라우저를 따로 받는다) |
 
 ### 백엔드
 
