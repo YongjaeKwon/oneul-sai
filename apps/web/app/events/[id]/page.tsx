@@ -23,7 +23,7 @@ import { getPublicEvent } from '@/lib/public-api';
 export const metadata: Metadata = { title: '일정' };
 
 const listLinkClasses =
-  'self-center rounded-control px-3 py-2 text-sm font-medium text-ink underline underline-offset-4 transition-colors hover:bg-rose-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose';
+  'self-center rounded-control px-3 py-2 text-sm font-medium text-ink underline underline-offset-4 transition-colors hover:bg-rose-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-ink';
 
 interface EventPageProps {
   params: Promise<{ id: string }>;

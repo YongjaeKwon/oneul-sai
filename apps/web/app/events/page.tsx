@@ -18,7 +18,7 @@ import { listPublicEvents } from '@/lib/public-api';
 export const metadata: Metadata = { title: '다가오는 일정' };
 
 const pageLinkClasses =
-  'rounded-control px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-rose-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose';
+  'rounded-control px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-rose-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-ink';
 
 interface EventsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -70,7 +70,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               <li key={schedule.id}>
                 <Link
                   href={`/events/${schedule.id}`}
-                  className="flex flex-col gap-2 rounded-card border border-line bg-surface p-6 transition-colors hover:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+                  className="flex flex-col gap-2 rounded-card border border-line bg-surface p-6 transition-colors hover:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-ink"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-display text-lg font-semibold text-ink tabular-nums">

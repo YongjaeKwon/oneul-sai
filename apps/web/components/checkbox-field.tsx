@@ -11,7 +11,7 @@ export interface CheckboxFieldProps extends Omit<
   error?: string;
 }
 
-/** 동의 · 설정용 체크박스. 체크 색은 브랜드 로즈(`accent-rose`), 오류는 danger 글자 + 아이콘. */
+/** 동의 · 설정용 체크박스. 체크 색은 진한 로즈(`accent-rose-ink` — 비텍스트 대비 3:1 이상, 디자인 파운데이션 2절), 오류는 danger 글자 + 아이콘. */
 export function CheckboxField({
   label,
   hint,
@@ -32,7 +32,7 @@ export function CheckboxField({
           type="checkbox"
           aria-invalid={error !== undefined || undefined}
           aria-describedby={error !== undefined ? errorId : undefined}
-          className="mt-1 size-4 shrink-0 accent-rose focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+          className="mt-1 size-4 shrink-0 accent-rose-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-ink"
           {...inputProps}
         />
         <label htmlFor={inputId} className="text-sm text-ink">
