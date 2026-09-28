@@ -16,7 +16,7 @@ export interface ConfirmDialogProps {
 
 /**
  * 묻기만 하는 확인 창(참가 신청 · 신청 취소, SPEC-003 4절). 처음 포커스는 "닫기" — Enter 한 번에 신청 · 취소되지 않게
- * (디자인 파운데이션 5절). 질문 문장은 `aria-describedby`로 읽힌다. 버튼 순서는 참가자 웹의 다른 창처럼 [닫기][확인].
+ * (디자인 파운데이션 5절). 질문 문장은 `aria-describedby`로 읽힌다. 버튼 순서는 [확인][닫기] — 주 동작이 먼저(디자인 파운데이션 5절).
  * 제출 중에는 두 버튼을 막는다.
  */
 export function ConfirmDialog({
