@@ -27,7 +27,7 @@
 - W9 참가 신청 영역(`components/apply-area.tsx`)은 위에서부터 먼저 맞는 하나를 보인다: (a) 지난 일정은 영역 없음(서버 렌더) · (b) 로그인 확인 중 · (c) 로그인 안 함 → `/login?next=/events/<id>` · (d) 운영자 계정 · (e) 내 입금 대기 신청 있음 → 접수됨 + 신청 취소(신청 마감 전) · (f) 모집 마감 · (g) 운영자가 취소한 신청 있음 · (h) 남성 연령대 밖 · (i) 내 성별 자리 마감 · (j) "참가 신청". 판정은 순수 함수 `applyAreaState`(`lib/applications.ts`)다. (f)~(i)의 순서는 서버 판정 순서(D7)와 같고, (e) 내 신청은 W9대로 (f)보다 먼저 본다 — 화면 편의일 뿐 원천은 서버다.
 - 신청 데이터는 서버 렌더 · 30초 캐시에 들어가지 않는다. `GET /api/v1/applications?scheduleId=`를 클라이언트에서 TanStack Query로 부르고(운영자 계정은 403이라 부르지 않는다), 신청 · 취소가 끝나면(성공 · 실패 모두) 내 신청 쿼리를 무효화해 서버 상태로 다시 판정한다.
 - 영역은 `aria-live="polite"` 한 `section`이라 신청 · 취소 결과로 바뀐 문구가 스크린 리더에 읽힌다. 오류 알림은 바뀐 상태가 같은 문장을 이미 보이면 빼서 두 번 보이지 않는다.
-- 확인 창은 `ConfirmDialog`(`packages/ui` `Dialog`) — 버튼은 [닫기][확인], 처음 포커스는 "닫기", 질문 문장은 `aria-describedby`, 제출 중에는 두 버튼을 막는다. 오류 문구는 `code`로 고른다(`describeApplicationError`, SPEC-003 4절 표). 401은 세션을 끝내 (c)로 돌아간다.
+- 확인 창은 `ConfirmDialog`(`packages/ui` `Dialog`) — 버튼은 [확인][닫기](주 동작 먼저, 디자인 파운데이션 5절), 처음 포커스는 "닫기", 질문 문장은 `aria-describedby`, 제출 중에는 두 버튼을 막는다. 오류 문구는 `code`로 고른다(`describeApplicationError`, SPEC-003 4절 표). 401은 세션을 끝내 (c)로 돌아간다.
 
 ## 인증 동작
 
