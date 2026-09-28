@@ -86,7 +86,7 @@ pnpm dev
 - 서비스 `/health`에서 `database: "down"`, `status: "degraded"`가 나오면 Postgres가 안 떠 있다는 뜻입니다. 아래 표를 보세요.
 - 한 개만 띄우려면 `pnpm --filter @oneul-sai/member-service dev` 처럼 `--filter`를 씁니다.
 - 마지막 확인: `pnpm typecheck && pnpm lint && pnpm test` 가 초록이면 환경 세팅은 끝입니다.
-- 브라우저 e2e(선택): 서버 다섯 개(web · admin · Gateway · member · event)를 띄운 상태에서 `pnpm --filter @oneul-sai/e2e test:e2e`. 처음 한 번 `pnpm --filter @oneul-sai/e2e exec playwright install chromium`으로 브라우저를 받고, `apps/e2e/.env.example`을 `apps/e2e/.env`로 복사해 로컬 운영자 계정(`db:seed`한 값)을 적습니다. 개발 DB에 테스트 회원 · 회차가 남습니다.
+- 브라우저 e2e(선택): 서버 다섯 개(web · admin · Gateway · member · event)를 띄운 상태에서 `pnpm --filter @oneul-sai/e2e test:e2e`. 처음 한 번 `pnpm --filter @oneul-sai/e2e exec playwright install chromium`으로 브라우저를 받고, `apps/e2e/.env.example`을 `apps/e2e/.env`로 복사해 로컬 운영자 계정(`db:seed`한 값)을 적습니다. 한 번 도는 데 로그인 · 가입 요청을 약 14번 보내므로 `apps/api-gateway/.env`의 `RATE_LIMIT_AUTH_PER_MINUTE`를 CI처럼 `100`으로 올리고 Gateway를 다시 띄웁니다(기본 10으로는 모자랍니다 — `apps/e2e/README.md`). 개발 DB에 테스트 회원 · 회차가 남습니다.
 
 ## 4. 자주 겪는 문제
 

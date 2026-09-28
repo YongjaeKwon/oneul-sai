@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 import { env } from './env.js';
 
-/** 서버 하나 — CI는 빌드한 앱을 `start`로 띄우고, 로컬은 이미 떠 있는 dev 서버를 다시 쓴다(SPEC-003 13절). */
+/** 서버 하나 — CI는 빌드한 앱을 `start`로 띄우고, 로컬은 떠 있는 dev 서버를 다시 쓰되 없으면 빌드 결과를 `start`로 띄운다(SPEC-003 13절). */
 function server(
   name: string,
   url: string,
