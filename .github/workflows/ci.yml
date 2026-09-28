@@ -110,3 +110,96 @@ jobs:
         run: pnpm --filter @oneul-sai/event-service test:integration
         env:
           TEST_DATABASE_URL: postgresql://oneul:oneul@localhost:5432/event_test_db
+
+  # 참가자 신청 · 취소와 운영자 신청 목록 · 취소를 브라우저로 끝에서 끝까지 본다 (SPEC-003 13절 · 15절 9번 PR, 개발 승인 Q).
+  # 서비스 · 앱은 Playwright webServer가 빌드 결과를 `start`로 띄운다(서비스마다 DATABASE_URL은 E2E_*_DATABASE_URL).
+  # 아래 시크릿 · 운영자 비밀번호는 CI 전용 더미다 — 어떤 환경의 실제 값과도 같지 않다.
+  e2e:
+    needs: [ci, integration]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: oneul
+          POSTGRES_PASSWORD: oneul
+          POSTGRES_DB: member_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U oneul -d member_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      JWT_ACCESS_SECRET: Y2ktZHVtbXktand0LWFjY2Vzcy1zZWNyZXQtMzJieSE=
+      INTERNAL_API_TOKEN: Y2ktZHVtbXktaW50ZXJuYWwtYXBpLXRva2VuLTMyYiE=
+      JWT_ACCESS_TTL: 900
+      REFRESH_TTL: 2592000
+      COOKIE_SECURE: 'false'
+      ADMIN_ORIGIN: http://localhost:3001
+      UV_THREADPOOL_SIZE: 8
+      # 가입 · 로그인이 한 IP(러너)에서 몰리므로 이 잡에서만 올린다(13절)
+      RATE_LIMIT_AUTH_PER_MINUTE: 100
+      SEED_ADMIN_EMAIL: admin@example.com
+      SEED_ADMIN_NAME: 운영자
+      SEED_ADMIN_PASSWORD: admin-ci-password
+      SEED_ADMIN_RESET_PASSWORD: 'false'
+      E2E_ADMIN_EMAIL: admin@example.com
+      E2E_ADMIN_PASSWORD: admin-ci-password
+      E2E_MEMBER_DATABASE_URL: postgresql://oneul:oneul@localhost:5432/member_db
+      E2E_EVENT_DATABASE_URL: postgresql://oneul:oneul@localhost:5432/event_db
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations (member_db)
+        run: pnpm --filter @oneul-sai/member-service exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://oneul:oneul@localhost:5432/member_db
+
+      # migrate deploy는 DB가 없으면 만든다
+      - name: Apply migrations (event_db)
+        run: pnpm --filter @oneul-sai/event-service exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://oneul:oneul@localhost:5432/event_db
+
+      # build가 db:generate와 워크스페이스 의존 패키지 빌드를 함께 한다(turbo ^build). e2e 자신은 빌드하지 않는다
+      - name: Build services and apps
+        run: >-
+          pnpm turbo run build
+          --filter=@oneul-sai/member-service
+          --filter=@oneul-sai/event-service
+          --filter=@oneul-sai/api-gateway
+          --filter=@oneul-sai/web
+          --filter=@oneul-sai/admin
+
+      - name: Seed operator account
+        run: pnpm --filter @oneul-sai/member-service db:seed
+        env:
+          DATABASE_URL: postgresql://oneul:oneul@localhost:5432/member_db
+
+      - name: Install Chromium
+        run: pnpm --filter @oneul-sai/e2e exec playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: pnpm --filter @oneul-sai/e2e test:e2e
+
+      # 실패하면 trace를 올린다 — 디버깅용이고 비교 기준이 아니다(스냅샷 단언 없음)
+      - name: Upload traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-traces
+          path: apps/e2e/test-results/
+          retention-days: 7
