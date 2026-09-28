@@ -52,7 +52,7 @@ pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-
 pnpm --filter @oneul-sai/member-service test:integration          # 실제 member_db 통합 테스트 (테이블을 비운다 → 뒤에 db:seed)
 pnpm --filter @oneul-sai/event-service exec prisma migrate dev    # 커밋된 마이그레이션 적용 (event_db)
 pnpm --filter @oneul-sai/event-service test:integration           # 테스트 전용 event_test_db만 쓴다 (없으면 만든다, event_db는 건드리지 않음)
-pnpm --filter @oneul-sai/e2e test:e2e                              # 브라우저 e2e — 서버 다섯 개를 띄운 뒤. 처음 한 번 `pnpm --filter @oneul-sai/e2e exec playwright install chromium`
+pnpm --filter @oneul-sai/e2e test:e2e                              # 브라우저 e2e — 서버 다섯 개를 띄운 뒤(Gateway `RATE_LIMIT_AUTH_PER_MINUTE=100`). 처음 한 번 `pnpm --filter @oneul-sai/e2e exec playwright install chromium`
 curl http://localhost:4001/health                 # {status, service, database, timestamp}
 ```
 
