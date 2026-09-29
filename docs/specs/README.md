@@ -3,7 +3,7 @@
 기능 설계서(SPEC)는 "무엇을, 왜, 어떻게 만들 것인가"를 구현 전에 적는 문서다. 여러 개발자가 같은 그림을 보고 일하게 하고, 구현 뒤에는 "실제로 어떻게 만들어졌는가"를 남긴다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-28 (SPEC-003 구현 완료 · 검증 중. 그 전: 2026-09-24 SPEC-003 확정 — 운영자 답변 반영, 참가 신청 질문의 답 기록)
+- 최종 갱신: 2026-09-29 (SPEC-003 구현 완료, Step 3 완료. 그 전: 2026-09-28 SPEC-003 구현 완료 · 검증 중. 그 전: 2026-09-24 SPEC-003 확정 — 운영자 답변 반영, 참가 신청 질문의 답 기록)
 - 템플릿: [TEMPLATE.md](./TEMPLATE.md)
 
 ## 1. 언제 쓰나
@@ -75,7 +75,7 @@ stateDiagram-v2
 | -------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---- | ----------------------------------------- | ---------------------------------------------- |
 | SPEC-001 | [`SPEC-001-member-auth.md`](./SPEC-001-member-auth.md)         | 회원 가입, 로그인, 인증, 프로필, 계정 상태                                                    | 1    | member-service, api-gateway               | 확정(2026-09-22) · 구현 완료(2026-09-23, 17절) |
 | SPEC-002 | [`SPEC-002-meetup-schedule.md`](./SPEC-002-meetup-schedule.md) | 소개팅 상품과 일정(Meetup, Schedule): 성별 정원 · 참가비 · 연령대 · 장소 안내, 공개 일정 조회 | 2    | event-service, api-gateway, web, admin    | 확정 · 구현 완료(2026-09-23, 17절)             |
-| SPEC-003 | [`SPEC-003-application.md`](./SPEC-003-application.md)         | 참가 신청과 정원 관리(성별 정원 동시성)                                                       | 3    | event-service, member-service, web, admin | 확정(2026-09-24) · 구현 완료 · 검증 중(17절)   |
+| SPEC-003 | [`SPEC-003-application.md`](./SPEC-003-application.md)         | 참가 신청과 정원 관리(성별 정원 동시성)                                                       | 3    | event-service, member-service, web, admin | 확정 · 구현 완료(2026-09-29, 17절)             |
 | SPEC-004 | `SPEC-004-payment.md`                                          | 결제와 참가 확정. 첫 Kafka 이벤트                                                             | 4    | payment-service, event-service            | 작성 예정                                      |
 | SPEC-005 | `SPEC-005-onsite-operation.md`                                 | 현장 운영: 체크인, 로테이션 진행                                                              | 5    | event-service                             | 작성 예정                                      |
 | SPEC-006 | `SPEC-006-matching.md`                                         | 매칭: 당일 호감 선택, 상호 선택, ONE MORE, AFTER                                              | 6    | matching-service                          | 작성 예정                                      |
