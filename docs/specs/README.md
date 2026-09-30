@@ -71,16 +71,16 @@ stateDiagram-v2
 
 로드맵 Step에 맞춰 번호를 예약한다. **파일은 해당 Step을 시작할 때 만든다.** 아래 "다뤄야 할 질문"은 팜플렛과 현재 운영 방식에서 나온 것이며, 답은 설계서에서 정한다.
 
-| 번호     | 파일명(예정)                                                   | 주제                                                                                          | Step | 주요 서비스                               | 상태                                           |
-| -------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---- | ----------------------------------------- | ---------------------------------------------- |
-| SPEC-001 | [`SPEC-001-member-auth.md`](./SPEC-001-member-auth.md)         | 회원 가입, 로그인, 인증, 프로필, 계정 상태                                                    | 1    | member-service, api-gateway               | 확정(2026-09-22) · 구현 완료(2026-09-23, 17절) |
-| SPEC-002 | [`SPEC-002-meetup-schedule.md`](./SPEC-002-meetup-schedule.md) | 소개팅 상품과 일정(Meetup, Schedule): 성별 정원 · 참가비 · 연령대 · 장소 안내, 공개 일정 조회 | 2    | event-service, api-gateway, web, admin    | 확정 · 구현 완료(2026-09-23, 17절)             |
-| SPEC-003 | [`SPEC-003-application.md`](./SPEC-003-application.md)         | 참가 신청과 정원 관리(성별 정원 동시성)                                                       | 3    | event-service, member-service, web, admin | 확정 · 구현 완료(2026-09-29, 17절)             |
-| SPEC-004 | `SPEC-004-payment.md`                                          | 결제와 참가 확정. 첫 Kafka 이벤트                                                             | 4    | payment-service, event-service            | 작성 예정                                      |
-| SPEC-005 | `SPEC-005-onsite-operation.md`                                 | 현장 운영: 체크인, 로테이션 진행                                                              | 5    | event-service                             | 작성 예정                                      |
-| SPEC-006 | `SPEC-006-matching.md`                                         | 매칭: 당일 호감 선택, 상호 선택, ONE MORE, AFTER                                              | 6    | matching-service                          | 작성 예정                                      |
-| SPEC-007 | `SPEC-007-notification.md`                                     | 알림: 카카오 알림톡, Push, 발송 이력                                                          | 7    | notification-service                      | 작성 예정                                      |
-| SPEC-008 | `SPEC-008-operations.md`                                       | 운영 준비: K8s 배포, 모니터링, 로그                                                           | 8    | infra                                     | 작성 예정                                      |
+| 번호     | 파일명(예정)                                                   | 주제                                                                                          | Step | 주요 서비스                                | 상태                                           |
+| -------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---- | ------------------------------------------ | ---------------------------------------------- |
+| SPEC-001 | [`SPEC-001-member-auth.md`](./SPEC-001-member-auth.md)         | 회원 가입, 로그인, 인증, 프로필, 계정 상태                                                    | 1    | member-service, api-gateway                | 확정(2026-09-22) · 구현 완료(2026-09-23, 17절) |
+| SPEC-002 | [`SPEC-002-meetup-schedule.md`](./SPEC-002-meetup-schedule.md) | 소개팅 상품과 일정(Meetup, Schedule): 성별 정원 · 참가비 · 연령대 · 장소 안내, 공개 일정 조회 | 2    | event-service, api-gateway, web, admin     | 확정 · 구현 완료(2026-09-23, 17절)             |
+| SPEC-003 | [`SPEC-003-application.md`](./SPEC-003-application.md)         | 참가 신청과 정원 관리(성별 정원 동시성)                                                       | 3    | event-service, member-service, web, admin  | 확정 · 구현 완료(2026-09-29, 17절)             |
+| SPEC-004 | [`SPEC-004-payment.md`](./SPEC-004-payment.md)                 | 결제와 참가 확정. 첫 Kafka 이벤트                                                             | 4    | payment-service, event-service, web, admin | 초안(2026-09-30)                               |
+| SPEC-005 | `SPEC-005-onsite-operation.md`                                 | 현장 운영: 체크인, 로테이션 진행                                                              | 5    | event-service                              | 작성 예정                                      |
+| SPEC-006 | `SPEC-006-matching.md`                                         | 매칭: 당일 호감 선택, 상호 선택, ONE MORE, AFTER                                              | 6    | matching-service                           | 작성 예정                                      |
+| SPEC-007 | `SPEC-007-notification.md`                                     | 알림: 카카오 알림톡, Push, 발송 이력                                                          | 7    | notification-service                       | 작성 예정                                      |
+| SPEC-008 | `SPEC-008-operations.md`                                       | 운영 준비: K8s 배포, 모니터링, 로그                                                           | 8    | infra                                      | 작성 예정                                      |
 
 ### 각 설계서가 다뤄야 할 질문
 
