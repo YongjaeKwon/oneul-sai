@@ -63,17 +63,17 @@ curl http://localhost:4001/health                 # {status, service, database, 
 
 ## 5. 로드맵 (Step)
 
-| Step | 내용                                                   | 상태 |
-| ---- | ------------------------------------------------------ | ---- |
-| 0    | 기반 마무리(문서 · 협업 규칙 · 설정)                   | 완료 |
-| 1    | 회원/인증 (member, gateway, web, admin)                | 완료 |
-| 2    | 소개팅 상품/일정 (event)                               | 완료 |
-| 3    | 참가 신청 — 성별 정원 동시성 (event)                   | 완료 |
-| 4    | 결제 + 첫 Kafka (payment) — 초기엔 입금 확인 기반 가능 | 예정 |
-| 5    | 현장 운영 — 체크인 · 로테이션 (event)                  | 예정 |
-| 6    | 매칭 — 상호 선택 · ONE MORE · AFTER (matching)         | 예정 |
-| 7    | 알림 — 알림톡 · Push (notification)                    | 예정 |
-| 8    | 운영 준비 — K8s · 모니터링 (infra)                     | 예정 |
+| Step | 내용                                                   | 상태    |
+| ---- | ------------------------------------------------------ | ------- |
+| 0    | 기반 마무리(문서 · 협업 규칙 · 설정)                   | 완료    |
+| 1    | 회원/인증 (member, gateway, web, admin)                | 완료    |
+| 2    | 소개팅 상품/일정 (event)                               | 완료    |
+| 3    | 참가 신청 — 성별 정원 동시성 (event)                   | 완료    |
+| 4    | 결제 + 첫 Kafka (payment) — 초기엔 입금 확인 기반 가능 | 설계 중 |
+| 5    | 현장 운영 — 체크인 · 로테이션 (event)                  | 예정    |
+| 6    | 매칭 — 상호 선택 · ONE MORE · AFTER (matching)         | 예정    |
+| 7    | 알림 — 알림톡 · Push (notification)                    | 예정    |
+| 8    | 운영 준비 — K8s · 모니터링 (infra)                     | 예정    |
 
 Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md` 5장. 이 표는 그 사본이며, Step 상태가 바뀌면 함께 갱신한다. 진행 상황판(8장)은 빠르게 보는 용도이고, 문서와 어긋나면 문서가 원천이다(`docs/guides/documentation-rules.md` 6절).
 
