@@ -27,16 +27,16 @@ interface EventEnvelope<TPayload> {
 
 실제 구현 시점에만 payload 타입을 contracts에 추가한다.
 
-| 도메인      | 이벤트                                                                                                                                                     |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| member      | `member.created` / `member.withdrawn` — SPEC-001 8절이 예약. 발행 시점 · outbox 여부는 결정 예정 (Step 4)                                                  |
-| application | `application.created` / `application.accepted` / `application.cancelled` — SPEC-003: Step 3은 발행하지 않는다. 발행 여부 · outbox는 결정 예정 (Step 4 · 7) |
-| payment     | `payment.completed` / `payment.failed` / `payment.cancelled`                                                                                               |
-| event       | `event.started` / `event.completed`                                                                                                                        |
-| schedule    | `schedule.cancelled` / `schedule.changed` — SPEC-002 8절이 이름만 예약. 발행 여부 · payload는 결정 예정 (Step 4 · 7)                                       |
-| rotation    | `rotation.started` / `rotation.changed` / `rotation.completed`                                                                                             |
-| preference  | `preference.submitted`                                                                                                                                     |
-| match       | `match.created`                                                                                                                                            |
+| 도메인      | 이벤트                                                                                                                                                                             |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| member      | `member.created` / `member.withdrawn` — SPEC-001 8절이 예약. 발행하지 않음(SPEC-004) — `member.created`는 결정 예정 (Step 7), `member.withdrawn`은 요청이 생길 때 다시 묻는다(L-1) |
+| application | `application.created` / `application.accepted` / `application.cancelled` — SPEC-003: Step 3은 발행하지 않는다. 발행하지 않음(SPEC-004) — 결정 예정 (Step 7)                        |
+| payment     | `payment.completed` / `payment.failed` / `payment.cancelled`                                                                                                                       |
+| event       | `event.started` / `event.completed`                                                                                                                                                |
+| schedule    | `schedule.cancelled` / `schedule.changed` — SPEC-002 8절이 이름만 예약. 발행하지 않음(SPEC-004) — 결정 예정 (Step 7)                                                               |
+| rotation    | `rotation.started` / `rotation.changed` / `rotation.completed`                                                                                                                     |
+| preference  | `preference.submitted`                                                                                                                                                             |
+| match       | `match.created`                                                                                                                                                                    |
 
 ## 4. 신뢰성 고려사항
 

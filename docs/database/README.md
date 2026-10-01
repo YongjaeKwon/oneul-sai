@@ -3,7 +3,7 @@
 DB 소유권, Prisma 7 워크플로우, 마이그레이션 규칙, 그리고 실제로 있는 테이블의 인덱스다. 스키마의 원천은 `apps/<service>/prisma/schema.prisma`이고, 이 문서와 다르면 스키마가 맞다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-25 (Step 3 — event_db `Application`(마이그레이션 `add_application`), 부분 유니크 인덱스, 점검 쿼리 · 되살리기 절차. 그 전: 2026-09-24 SPEC-003 확정 — NEXT 재참가 혜택의 결정 예정 시점. 그 전: 2026-09-23 Step 2 — event_db 첫 마이그레이션 `init_event`, 테스트 전용 DB `event_test_db`. seed 전 빌드를 `turbo run build`로)
+- 최종 갱신: 2026-10-01 (SPEC-004 확정 — NEXT 재참가 혜택의 결정 예정 시점. 그 전: 2026-09-25 Step 3 — event_db `Application`(마이그레이션 `add_application`), 부분 유니크 인덱스, 점검 쿼리 · 되살리기 절차. 그 전: 2026-09-24 SPEC-003 확정 — NEXT 재참가 혜택의 결정 예정 시점. 그 전: 2026-09-23 Step 2 — event_db 첫 마이그레이션 `init_event`, 테스트 전용 DB `event_test_db`. seed 전 빌드를 `turbo run build`로)
 
 ## 1. Database per Service
 
@@ -279,7 +279,7 @@ COMMIT; -- 하나라도 어긋나면 ROLLBACK
 
 - 작성자 · 수정자 열 — 로그(`adminId`)가 원천이다(SPEC-002 5절).
 - 여성 연령대 열 — 여성에게는 연령 조건이 없다(D5).
-- NEXT 재참가 혜택 · "같은 금액" 여부 — 혜택 내용은 결정 예정 (금액 혜택이면 Step 4 · 신청 조건이면 SPEC-003 개정) — Step 3 신청에는 없음. 같은 금액 여부는 두 값의 비교로 안다(D3).
+- NEXT 재참가 혜택 · "같은 금액" 여부 — 혜택 내용은 결정 예정 (Step 6) — Step 3 신청에는 없음. 같은 금액 여부는 두 값의 비교로 안다(D3).
 - 신청자의 이름 · 휴대폰 · 출생연도 — member_db에만 있다. 운영자 화면이 member API로 붙인다(SPEC-003 D11).
 - 대기자 명단 · 취소 사유 · 취소 시각 열 — 대기자와 취소 사유는 없고(SPEC-003 확인 요청 E · J), 취소 시각은 `updatedAt`이다. 취소된 행을 고치는 Step이 생기면 `cancelledAt`을 먼저 더한다(SPEC-003 9절 "Step 4가 더할 것").
 - 좌석 수 열 — 성별 활성 신청 수를 그때그때 센다(회차 행 잠금 뒤).
