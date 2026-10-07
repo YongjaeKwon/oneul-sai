@@ -20,3 +20,4 @@
 | ADR-009 | Authentication                 | [ADR-009-authentication.md](./ADR-009-authentication.md)                     |
 | ADR-010 | Platform Packages              | [ADR-010-platform-packages.md](./ADR-010-platform-packages.md)               |
 | ADR-011 | Service-to-Service Calls       | [ADR-011-service-to-service-calls.md](./ADR-011-service-to-service-calls.md) |
+| ADR-012 | Event Reliability              | [ADR-012-event-reliability.md](./ADR-012-event-reliability.md)               |
