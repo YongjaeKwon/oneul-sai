@@ -594,7 +594,7 @@ Swagger: 태그 `payments`(운영자). SPEC-001~003 방식 그대로. event-serv
 
 - `paths.ts`: `PAYMENT_PATHS` = `payments`, `paymentStatus(id)`.
 - 메서드: 운영자 `recordPayment({ applicationId, memberId, amount })` · `listPayments({ applicationIds })` · `refundPayment(paymentId, refundAmount)`. 모두 기본(`auth: true`, 401 `TOKEN_EXPIRED`일 때만 refresh 1회).
-- 표시 도우미: web `lib/format.ts` · `lib/applications.ts`(신청 영역 · 카드 내용 고르기), admin `lib/applications.ts`(상태 × 결제 × 기록 시각 → 줄 표시 — 반영 중 · 바뀌지 않았습니다 · 환불 확인). 화면 표현이라 공유 패키지에 넣지 않는다. api-client는 응답을 검증하지 않고 형 변환만 하므로(`packages/api-client/src/client.ts:621`) 옛 클라이언트는 새 상태를 에러 없이 잘못 그린다 — 15절 배포 순서.
+- 표시 도우미: web `lib/format.ts` · `lib/applications.ts`(신청 영역 · 카드 내용 고르기), admin `lib/applications.ts`(상태 × 결제 × 기록 시각 → 줄 표시 — 반영 중 · 바뀌지 않았습니다 · 환불 확인). 화면 표현이라 공유 패키지에 넣지 않는다. api-client는 응답을 검증하지 않고 형 변환만 하므로(`packages/api-client/src/client.ts` `finish()`의 `as T`) 옛 클라이언트는 새 상태를 에러 없이 잘못 그린다 — 15절 배포 순서.
 
 ## 8. 이벤트
 
@@ -969,7 +969,7 @@ sequenceDiagram
 
 SPEC-003 13절의 방식 그대로다: 단위는 vitest, 소스 옆 `*.spec.ts`, 직접 인스턴스화, 최소 가짜 객체, `now` 주입. 통합은 `*.integration.spec.ts` — event-service는 `event_test_db`, payment-service는 새 `payment_test_db`. **두 서비스를 함께 띄우지 않는다**(D16). 소비 처리는 함수를 봉투로 직접 부른다. contracts 스키마 테스트는 소비하는 서비스에서 돈다(payment 계약은 payment-service, 봉투 · 이벤트 payload · 신청 상태는 event-service — SPEC-002 13절 선례).
 
-**조용히 틀리는 클라이언트 코드** — `Record` 표는 타입 오류로 드러나지만 아래는 typecheck를 통과한다. api-client는 응답을 검증하지 않으므로(`packages/api-client/src/client.ts:621`) 옛 클라이언트는 새 상태를 에러 없이 잘못 그린다. 4번 PR이 고치고 단위 테스트로 고정한다.
+**조용히 틀리는 클라이언트 코드** — `Record` 표는 타입 오류로 드러나지만 아래는 typecheck를 통과한다. api-client는 응답을 검증하지 않으므로(`packages/api-client/src/client.ts` `finish()`의 `as T`) 옛 클라이언트는 새 상태를 에러 없이 잘못 그린다. 4번 PR이 고치고 단위 테스트로 고정한다.
 
 1. web `applyAreaState`(`apps/web/lib/applications.ts:118`) — 입금 대기만 "신청함"으로 본다. 확정된 회원에게 (f) 이하가 나와 "참가 신청" 버튼까지 보일 수 있다(서버는 부분 유니크로 409).
 2. web 내 신청 카드(`apps/web/components/my-applications-screen.tsx:225-227`) — `cancelledBy === null`이면 입금 대기 문구. 확정 카드에 "입금 확인 전입니다 …"가 붙는다. 안내 고르기를 `lib/`의 순수 함수로 옮겨 시험한다.
@@ -1059,7 +1059,7 @@ SPEC-003 13절의 방식 그대로다: 단위는 vitest, 소스 옆 `*.spec.ts`,
 
 H는 추천안(A10만)으로 정해져 회차를 가로지르는 운영자 조회 계약 · 경로 · 화면은 만들지 않는다(0.1 H).
 
-**배포 순서(한 환경에서):** event 마이그레이션 → event-service(4번 · 5번 — 확정 규칙 · 소비자) → **web · admin(4번 PR의 클라이언트 — 확정 표시 · 필터)** → payment 마이그레이션 → payment-service(6a · 6b — API · relay) → admin(7번 — 입금 확인 화면). 이유: 확정을 만드는 것은 admin의 "입금 확인"(7번)인데, 그보다 먼저 확정을 보여 줄 web · admin이 CONFIRMED를 알아야 한다 — api-client는 응답을 검증하지 않아(`packages/api-client/src/client.ts:621`) 옛 web은 확정된 회원에게 에러 없이 "참가 신청"과 입금 대기 문구를 보인다(13절 목록 1 · 2 · 7). 소비자가 먼저 떠 있어야 발행된 이벤트가 곧바로 처리된다(payment가 먼저 떠도 소비자는 처음부터 읽으므로 틀리지는 않지만 "반영 중"이 길다 — D5). 로컬 순서: `docker compose --profile kafka up -d` → `pnpm install && pnpm db:generate` → event · payment `prisma migrate dev` → 두 서비스 `test:integration` → `pnpm dev`.
+**배포 순서(한 환경에서):** event 마이그레이션 → event-service(4번 · 5번 — 확정 규칙 · 소비자) → **web · admin(4번 PR의 클라이언트 — 확정 표시 · 필터)** → payment 마이그레이션 → payment-service(6a · 6b — API · relay) → admin(7번 — 입금 확인 화면). 이유: 확정을 만드는 것은 admin의 "입금 확인"(7번)인데, 그보다 먼저 확정을 보여 줄 web · admin이 CONFIRMED를 알아야 한다 — api-client는 응답을 검증하지 않아(`packages/api-client/src/client.ts` `finish()`의 `as T`) 옛 web은 확정된 회원에게 에러 없이 "참가 신청"과 입금 대기 문구를 보인다(13절 목록 1 · 2 · 7). 소비자가 먼저 떠 있어야 발행된 이벤트가 곧바로 처리된다(payment가 먼저 떠도 소비자는 처음부터 읽으므로 틀리지는 않지만 "반영 중"이 길다 — D5). 로컬 순서: `docker compose --profile kafka up -d` → `pnpm install && pnpm db:generate` → event · payment `prisma migrate dev` → 두 서비스 `test:integration` → `pnpm dev`.
 
 기능 플래그: 없다. 입금 확인 화면 문제는 admin PR revert로, 발행 문제는 6b revert로(이미 쌓인 outbox 행은 남아 다시 켜면 보낸다) 격리한다.
 
