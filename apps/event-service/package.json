@@ -21,6 +21,7 @@
     "@oneul-sai/config": "workspace:*",
     "@oneul-sai/constants": "workspace:*",
     "@oneul-sai/contracts": "workspace:*",
+    "@oneul-sai/kafka": "workspace:*",
     "@oneul-sai/logger": "workspace:*",
     "@oneul-sai/service-kit": "workspace:*",
     "@prisma/adapter-pg": "7.10.0",

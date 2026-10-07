@@ -10,6 +10,8 @@ allowBuilds:
   '@prisma/engines': true
   '@tailwindcss/oxide': true
   esbuild: true
+  # Kafka 클라이언트(네이티브 애드온) — 설치 때 GitHub 릴리스의 미리 빌드된 librdkafka 바이너리를 받는다(SPEC-004 N)
+  '@confluentinc/kafka-javascript': true
   sharp: false
   unrs-resolver: false
   '@scarf/scarf': false
