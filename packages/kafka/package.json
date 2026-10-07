@@ -2,7 +2,7 @@
   "name": "@oneul-sai/kafka",
   "version": "0.0.0",
   "private": true,
-  "description": "오늘사이 공통 Kafka 연결 설정 및 토픽 네이밍 (구조 준비 단계)",
+  "description": "오늘사이 Kafka 플랫폼 코드 — 연결 · 토픽 이름 · 봉투 부호화",
   "type": "module",
   "exports": {
     ".": {
@@ -23,5 +23,11 @@
     "@oneul-sai/typescript-config": "workspace:*",
     "eslint": "^9",
     "typescript": "~6.0.3"
+  },
+  "dependencies": {
+    "@confluentinc/kafka-javascript": "1.10.1",
+    "@oneul-sai/contracts": "workspace:*",
+    "@oneul-sai/logger": "workspace:*",
+    "zod": "^4.6.5"
   }
 }
