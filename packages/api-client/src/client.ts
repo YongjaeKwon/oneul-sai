@@ -4,6 +4,9 @@ import {
   type AdminApplication,
   type AdminApplicationListQuery,
   type AdminApplicationListResponse,
+  type AdminPayment,
+  type AdminPaymentListQuery,
+  type AdminPaymentListResponse,
   type AdminSchedule,
   type AdminScheduleListQuery,
   type AdminScheduleListResponse,
@@ -14,6 +17,7 @@ import {
   type ClientType,
   type CreateApplicationRequest,
   type CreateMeetupRequest,
+  type CreatePaymentRequest,
   type CreateScheduleRequest,
   type LoginRequest,
   type LogoutRequest,
@@ -36,6 +40,7 @@ import {
   type UpdateMeetupRequest,
   type UpdateMemberStatusRequest,
   type UpdateMyProfileRequest,
+  type UpdatePaymentStatusRequest,
   type UpdateScheduleRequest,
   type UpdateScheduleStatusRequest,
   type WithdrawRequest,
@@ -53,6 +58,7 @@ import {
   EVENT_PATHS,
   MEETUP_PATHS,
   MEMBER_PATHS,
+  PAYMENT_PATHS,
 } from './paths.js';
 
 export interface ApiClientOptions {
@@ -107,6 +113,9 @@ export type MyApplicationListParams = Partial<MyApplicationListQuery>;
 
 /** `listScheduleApplications` 조건. 생략한 값은 서버 기본값(page 1, pageSize 100). */
 export type AdminApplicationListParams = Partial<AdminApplicationListQuery>;
+
+/** `listPayments` 조건. `applicationIds`(1~100개)는 쉼표로 이어 보낸다. */
+export type AdminPaymentListParams = AdminPaymentListQuery;
 
 async function parseResponseBody(response: Response): Promise<unknown> {
   const text = await response.text();
@@ -515,6 +524,43 @@ export class ApiClient {
       MEETUP_PATHS.applicationStatus(meetupId, scheduleId, applicationId),
       {
         body: { status: 'CANCELLED' } satisfies UpdateApplicationStatusRequest,
+      },
+    );
+  }
+
+  // ----- 결제 (운영자, SPEC-004) -----
+
+  /** `POST /api/v1/payments` (ADMIN). 입금 확인 기록, 201. 이 신청에 기록이 이미 있으면 409 `PAYMENT_ALREADY_RECORDED`. */
+  recordPayment(input: CreatePaymentRequest): Promise<AdminPayment> {
+    return this.request<AdminPayment>('POST', PAYMENT_PATHS.payments, {
+      body: input,
+    });
+  }
+
+  /** `GET /api/v1/payments?applicationIds=` (ADMIN). 신청 ID 1~100개를 쉼표로 이어 보낸다. 페이지 없음. */
+  listPayments(
+    params: AdminPaymentListParams,
+  ): Promise<AdminPaymentListResponse> {
+    return this.request<AdminPaymentListResponse>(
+      'GET',
+      PAYMENT_PATHS.payments,
+      { query: { applicationIds: params.applicationIds.join(',') } },
+    );
+  }
+
+  /** `PATCH /api/v1/payments/:paymentId/status` (ADMIN). 환불 기록. 환불할 수 없으면 409 `PAYMENT_NOT_REFUNDABLE`. */
+  refundPayment(
+    paymentId: string,
+    refundAmount: number,
+  ): Promise<AdminPayment> {
+    return this.request<AdminPayment>(
+      'PATCH',
+      PAYMENT_PATHS.paymentStatus(paymentId),
+      {
+        body: {
+          status: 'REFUNDED',
+          refundAmount,
+        } satisfies UpdatePaymentStatusRequest,
       },
     );
   }
