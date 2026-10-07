@@ -1,4 +1,4 @@
-// SPEC-001 · SPEC-002 · SPEC-003 7절 "에러 코드 표". `ApiErrorResponse.code`에 실리는 기계용 코드.
+// SPEC-001 · SPEC-002 · SPEC-003 · SPEC-004 7절 "에러 코드 표". `ApiErrorResponse.code`에 실리는 기계용 코드.
 // 사람이 읽는 `message`와 별개이며, 클라이언트는 이 값으로만 분기한다.
 
 export const API_ERROR_CODES = {
@@ -54,6 +54,10 @@ export const API_ERROR_CODES = {
   APPLICATION_NOT_CANCELLABLE: 'APPLICATION_NOT_CANCELLABLE',
   /** 회차 수정: 새 정원이 그 성별의 활성 신청 수보다 작음. SPEC-003 */
   CAPACITY_BELOW_APPLICATIONS: 'CAPACITY_BELOW_APPLICATIONS',
+  /** 입금 확인: 이 신청에 결제 기록이 이미 있음. SPEC-004 */
+  PAYMENT_ALREADY_RECORDED: 'PAYMENT_ALREADY_RECORDED',
+  /** 환불 기록: 환불할 수 없음 — 없는 결제 · 이미 환불 · 받은 금액 초과를 가르지 않는다. SPEC-004 */
+  PAYMENT_NOT_REFUNDABLE: 'PAYMENT_NOT_REFUNDABLE',
   // 429 (Gateway)
   TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
   // 503
