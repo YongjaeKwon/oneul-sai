@@ -1,4 +1,6 @@
+import { z } from '@oneul-sai/config';
 import {
+  APPLICATION_STATUSES,
   AdminApplicationListQuerySchema,
   AdminScheduleListQuerySchema,
   AdminScheduleSchema,
@@ -6,10 +8,13 @@ import {
   CreateApplicationRequestSchema,
   CreateMeetupRequestSchema,
   CreateScheduleRequestSchema,
+  eventEnvelopeSchema,
   MeetupListQuerySchema,
   MemberListQuerySchema,
   MyApplicationListQuerySchema,
   MyApplicationSchema,
+  PAYMENT_COMPLETED,
+  PaymentCompletedPayloadSchema,
   PublicScheduleListQuerySchema,
   PublicScheduleSchema,
   UpdateApplicationStatusRequestSchema,
@@ -19,6 +24,8 @@ import {
   type CreateScheduleRequest,
 } from '@oneul-sai/contracts';
 import { formatIssues } from '@oneul-sai/service-kit';
+
+import { ApplicationStatus } from './generated/prisma/client.js';
 
 // SPEC-002 13절 단위: contracts에는 vitest가 없으므로 event-service가 contracts 스키마의 경계값을 검사한다.
 // 실패 message는 service-kit formatIssues 형식(입력값 없음)이다.
@@ -501,5 +508,85 @@ describe('MyApplication keeps schedule fields public (SPEC-003 13절 · SPEC-002
     ]) {
       expect(keys).not.toContain(key);
     }
+  });
+});
+
+// SPEC-004 13절 단위: event-service가 소비할 봉투 · payload 계약과 신청 상태 enum.
+describe('eventEnvelopeSchema(PaymentCompletedPayloadSchema) (SPEC-004 8절)', () => {
+  const schema = eventEnvelopeSchema(PaymentCompletedPayloadSchema);
+  const payload = {
+    paymentId: '9c2e7d1a-3f4b-4a5c-8d6e-7f8091a2b3c4',
+    applicationId: '3b241101-e2bb-4255-8caf-4136c566a962',
+    memberId: '6f1c2d3e-4b5a-4c6d-8e7f-9a0b1c2d3e4f',
+  };
+  const envelope = {
+    eventId: '1d2e3f40-5a6b-4c7d-8e9f-a0b1c2d3e4f5',
+    type: PAYMENT_COMPLETED.type,
+    version: PAYMENT_COMPLETED.version,
+    occurredAt: '2026-10-07T05:00:00.000Z',
+    payload,
+  };
+
+  it('accepts an envelope without requestId and with a UUID requestId', () => {
+    expect(schema.safeParse(envelope).success).toBe(true);
+    expect(
+      schema.safeParse({
+        ...envelope,
+        requestId: '7e8f9a0b-1c2d-4e3f-8a4b-5c6d7e8f9a0b',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects a non-UUID requestId, version 0 · 1.5 and a malformed occurredAt', () => {
+    for (const overrides of [
+      { requestId: 'req-1' },
+      { version: 0 },
+      { version: 1.5 },
+      { occurredAt: '2026-10-07 05:00' },
+      { eventId: 'not-a-uuid' },
+      { type: '' },
+    ]) {
+      expectRejected(schema.safeParse({ ...envelope, ...overrides }));
+    }
+  });
+
+  it('accepts unknown payload keys and strips them (같은 버전에 더해진 필드)', () => {
+    const result = schema.parse({
+      ...envelope,
+      payload: { ...payload, amount: 39_000 },
+    });
+    expect(result.payload).toEqual(payload);
+  });
+
+  it('rejects a payload missing a field', () => {
+    expectRejected(
+      schema.safeParse({
+        ...envelope,
+        payload: {
+          paymentId: payload.paymentId,
+          applicationId: payload.applicationId,
+        },
+      }),
+    );
+  });
+
+  it('with z.unknown() checks only the envelope, whatever the payload', () => {
+    const headerOnly = eventEnvelopeSchema(z.unknown());
+    for (const anyPayload of [null, 'x', 42, { other: true }]) {
+      expect(
+        headerOnly.safeParse({ ...envelope, payload: anyPayload }).success,
+      ).toBe(true);
+    }
+    expectRejected(
+      headerOnly.safeParse({ ...envelope, version: 0, payload: 'x' }),
+    );
+  });
+});
+
+describe('APPLICATION_STATUSES matches the Prisma enum (SPEC-004 13절)', () => {
+  it('has the same values as ApplicationStatus', () => {
+    expect(new Set(APPLICATION_STATUSES)).toEqual(
+      new Set(Object.values(ApplicationStatus)),
+    );
   });
 });
