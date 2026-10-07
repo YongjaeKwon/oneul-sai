@@ -31,13 +31,13 @@ docs/      overview specs architecture adr api database events design guides
 1. **MSA 경계** — 서비스는 자기 도메인만 소유. Gateway에 비즈니스 로직 금지.
 2. **Database per Service** — 타 서비스 DB 접근 금지(쿼리 · FK · Prisma 모델 참조 모두). 필요하면 REST 또는 이벤트.
 3. **REST 동기 / Kafka 비동기** — 기준: "이 작업이 실패해도 원래 요청은 성공 응답을 줄 수 있는가?" 그렇다면 비동기 후보.
-4. **공유 패키지에 비즈니스 로직 금지** — 서비스 간 업무 데이터의 공유는 `@oneul-sai/contracts`(스키마 · 타입)만. 플랫폼 패키지(logger · config · service-kit)는 업무 규칙 없이 공유한다 — 편입 기준은 [ADR-010](docs/adr/ADR-010-platform-packages.md).
+4. **공유 패키지에 비즈니스 로직 금지** — 서비스 간 업무 데이터의 공유는 `@oneul-sai/contracts`(스키마 · 타입)만. 플랫폼 패키지(logger · config · service-kit · kafka)는 업무 규칙 없이 공유한다 — 편입 기준은 [ADR-010](docs/adr/ADR-010-platform-packages.md), kafka 편입은 [ADR-012](docs/adr/ADR-012-event-reliability.md).
 5. **TypeScript strict** — 모든 패키지. `any` 회피, `unknown` + narrowing.
 6. **불필요한 추상화 · 기술 과시 금지** — 지금 요구에 없는 확장 포인트 · 레이어 · 제네릭을 만들지 않는다.
 7. **비즈니스 기능 임의 구현 금지** — `docs/specs/SPEC-00N-<slug>.md`로 머지된 설계서가 있는 기능만 구현한다. 없으면 `docs/specs/TEMPLATE.md`로 초안을 먼저 쓰고 사람의 확인을 기다린다(001~008은 Step 1~8에 예약, 목록은 `docs/specs/README.md`).
 8. **제품 사실을 지어내지 않는다** — 팜플렛 · 운영 메시지에 있는 것만. 미정은 **"결정 예정 (Step N)"** 으로 쓴다.
 
-근거: `docs/adr/` (ADR-001~008, 인증은 [ADR-009](docs/adr/ADR-009-authentication.md), 플랫폼 패키지는 [ADR-010](docs/adr/ADR-010-platform-packages.md), 서비스 간 호출은 [ADR-011](docs/adr/ADR-011-service-to-service-calls.md)). 결정을 바꾸려면 새 ADR.
+근거: `docs/adr/` (ADR-001~008, 인증은 [ADR-009](docs/adr/ADR-009-authentication.md), 플랫폼 패키지는 [ADR-010](docs/adr/ADR-010-platform-packages.md), 서비스 간 호출은 [ADR-011](docs/adr/ADR-011-service-to-service-calls.md), 이벤트 발행 · 소비 신뢰성은 [ADR-012](docs/adr/ADR-012-event-reliability.md)). 결정을 바꾸려면 새 ADR.
 
 ## 4. 자주 쓰는 커맨드
 
@@ -59,7 +59,7 @@ curl http://localhost:4001/health                 # {status, service, database, 
 - **Nest CLI(`nest`)를 쓰지 않는다.** Node 22.14 크래시. 빌드는 `tsc -p tsconfig.build.json`, dev는 `tsc-watch`.
 - 루트 명령은 Turborepo가 전 workspace에 돌린다. `dev`/`build`/`typecheck`/`test`는 `db:generate`에 의존.
 - 새 의존성이 build 스크립트를 가지면 `pnpm-workspace.yaml`의 `allowBuilds`에 추가하고 이유를 PR에 쓴다.
-- 버전 · 알려진 함정 11개(Nest CLI, TS6 @types, pnpm 11 설정 위치, Prisma 7, http-proxy-middleware v3 유지, ESM import, Next 16/Tailwind 4, Expo 57, scrypt `maxmem`, Nest peerDependencies, Prisma `partialIndexes` 선택자)의 원천은 `docs/architecture/tech-stack.md`. 의존성을 올리기 전에 읽는다.
+- 버전 · 알려진 함정 12개(Nest CLI, TS6 @types, pnpm 11 설정 위치, Prisma 7, http-proxy-middleware v3 유지, ESM import, Next 16/Tailwind 4, Expo 57, scrypt `maxmem`, Nest peerDependencies, Prisma `partialIndexes` 선택자, Kafka 네이티브 클라이언트)의 원천은 `docs/architecture/tech-stack.md`. 의존성을 올리기 전에 읽는다.
 
 ## 5. 로드맵 (Step)
 
@@ -151,7 +151,7 @@ Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md`
 - 설계서 없는 비즈니스 기능 구현. "일단 만들어 보기" 금지.
 - 팜플렛 · 운영 메시지에 없는 제품 기능 · 문구 · 정책을 만들어 내기.
 - 타 서비스 DB · Prisma 모델 · 테이블 이름 참조. cross-DB JOIN.
-- `packages/*`에 도메인 규칙(정원 계산, 매칭 판별, 결제 상태 전이 등) 넣기. `service-kit`도 같다 — 인증 헤더 · 에러 형식 같은 플랫폼 코드만, ADR-010 편입 기준(DB · env · 도메인 enum · 한 서비스 전용 코드 금지) 안에서.
+- `packages/*`에 도메인 규칙(정원 계산, 매칭 판별, 결제 상태 전이 등) 넣기. `service-kit` · `kafka`도 같다 — 인증 헤더 · 에러 형식 · 이벤트 봉투 같은 플랫폼 코드만, ADR-010 편입 기준(DB · env · 도메인 enum · 한 서비스 전용 코드 금지, kafka는 ADR-012) 안에서.
 - Gateway에 비즈니스 로직 · 경로별 인증 정책 · 역할 판단. Gateway는 라우팅 · request-id · 로깅 · 에러 정책 + 토큰 검증 · 내부 헤더 · 내부 토큰 부착 · `Origin` 확인 · IP rate limit · CORS까지만(ADR-009).
 - Nest CLI 사용. `console.log`. `process.env` 직접 접근. `any`.
 - `src/generated/`, `dist/`, `.env`, `.turbo/` 커밋.
