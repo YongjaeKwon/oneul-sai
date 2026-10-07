@@ -55,3 +55,10 @@ export const APPLICATION_PATHS = {
   applicationStatus: (applicationId: string): string =>
     `${API_PREFIX}/applications/${encodeURIComponent(applicationId)}/status`,
 } as const;
+
+/** 결제(SPEC-004) — 운영자(ADMIN) 전용. 입금 확인 · 결제 조회 · 환불 기록. */
+export const PAYMENT_PATHS = {
+  payments: `${API_PREFIX}/payments`,
+  paymentStatus: (paymentId: string): string =>
+    `${API_PREFIX}/payments/${encodeURIComponent(paymentId)}/status`,
+} as const;
