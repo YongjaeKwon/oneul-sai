@@ -3,7 +3,7 @@
 오늘사이가 쓰는 기술과 버전, 각 선택의 이유, 그리고 알려진 함정을 기록한다. 버전을 올리거나 새 기술을 들일 때 이 문서를 먼저 읽고, 바꾼 뒤 이 문서를 갱신한다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-28 (브라우저 e2e `@playwright/test` 행 — SPEC-003 9번 PR. 그 전: 2026-09-25 event-service `partialIndexes` 미리보기 · 함정 11. 그 전: 2026-09-24 에이전트 디자인 · 확인 도구 표 추가. 그 전: 2026-09-22 npm registry 실측 + 공식 템플릿 생성으로 확정)
+- 최종 갱신: 2026-10-07 (메시징 행 `@confluentinc/kafka-javascript` · 함정 12 · 업그레이드 표 librdkafka 행 — SPEC-004 3번 PR, ADR-012. 그 전: 2026-09-28 브라우저 e2e `@playwright/test` 행 — SPEC-003 9번 PR. 그 전: 2026-09-25 event-service `partialIndexes` 미리보기 · 함정 11. 그 전: 2026-09-24 에이전트 디자인 · 확인 도구 표 추가. 그 전: 2026-09-22 npm registry 실측 + 공식 템플릿 생성으로 확정)
 - 원천: 루트 `package.json`, `pnpm-workspace.yaml`, 각 앱·패키지의 `package.json`과 tsconfig. 이 문서와 다르면 코드가 맞다. 이 문서를 고친다.
 - 구조와 통신 원칙은 [아키텍처 개요](./overview.md), 결정의 배경은 [ADR](../adr/README.md).
 
@@ -34,7 +34,7 @@
 | ORM            | Prisma                                                                | `7.10.0`  | 타입 안전 쿼리·마이그레이션. `prisma-client` generator + `@prisma/adapter-pg`. event-service만 `previewFeatures = ["partialIndexes"]`(부분 유니크 인덱스, SPEC-003) |
 | DB             | PostgreSQL                                                            | 17        | 서비스별 논리 DB 5개. 로컬은 Docker Compose                                                                                                                         |
 | Gateway 프록시 | http-proxy-middleware                                                 | `^3.0.7`  | v3 유지(아래 함정 5)                                                                                                                                                |
-| 메시징         | Kafka (KRaft 단일 노드)                                               | —         | 현재 구조만. `docker compose --profile kafka up -d`                                                                                                                 |
+| 메시징         | Kafka (KRaft 단일 노드) + `@confluentinc/kafka-javascript`            | `1.10.1`  | librdkafka 2.15.1, 정확히 고정. KafkaJS 호환 API(ADR-012). `packages/kafka`에만 설치하는 네이티브 애드온(아래 함정 12). 로컬 브로커는 `--profile kafka`             |
 | 로깅           | `@oneul-sai/logger`                                                   | —         | JSON 구조화 로그. `x-request-id`를 함께 남긴다                                                                                                                      |
 | 환경 변수      | dotenv + Zod (`@oneul-sai/config`)                                    | dotenv 18 | 서비스 부팅 시 검증. 잘못된 값이면 바로 실패                                                                                                                        |
 | 인증           | JWT(jose) HS256 + 불투명 refresh 쿠키, 비밀번호 scrypt(`node:crypto`) | jose 6    | member-service가 서명하고 Gateway가 검증한다(SPEC-001, ADR-009). 해시는 네이티브 빌드가 없는 scrypt(아래 함정 9)                                                    |
@@ -153,6 +153,12 @@
 - 원인: Prisma 7.10 `partialIndexes` 미리보기의 생성 클라이언트는 `where` 조건을 모르고 복합 유니크 선택자(`ApplicationWhereUniqueInput.scheduleId_memberId`)를 만든다.
 - 대응: 이 선택자를 쓰지 않는다. 활성 신청은 `findFirst`에 `ACTIVE_APPLICATION_WHERE`(`status <> 'CANCELLED'`)를 붙여 찾는다(SPEC-003 9 · 10절). 코드 검색으로 쓰는 곳이 없는지 본다(저장소 루트에서): `git grep scheduleId_memberId -- apps/event-service/src ':!**/generated/**'`. 미리보기를 끄거나 버전을 올릴 때 `apps/event-service`에서 `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma`가 비어 있는지 확인한다(인덱스를 Prisma가 관리한다).
 
+### 함정 12. Kafka 클라이언트는 네이티브 애드온이다
+
+- 증상: `pnpm install`이 `@confluentinc/kafka-javascript`의 빌드 스크립트 때문에 실패한다. 또는 설치가 미리 빌드한 바이너리를 받지 못하고 소스 빌드(node-gyp)로 넘어가 컴파일 도구가 없는 빌더(`node:22-alpine` 등)에서 실패한다.
+- 원인: librdkafka를 감싼 네이티브 애드온이라 설치 스크립트가 돈다. pnpm 11은 `allowBuilds`에 없는 빌드 스크립트를 `strictDepBuilds`로 막는다. 설치 스크립트는 GitHub 릴리스에서 Node ABI · 플랫폼에 맞는 바이너리를 받는다 — v1.10.1은 Node 22용을 Windows x64 · linux-glibc-x64 · linux-musl-x64에 낸다 — 못 받으면 소스 빌드로 넘어간다. 라이브러리 README는 pnpm 지원을 "experimental"로 적었다.
+- 대응: `pnpm-workspace.yaml`의 `allowBuilds`에 `'@confluentinc/kafka-javascript': true`. 버전은 `1.10.1`로 정확히 고정하고 `packages/kafka`에만 설치한다(앱은 라이브러리를 import하지 않는다 — ADR-012 결정 7). 설치 때(CI · Docker 빌드 포함) GitHub에 닿아야 한다. 확인한 것(2026-10-07): Windows · Node 22.14에서 미리 빌드한 바이너리로 설치된다(`build/Release`에 `.node` · DLL만 있고 소스 빌드 흔적 없음), ESM에서 `import { KafkaJS } from '@confluentinc/kafka-javascript'`가 런타임 · `tsc`(TS 6, NodeNext)에서 된다, librdkafka 2.15.1. CI · `node:22-alpine` Docker 빌드 확인은 SPEC-004 17절. 바이너리가 없는 조합에서의 대응(빌드 도구 · 이미지 선택)은 결정 예정 (Step 8).
+
 ## 3. 업그레이드 시 확인할 것
 
 ### 절차
@@ -178,3 +184,4 @@
 | Expo SDK                 | React Native와 React 버전이 함께 바뀐다. `expo-doctor`로 호환 확인                                                                                |
 | ESLint / Prettier        | flat config 형식, `@oneul-sai/eslint-config` 프리셋의 플러그인 호환                                                                               |
 | PostgreSQL               | Docker 이미지 태그, init 스크립트, Prisma 지원 범위. 데이터 볼륨은 `docker compose down -v` 뒤 재생성                                             |
+| Kafka 클라이언트         | librdkafka 버전(로컬 `apache/kafka`와 맞는지), Node ABI · 플랫폼별 미리 빌드 바이너리가 있는지(함정 12). Node를 올릴 때도 본다                    |

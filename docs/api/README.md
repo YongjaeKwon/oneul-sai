@@ -3,7 +3,7 @@
 오늘사이 백엔드 API의 공통 규칙과 엔드포인트 인덱스다. 요청 · 응답 필드는 여기에 다시 적지 않는다 — 원천은 각 서비스의 Swagger(8.1절)와 `packages/contracts`의 Zod 스키마다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-25 (Step 3 — 참가 신청 API: 3절 `/api/v1/applications` 행, 5.1절 끝 문단(신청의 계정 상태 확인), 9.3절 신청 5행 · 인증 열 **MEMBER**. 서비스 간 호출 5.6절(ADR-011), 1절 직접 호출 문장. 그 전: 2026-09-23 Step 1 회원/인증 엔드포인트, 인증 · 쿠키 · CORS · rate limit 규칙, `code` 필드)
+- 최종 갱신: 2026-10-07 (5.6절 끝 줄 "(Step 4 · 7)" → "(Step 7)" — SPEC-004 D3 · ADR-012. 그 전: 2026-09-25 Step 3 — 참가 신청 API: 3절 `/api/v1/applications` 행, 5.1절 끝 문단(신청의 계정 상태 확인), 9.3절 신청 5행 · 인증 열 **MEMBER**. 서비스 간 호출 5.6절(ADR-011), 1절 직접 호출 문장. 그 전: 2026-09-23 Step 1 회원/인증 엔드포인트, 인증 · 쿠키 · CORS · rate limit 규칙, `code` 필드)
 
 ## 1. 모든 외부 접근은 Gateway 경유
 
@@ -138,7 +138,7 @@ interface ApiErrorResponse {
 
 - 응답은 (HTTP 상태, `code`) 쌍으로 해석한다. 호출자 본인의 상태(탈퇴 401 `UNAUTHENTICATED`, 정지 403 `ACCOUNT_SUSPENDED`)만 그대로 전하고, 예상 밖(401 `INTERNAL_TOKEN_INVALID` · 403 `FORBIDDEN` · 그 밖 4xx · 형식 오류)은 503 `SERVICE_BUSY` + error 로그, 5xx · 네트워크 · 시간 초과는 503 + warn 로그다(SPEC-003 7절 표). 쓰는 필드만 남긴다(`pick`).
 - 호출은 DB 트랜잭션 밖에서, 제한 시간(3초)을 두고 한 번만 한다. 로그에는 상태 · `code` · 에러 이름 · 걸린 시간 · `requestId`만 남긴다.
-- 호출자 문맥이 없는 서비스 간 조회(결제 이벤트 소비자, 알림 받는 사람 정보)는 결정 예정 (Step 4 · 7).
+- 호출자 문맥이 없는 서비스 간 조회(알림 받는 사람 정보)는 결정 예정 (Step 7). 결제 이벤트 소비자는 이런 조회를 하지 않는다 — 신청 판정을 자기 DB에서 한다(SPEC-004 D3, [ADR-012](../adr/ADR-012-event-reliability.md) 결정 9).
 
 ## 6. Request ID
 

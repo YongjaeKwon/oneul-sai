@@ -19,9 +19,14 @@ interface EventEnvelope<TPayload> {
   type: string; // 이벤트 이름 (예: 'match.created')
   version: number; // payload 스키마 버전
   occurredAt: string; // 발생 시각, ISO 8601
+  requestId?: string; // 발행을 일으킨 요청의 x-request-id (UUID일 때만)
   payload: TPayload;
 }
 ```
+
+- 봉투 Zod 스키마는 `eventEnvelopeSchema(payload)`(contracts)다. 발행 쪽은 보내기 전에, 소비 쪽은 받은 뒤에 parse한다. `eventEnvelopeSchema(z.unknown())`은 payload를 보지 않고 봉투만 검사한다.
+- `requestId`는 선택 필드(UUID)다. 받은 `x-request-id`가 UUID 모양일 때만 싣고, 소비자는 로그에 이어 붙인다 — 비동기 구간의 요청 추적([ADR-012](../adr/ADR-012-event-reliability.md) 결정 6, ADR-005 Trade-offs).
+- 봉투 부호화 · 해석은 `@oneul-sai/kafka`의 `encodeEnvelope` · `decodeEnvelope`로만 한다([packages/kafka README](../../packages/kafka/README.md)).
 
 ## 3. 초기 이벤트 후보
 
@@ -38,16 +43,16 @@ interface EventEnvelope<TPayload> {
 | preference  | `preference.submitted`                                                                                                                                                             |
 | match       | `match.created`                                                                                                                                                                    |
 
-## 4. 신뢰성 고려사항
+## 4. 신뢰성
 
-아래 항목은 실제 구현 단계에서 적용 여부와 방식을 결정한다. 지금 단계에서는 결정하지 않고, 설계 시 반드시 검토해야 할 목록으로만 관리한다.
+[ADR-012](../adr/ADR-012-event-reliability.md)가 정했다(첫 적용: SPEC-004 `payment.completed.v1`). 각 줄의 자세한 규칙은 ADR-012 결정 번호를 본다.
 
-- **중복(멱등성)**: Kafka는 at-least-once가 기본이므로 Consumer는 `eventId` 기준으로 멱등하게 처리해야 한다.
-- **재시도**: Consumer 처리 실패 시 재시도 정책(횟수, backoff)과 재시도 불가 에러의 구분이 필요하다.
-- **순서**: 순서가 중요한 이벤트는 파티션 키(예: memberId, eventId 단위)로 같은 파티션에 보내야 한다. 파티션 간 순서는 보장되지 않는다.
-- **DLQ**: 재시도로 해소되지 않는 메시지는 Dead Letter Queue 토픽으로 격리하고 별도 처리한다.
-- **Producer 실패**: 발행 실패 시의 에러 처리(재시도, 로깅, 유실 허용 여부)를 이벤트별로 정의해야 한다.
-- **DB Commit–Publish 정합성**: DB 트랜잭션 커밋과 이벤트 발행 사이의 원자성이 없으면 "커밋됐지만 발행 안 됨" 또는 그 반대가 생긴다. 해결책으로 **Transactional Outbox** 패턴을 후보로 두며, 도입 여부는 실제 구현 단계에서 결정한다.
+- **중복(멱등성)**: at-least-once다. 소비자는 자기 DB의 `ProcessedEvent`(`eventId` PK)를 상태 변경과 같은 트랜잭션에 넣는다 — 이미 있으면 아무것도 바꾸지 않는다. 오프셋은 DB 커밋 뒤 수동으로 커밋한다. 소비자는 그룹의 커밋된 오프셋이 없으면 **처음부터 읽고**(`fromBeginning: true`), 구독 전에 토픽을 한 번 만든다(`createTopics`, 있으면 그대로)(결정 2).
+- **재시도**: 기본값은 **"커밋하지 않고 다시"** 다 — 같은 메시지를 5초 간격으로 끝없이(warn `event.retrying`, 10번째부터 error), 에러 종류를 가르지 않는다. 넘기는(커밋하는) 것은 해석할 수 없는 메시지(JSON 아님 · 봉투/payload Zod 실패 · `type` · `version` 다름 — error `event.rejected`)뿐이다. 업무 판정(이미 바뀜 · 취소됨 등)은 에러가 아니다(결정 3).
+- **순서**: 토픽 사이의 순서는 없고, **같은 키 안에서도 발행 순서가 커밋 순서와 같다고 보장하지 않는다**(outbox relay는 커밋 순서를 모른다). 소비자는 도착 순서가 아니라 대상의 지금 상태로 판정한다. 파티션 키는 소비자가 대상을 찾을 키다(결정 5).
+- **DLQ**: 두지 않는다. 원본이 발행한 서비스의 outbox에 남아 `publishedAt = NULL`로 재생한다 — outbox가 재생 원천이다. 외부 부수 효과가 있는 소비자(Step 7 알림)가 생길 때 다시 본다(결정 4).
+- **Producer 실패**: relay가 앞 회차가 끝난 뒤 다시 보낸다(평소 1초, 실패하면 5초 뒤). 전달 제한 시간은 10초이고, 넘으면 warn `outbox.publish_failed`. 행이 남아 있는 한 유실이 없다. 서비스는 브로커 없이도 뜬다(결정 1).
+- **DB Commit–Publish 정합성**: **Transactional Outbox**를 채택했다 — 발행할 이벤트를 업무 행과 같은 트랜잭션의 `OutboxEvent`에 넣고, 같은 프로세스의 폴링 relay가 잠금 없이 읽어 보낸다(결정 1).
 
 ## 5. 로컬 Kafka 실행
 
