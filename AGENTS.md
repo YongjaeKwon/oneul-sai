@@ -5,10 +5,10 @@ AI 코딩 에이전트(Claude Code · Codex 등)를 위한 작업 규칙의 **�
 
 ## 1. 프로젝트 한 줄
 
-**오늘사이(ONULSAI)** — 오프라인 로테이션 소개팅. 일요일 카페에서 7명과 1:1로 대화하고(로테이션), **서로 선택한 경우에만** 연결된다.
+**오늘사이(ONULSAI)** — 오프라인 로테이션 소개팅. 카페에서 7명과 1:1로 대화하고(로테이션), **서로 선택한 경우에만** 연결된다.
 네 가지 개념: **TODAY · ONE MORE · AFTER · NEXT** (순서 고정). 상세: `docs/overview/project-overview.md`, 용어는 `docs/overview/glossary.md`. 태그라인 "오늘, 우리 사이의 시작."
 브랜드 표기는 반드시 **붙여쓰기** "오늘사이". 영문 ONULSAI. 문체는 정중한 존댓말, 짧고 따뜻하게.
-현재 운영은 수동이다: 신청 → 계좌이체 입금 확인 → 카카오 알림톡 참가 확정 → 현장에서 신분증 확인. PG 연동은 이후 단계.
+현재 운영: 같은 서비스를 **친구가 따로 만들어 운영하는 사이트 <https://onulsai.site/>** 가 신청 폼 · 1대1 프로필 등록 · 운영자 화면을 맡고 있다. 흐름은 접수 → 운영자 "참가 가능 안내"(직업 확인 안내 포함) → 결제 안내 → 입금 확인 → 참가 확정(사이트 말로는 "최종 참가 확정") → 현장에서 신분증 확인(사이트 공개 문구에서 역추적, `docs/overview/site-facts.md`. 사이트 문구의 "참가 확정 안내"는 입금 **전** 안내라 저장소에서는 "참가 가능 안내"로 부른다 — `docs/overview/glossary.md`. 두 안내의 이름 · 순서 · 수단은 운영자(친구)에게 확인, site-facts 2절 2번). 이 저장소는 그 사이트의 **독립 구현 — 기능 동등 · 방침 일치**로 만든다(대체 · 이관이 아니다). 안내 · 입금 확인은 수동이고 PG 연동은 이후 단계.
 
 ## 2. 구조
 
@@ -35,7 +35,7 @@ docs/      overview specs architecture adr api database events design guides
 5. **TypeScript strict** — 모든 패키지. `any` 회피, `unknown` + narrowing.
 6. **불필요한 추상화 · 기술 과시 금지** — 지금 요구에 없는 확장 포인트 · 레이어 · 제네릭을 만들지 않는다.
 7. **비즈니스 기능 임의 구현 금지** — `docs/specs/SPEC-00N-<slug>.md`로 머지된 설계서가 있는 기능만 구현한다. 없으면 `docs/specs/TEMPLATE.md`로 초안을 먼저 쓰고 사람의 확인을 기다린다(001~008은 Step 1~8에 예약, 목록은 `docs/specs/README.md`).
-8. **제품 사실을 지어내지 않는다** — 팜플렛 · 운영 메시지에 있는 것만. 미정은 **"결정 예정 (Step N)"** 으로 쓴다.
+8. **제품 사실을 지어내지 않는다** — 팜플렛 · 운영 메시지 · 운영 중 사이트 onulsai.site의 공개 문구([docs/overview/site-facts.md](docs/overview/site-facts.md), 캡처 날짜 명시)에 있는 것만. 운영 방침 문장(참가비 · 환불 · 최소 인원 · 보관 기간 · 참가 조건 · 동의)이 충돌하면 사이트가 원천이고(사용자 확인 2026-10-13), 디자인 · 구조(로그인 · 식별 · 서비스 경계 · 상태 머신)는 이 규칙 밖이다 — 파운데이션 · ADR이 원천. 미정은 **"결정 예정 (Step N)"** 으로 쓴다. 로드맵 Step이 없는 항목은 **"결정 예정 (Step 미정 — SPEC-00N/ADR-0NN)"**, 담당만 정해진 것은 "결정 예정 (디자인 담당)"처럼 담당을 적는다(개요 · 용어 사전은 "N단계" 표기를 그대로 쓴다).
 
 근거: `docs/adr/` (ADR-001~008, 인증은 [ADR-009](docs/adr/ADR-009-authentication.md), 플랫폼 패키지는 [ADR-010](docs/adr/ADR-010-platform-packages.md), 서비스 간 호출은 [ADR-011](docs/adr/ADR-011-service-to-service-calls.md), 이벤트 발행 · 소비 신뢰성은 [ADR-012](docs/adr/ADR-012-event-reliability.md)). 결정을 바꾸려면 새 ADR.
 
@@ -149,7 +149,7 @@ Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md`
 ## 9. 하지 말 것
 
 - 설계서 없는 비즈니스 기능 구현. "일단 만들어 보기" 금지.
-- 팜플렛 · 운영 메시지에 없는 제품 기능 · 문구 · 정책을 만들어 내기.
+- 팜플렛 · 운영 메시지 · 사이트 공개 문구(`docs/overview/site-facts.md`)에 없는 제품 기능 · 문구 · 정책을 만들어 내기. 사이트의 자산(CSS · 글꼴 · 안내 문구 원문)을 정책 문장 외에 복사하기(사실 확인용 최소 인용은 `site-facts.md` 안에서만).
 - 타 서비스 DB · Prisma 모델 · 테이블 이름 참조. cross-DB JOIN.
 - `packages/*`에 도메인 규칙(정원 계산, 매칭 판별, 결제 상태 전이 등) 넣기. `service-kit` · `kafka`도 같다 — 인증 헤더 · 에러 형식 · 이벤트 봉투 같은 플랫폼 코드만, ADR-010 편입 기준(DB · env · 도메인 enum · 한 서비스 전용 코드 금지, kafka는 ADR-012) 안에서.
 - Gateway에 비즈니스 로직 · 경로별 인증 정책 · 역할 판단. Gateway는 라우팅 · request-id · 로깅 · 에러 정책 + 토큰 검증 · 내부 헤더 · 내부 토큰 부착 · `Origin` 확인 · IP rate limit · CORS까지만(ADR-009).
