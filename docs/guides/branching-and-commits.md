@@ -12,7 +12,7 @@
 
 ### 1.1 `main`은 항상 배포 가능
 
-> GitHub 무료 비공개 저장소는 브랜치 보호 규칙을 쓸 수 없다. 그래서 `main` 직접 push는 로컬 훅(`.githooks/pre-push`)이 막는다 — `git config core.hooksPath .githooks`(설치 스크립트가 켠다). 원격 기본 브랜치는 2026-09-23에 `master`에서 `main`으로 바꿨다.
+> `main`에는 GitHub 브랜치 보호 규칙이 있다(2026-10-20 — 저장소가 공개라 쓸 수 있다): CI 작업 `ci` · `integration` · `e2e` 통과 필수, 강제 push · 브랜치 삭제 금지. 리뷰 승인은 요구하지 않는다(1인 개발 기간 — [코드 리뷰 가이드 6절](./code-review.md#6-셀프-리뷰-1인-개발-기간) 셀프 리뷰). 관리자는 규칙을 우회할 수 있으므로 `main` 직접 push는 로컬 훅(`.githooks/pre-push`)도 계속 막는다 — `git config core.hooksPath .githooks`(설치 스크립트가 켠다). 원격 기본 브랜치는 2026-09-23에 `master`에서 `main`으로 바꿨다.
 
 - `main`은 **보호 브랜치**다. 직접 push하지 않는다. 모든 변경은 PR을 거친다.
 - PR은 CI(lint · typecheck · test · build)를 통과하고 리뷰 승인을 받아야 머지된다.

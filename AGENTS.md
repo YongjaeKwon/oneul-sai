@@ -141,8 +141,8 @@ Step 번호 · 이름 · 상태의 원천은 `docs/overview/project-overview.md`
   예) `feat(services): API Gateway + NestJS 서비스 5개 뼈대` / `docs: README, 아키텍처 개요, ADR 8건, API/DB/이벤트 가이드`
 - **의미 단위로 쪼갠다.** 설계서 / Contract / 구현 / 문서는 별도 커밋. 각 커밋은 빌드 가능해야 한다.
 - 커밋 트레일러에 AI를 `Co-Authored-By`로 적지 않는다 — 저자는 항상 사람이다(프로젝트 방침). 사람이 시키지 않으면 commit · push 하지 않는다.
-- **브랜치**: `<type>/<step>-<topic>` (`feat/step1-auth`). `main`에 직접 커밋 · push 금지 — 로컬 훅이 막는다(`git config core.hooksPath .githooks`).
-- **에이전트의 PR 흐름**: 최신 `main`에서 브랜치 → 의미 단위 커밋 → push → `gh pr create`(템플릿 채움) → `/code-review` 결과를 머리표 규칙대로 PR 코멘트로 → CI 초록 확인. 머지는 사람이 맡긴 경우에만 `gh pr merge --rebase --delete-branch`. 의존하는 PR은 쌓지 않고 순서대로 머지한다. 원천: `docs/guides/pull-requests.md` 0절, `docs/guides/code-review.md`.
+- **브랜치**: `<type>/<step>-<topic>` (`feat/step1-auth`). `main`에 직접 커밋 · push 금지 — GitHub 보호 규칙(CI `ci` · `integration` · `e2e` 필수)과 로컬 훅이 막는다(`git config core.hooksPath .githooks`).
+- **에이전트의 PR 흐름**: 최신 `main`에서 브랜치 → 의미 단위 커밋 → push → `gh pr create`(템플릿 채움) → `/code-review` 결과를 머리표 규칙대로 PR 코멘트로 → CI 초록 확인. 머지는 사람이 맡긴 경우에만 `gh pr merge --rebase --delete-branch`(CI를 기다려 머지하라고 하면 `gh pr merge --auto --rebase`). 의존하는 PR은 쌓지 않고 순서대로 머지한다. 원천: `docs/guides/pull-requests.md` 0절, `docs/guides/code-review.md`.
 - **PR**: `.github/PULL_REQUEST_TEMPLATE.md`를 채운다. 작게. CI 초록 + 리뷰 1. Definition of Done — PR 단위는 `docs/guides/pull-requests.md` 7절, Step 단위는 `docs/README.md` 4절.
 - **상황판**: <https://claude.ai/artifact/M3foVY7pn38tXo5QguZvXa> — Step 착수 · 설계서 머지 · 구현 머지 · Step 완료 시 갱신. 문서와 어긋나면 문서가 원천.
 
