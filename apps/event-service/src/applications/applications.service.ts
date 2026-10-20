@@ -22,17 +22,20 @@ import {
 } from '../common/db-lock.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import type { MemberLookup } from '../members/member-client.js';
-import { countActive, isActive } from './application-queries.js';
+import { countSeated, isActive } from './application-queries.js';
 import {
   decideApply,
   decideCancel,
+  decideInvite,
   type Rejection,
 } from './application-rules.js';
 
-// SPEC-003 7 · 10 · 11절: 신청 · 내 신청 · 본인 취소, 운영자 신청 목록 · 운영자 취소.
-// 신청은 위임 호출(트랜잭션 밖) → 한 트랜잭션 { lock_timeout → 회차 행 FOR UPDATE → 회차 · now · 내 신청 · 입금 대기 ·
-// 성별 집계를 각각 별도 문장으로 → 판정 → INSERT }. 취소는 신청 행만 잠근다(자리를 줄이기만 한다).
-// 로그는 커밋 뒤에만, 식별자만 남긴다 — 거절 로그에는 memberId가 없다(결과가 성별 · 출생연도를 드러낸다, 12절).
+// SPEC-003 7 · 10 · 11절(개정 2026-10-14): 신청(접수) · 내 신청 · 본인 취소, 운영자 신청 목록 · 참가 가능 안내 · 운영자 취소.
+// 신청은 위임 호출(트랜잭션 밖) → 한 트랜잭션 { lock_timeout → 회차 행 FOR UPDATE → 회차 · now · 내 신청 · 입금 대기를
+// 각각 별도 문장으로 → 판정 → INSERT APPLIED }. 자리는 세지 않는다 — 접수는 자리를 잡지 않는다(D15).
+// 참가 가능 안내가 자리를 잡는다: 회차 행 → 신청 행 잠금 → 그 성별의 자리 잡은 수를 별도 문장으로 → 판정 → UPDATE PENDING(D16).
+// 취소는 신청 행만 잠근다(자리를 줄이기만 한다).
+// 로그는 커밋 뒤에만, 식별자만 남긴다 — 거절 로그에는 memberId가 없다(결과가 성별을 드러낸다, 12절).
 
 type ApplicationsPrisma = Pick<
   PrismaClient,
@@ -50,11 +53,15 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     '이 일정은 다시 신청할 수 없습니다. 오늘사이에 문의해 주세요.',
   [API_ERROR_CODES.PENDING_APPLICATION_LIMIT]:
     '입금 대기 중인 다른 신청이 있습니다. 그 신청이 확정되거나 취소된 뒤에 신청해 주세요. 오늘사이에 문의해 주세요.',
-  [API_ERROR_CODES.BIRTH_YEAR_OUT_OF_RANGE]:
-    '이 일정의 남성 연령대가 아닙니다.',
+  // 참가 가능 안내(D16)
   [API_ERROR_CODES.SCHEDULE_FULL]: '자리가 모두 찼습니다.',
+  [API_ERROR_CODES.INVALID_STATUS_TRANSITION]:
+    '접수 상태의 신청만 안내할 수 있습니다. 목록을 새로 고쳐 주세요.',
+  // 본인 취소
   [API_ERROR_CODES.APPLICATION_NOT_CANCELLABLE]:
     '신청 마감이 지나 취소할 수 없습니다. 오늘사이에 문의해 주세요.',
+  [API_ERROR_CODES.APPLICATION_CONFIRMED]:
+    '참가가 확정된 신청은 직접 취소할 수 없습니다. 오늘사이에 문의해 주세요.',
 };
 
 const rejectionError = ({ status, code }: Rejection) =>
@@ -164,7 +171,7 @@ export class ApplicationsService {
 
   // ----- 회원 -----
 
-  /** D3 · D7. 위임 호출이 실패하면 트랜잭션을 열지 않는다 — 자리를 잡지 않았으므로 부분 상태가 없다. */
+  /** D3 · D15. 위임 호출이 실패하면 트랜잭션을 열지 않는다 — 접수가 생기지 않았으므로 부분 상태가 없다. */
   async apply(
     caller: CallerUser,
     body: CreateApplicationRequest,
@@ -179,7 +186,7 @@ export class ApplicationsService {
           await setLockTimeout(tx);
           const locked = await tx.$queryRaw<{ id: string }[]>`
             SELECT "id" FROM "Schedule" WHERE "id" = ${scheduleId} FOR UPDATE`;
-          // 회차 · now는 잠금을 얻은 뒤에 읽는다(D4) — 기다리는 동안 바뀐 상태 · 마감 · 정원으로 판정한다
+          // 회차 · now는 잠금을 얻은 뒤에 읽는다(D4) — 기다리는 동안 바뀐 상태 · 마감으로 판정한다
           const schedule =
             locked.length === 0
               ? null
@@ -190,10 +197,6 @@ export class ApplicationsService {
                     priceMale: true,
                     priceFemale: true,
                     applyDeadlineAt: true,
-                    capacityMale: true,
-                    capacityFemale: true,
-                    maleMinBirthYear: true,
-                    maleMaxBirthYear: true,
                   },
                 });
           const now = this.now();
@@ -211,12 +214,6 @@ export class ApplicationsService {
               schedule: { startsAt: { gt: now } },
             },
           });
-          // 잠금 문장과 **별도 문장** — 앞 트랜잭션이 커밋한 신청을 센다(11절)
-          const activeOfMyGender = await countActive(
-            tx,
-            scheduleId,
-            applicant.gender,
-          );
           const decision = decideApply({
             schedule,
             now,
@@ -224,15 +221,16 @@ export class ApplicationsService {
             hasActiveHere: mine.some((row) => isActive(row.status)),
             adminCancelledHere: mine.some((row) => row.cancelledBy === 'ADMIN'),
             pendingElsewhere,
-            activeOfMyGender,
           });
           if (decision.kind === 'reject') return decision;
+          // 접수 — 자리를 잡지 않는다(D14). DB 기본값도 APPLIED지만 마이그레이션 순서에 기대지 않고 적는다
           const row = await tx.application.create({
             data: {
               scheduleId,
               memberId: caller.id,
               gender: applicant.gender,
               price: decision.price,
+              status: 'APPLIED',
             },
             select: MY_APPLICATION_SELECT,
           });
@@ -297,7 +295,7 @@ export class ApplicationsService {
     };
   }
 
-  /** 본인 취소 — 신청 마감 전까지(C). 남의 신청 · 없는 신청은 같은 404다(존재를 드러내지 않는다). */
+  /** 본인 취소 — 접수는 언제든(S3), 입금 대기는 신청 마감 전까지(C), 참가 확정은 못 한다(SPEC-004 D10). 남의 신청 · 없는 신청은 같은 404다. */
   async cancelMine(
     caller: CallerUser,
     applicationId: string,
@@ -381,7 +379,7 @@ export class ApplicationsService {
     };
   }
 
-  /** 운영자 취소 — 언제든, 사유 없음(J). 경로의 상품 · 회차 · 신청이 서로 맞아야 한다. */
+  /** 운영자 취소 — 언제든, 사유 없음(J). 접수 · 입금 대기 · 참가 확정 모두. 경로의 상품 · 회차 · 신청이 서로 맞아야 한다. */
   async cancelByAdmin(
     admin: CallerUser,
     meetupId: string,
@@ -390,7 +388,7 @@ export class ApplicationsService {
     requestId: string,
   ): Promise<AdminApplication> {
     await this.assertScheduleOfMeetup(meetupId, scheduleId);
-    const { row, changed } = await busyAsServiceUnavailable(
+    const { row, wasConfirmed, changed } = await busyAsServiceUnavailable(
       this.prisma.$transaction(async (tx) => {
         await setLockTimeout(tx);
         const locked = await tx.$queryRaw<{ id: string }[]>`
@@ -401,29 +399,106 @@ export class ApplicationsService {
           where: { id: applicationId },
           select: ADMIN_APPLICATION_SELECT,
         });
-        // 운영자 취소에는 시각 조건이 없다
+        const wasConfirmed = current.status === 'CONFIRMED';
+        // 운영자 취소에는 상태 · 시각 조건이 없다
         if (decideCancel(current.status, null).kind === 'noop') {
-          return { row: current, changed: false };
+          return { row: current, wasConfirmed, changed: false };
         }
         const row = await tx.application.update({
           where: { id: applicationId },
           data: { status: 'CANCELLED', cancelledBy: 'ADMIN' },
           select: ADMIN_APPLICATION_SELECT,
         });
-        return { row, changed: true };
+        return { row, wasConfirmed, changed: true };
       }),
       this.logBusy({ scheduleId }, requestId),
     );
     if (changed) {
+      // 입금한 신청을 누가 취소했는가 — 환불 부담 지표(SPEC-004 6 · 14절)
       this.logger.info('application.cancelled', {
         applicationId,
         scheduleId,
         by: 'ADMIN',
         adminId: admin.id,
+        wasConfirmed,
         requestId,
       });
     }
     return toAdminApplication(row);
+  }
+
+  /**
+   * 참가 가능 안내(D16): 접수 → 입금 대기, 이때 그 성별의 자리를 잡는다. 회차와 신청을 함께 건드리므로 회차 행을 먼저 잠근다(D3).
+   * 회차 상태 · 시각 조건은 없다(취소된 회차에는 연쇄 취소로 접수가 남지 않는다). 다른 회차의 입금 대기는 보지 않는다(S5).
+   * 안내 메시지는 운영자가 시스템 밖에서 보낸다 — 이 요청은 상태와 자리만 바꾼다.
+   */
+  async inviteByAdmin(
+    admin: CallerUser,
+    meetupId: string,
+    scheduleId: string,
+    applicationId: string,
+    requestId: string,
+  ): Promise<AdminApplication> {
+    await this.assertScheduleOfMeetup(meetupId, scheduleId);
+    const outcome = await busyAsServiceUnavailable(
+      this.prisma.$transaction(async (tx) => {
+        await setLockTimeout(tx);
+        const schedules = await tx.$queryRaw<{ id: string }[]>`
+          SELECT "id" FROM "Schedule" WHERE "id" = ${scheduleId} FOR UPDATE`;
+        if (schedules.length === 0) throw scheduleNotFound();
+        const locked = await tx.$queryRaw<{ id: string }[]>`
+          SELECT "id" FROM "Application"
+          WHERE "id" = ${applicationId} AND "scheduleId" = ${scheduleId} FOR UPDATE`;
+        if (locked.length === 0) throw applicationNotFound();
+        // 신청 상태 · 정원은 잠금을 얻은 뒤에 읽는다 — 기다리는 동안 바뀐 값으로 판정한다(11절)
+        const current = await tx.application.findUniqueOrThrow({
+          where: { id: applicationId },
+          select: ADMIN_APPLICATION_SELECT,
+        });
+        const { capacityMale, capacityFemale } =
+          await tx.schedule.findUniqueOrThrow({
+            where: { id: scheduleId },
+            select: { capacityMale: true, capacityFemale: true },
+          });
+        // 잠금 문장과 **별도 문장** — 앞 트랜잭션이 커밋한 안내를 센다(11절)
+        const seated = await countSeated(tx, scheduleId, current.gender);
+        const decision = decideInvite(
+          current.status,
+          seated,
+          current.gender === 'MALE' ? capacityMale : capacityFemale,
+        );
+        if (decision.kind === 'reject') return decision;
+        if (decision.kind === 'noop') {
+          return { kind: 'noop' as const, row: current };
+        }
+        const row = await tx.application.update({
+          where: { id: applicationId },
+          data: { status: 'PENDING' },
+          select: ADMIN_APPLICATION_SELECT,
+        });
+        return { kind: 'invited' as const, row };
+      }),
+      this.logBusy({ scheduleId }, requestId),
+    );
+    if (outcome.kind === 'reject') {
+      // SCHEDULE_FULL은 그 신청 성별의 자리가 찼다는 뜻 — memberId를 남기지 않는다(12절)
+      this.logger.info('application.rejected', {
+        adminId: admin.id,
+        applicationId,
+        code: outcome.code,
+        requestId,
+      });
+      throw rejectionError(outcome);
+    }
+    if (outcome.kind === 'invited') {
+      this.logger.info('application.invited', {
+        adminId: admin.id,
+        applicationId,
+        scheduleId,
+        requestId,
+      });
+    }
+    return toAdminApplication(outcome.row);
   }
 
   /** 회차는 상품을 옮기지 않으므로 잠그지 않고 확인한다. */

@@ -69,14 +69,20 @@ describe('MemberClient.lookupSelf — request', () => {
     expect(init?.redirect).toBe('manual');
   });
 
-  it('returns only gender and birthYear for an ACTIVE MEMBER', async () => {
+  it('returns only gender for an ACTIVE MEMBER — no birthYear (D15), no email · name · phone', async () => {
     const { client, logger } = build(json(200, profile()));
     await expect(client.lookupSelf(CALLER, 'r')).resolves.toEqual({
       gender: 'MALE',
-      birthYear: 1994,
     });
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('does not read birthYear — null passes', async () => {
+    const { client } = build(json(200, profile({ birthYear: null })));
+    await expect(client.lookupSelf(CALLER, 'r')).resolves.toEqual({
+      gender: 'MALE',
+    });
   });
 });
 
@@ -114,7 +120,6 @@ describe('MemberClient.lookupSelf — response table (SPEC-003 7절)', () => {
     ['WITHDRAWN', profile({ status: 'WITHDRAWN' })],
     ['ADMIN', profile({ role: 'ADMIN' })],
     ['gender null', profile({ gender: null })],
-    ['birthYear null', profile({ birthYear: null })],
     ['a malformed body', { status: 'ACTIVE' }],
   ])('200 with %s → 503 SERVICE_BUSY + error log', async (_label, body) => {
     const { client, logger } = build(json(200, body));

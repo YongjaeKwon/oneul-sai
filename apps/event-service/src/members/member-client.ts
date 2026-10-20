@@ -19,18 +19,16 @@ import { apiError, type CallerUser } from '@oneul-sai/service-kit';
 const MEMBER_ME_PATH = '/api/v1/members/me';
 export const MEMBER_LOOKUP_TIMEOUT_MS = 3000;
 
-/** 쓰는 필드만 남긴다 — 이메일 · 이름 · 휴대폰은 여기서 떨어진다. */
+/** 쓰는 필드만 남긴다 — 이메일 · 이름 · 휴대폰 · 출생연도는 여기서 떨어진다(연령 판정을 하지 않는다, SPEC-003 D15). */
 const ApplicantProfileSchema = MemberProfileSchema.pick({
   status: true,
   role: true,
   gender: true,
-  birthYear: true,
 });
 
-/** 신청할 수 있는 회원: ACTIVE · MEMBER이고 성별 · 출생연도가 있다(member_db CHECK). */
+/** 신청할 수 있는 회원: ACTIVE · MEMBER이고 성별이 있다(member_db CHECK). */
 export interface Applicant {
   gender: Gender;
-  birthYear: number;
 }
 
 export interface MemberLookup {
@@ -156,11 +154,10 @@ export class MemberClient implements MemberLookup {
     if (
       profile.status !== 'ACTIVE' ||
       profile.role !== 'MEMBER' ||
-      profile.gender === null ||
-      profile.birthYear === null
+      profile.gender === null
     ) {
       throw fail('error', { status, errorName: 'UnexpectedProfile' });
     }
-    return { gender: profile.gender, birthYear: profile.birthYear };
+    return { gender: profile.gender };
   }
 }

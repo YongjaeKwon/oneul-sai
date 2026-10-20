@@ -1,9 +1,11 @@
 import { z } from '@oneul-sai/config';
 import {
+  API_ERROR_CODES,
   APPLICATION_STATUSES,
   AdminApplicationListQuerySchema,
   AdminScheduleListQuerySchema,
   AdminScheduleSchema,
+  AdminUpdateApplicationStatusRequestSchema,
   BatchCreateSchedulesRequestSchema,
   CreateApplicationRequestSchema,
   CreateMeetupRequestSchema,
@@ -361,6 +363,8 @@ describe('venueMapUrl (D4)', () => {
       femaleFull: false,
       appliedMale: 0,
       appliedFemale: 0,
+      receivedMale: 0,
+      receivedFemale: 0,
     };
     expect(AdminScheduleSchema.parse(row).venueMapUrl).toBe(
       'https://old.example/',
@@ -390,7 +394,7 @@ describe('application requests (SPEC-003)', () => {
     }
   });
 
-  it('UpdateApplicationStatusRequest accepts only CANCELLED', () => {
+  it('UpdateApplicationStatusRequest (member) accepts only CANCELLED', () => {
     expect(
       UpdateApplicationStatusRequestSchema.safeParse({ status: 'CANCELLED' })
         .success,
@@ -398,11 +402,30 @@ describe('application requests (SPEC-003)', () => {
     for (const body of [
       {},
       { status: 'PENDING' },
+      { status: 'APPLIED' },
       { status: 'CANCELLED', reason: 'x' },
     ]) {
       expect(UpdateApplicationStatusRequestSchema.safeParse(body).success).toBe(
         false,
       );
+    }
+  });
+
+  it('AdminUpdateApplicationStatusRequest accepts PENDING (invite) and CANCELLED only (D16)', () => {
+    for (const status of ['PENDING', 'CANCELLED']) {
+      expect(
+        AdminUpdateApplicationStatusRequestSchema.safeParse({ status }).success,
+      ).toBe(true);
+    }
+    for (const body of [
+      {},
+      { status: 'APPLIED' },
+      { status: 'CONFIRMED' },
+      { status: 'PENDING', reason: 'x' },
+    ]) {
+      expect(
+        AdminUpdateApplicationStatusRequestSchema.safeParse(body).success,
+      ).toBe(false);
     }
   });
 
@@ -422,7 +445,7 @@ describe('application requests (SPEC-003)', () => {
     ).toBe(false);
   });
 
-  it('AdminApplicationListQuery: default 100, 101 fails, unknown status fails', () => {
+  it('AdminApplicationListQuery: default 100, 101 fails, four statuses pass, unknown status fails', () => {
     expect(AdminApplicationListQuerySchema.parse({})).toEqual({
       page: 1,
       pageSize: 100,
@@ -430,9 +453,13 @@ describe('application requests (SPEC-003)', () => {
     expect(
       AdminApplicationListQuerySchema.safeParse({ pageSize: '101' }).success,
     ).toBe(false);
+    for (const status of ['APPLIED', 'PENDING', 'CONFIRMED', 'CANCELLED']) {
+      expect(
+        AdminApplicationListQuerySchema.safeParse({ status }).success,
+      ).toBe(true);
+    }
     expect(
-      AdminApplicationListQuerySchema.safeParse({ status: 'CONFIRMED' })
-        .success,
+      AdminApplicationListQuerySchema.safeParse({ status: 'WAITING' }).success,
     ).toBe(false);
   });
 });
@@ -476,22 +503,27 @@ describe('MemberListQuery.ids (SPEC-003 D11)', () => {
   });
 });
 
-describe('schedule responses with applications (SPEC-003 D10)', () => {
-  it('PublicScheduleSchema requires maleFull · femaleFull and has no counts', () => {
+describe('schedule responses with applications (SPEC-003 D17 · ★S2)', () => {
+  const SEAT_KEYS = [
+    'appliedMale',
+    'appliedFemale',
+    'receivedMale',
+    'receivedFemale',
+    'maleFull',
+    'femaleFull',
+  ];
+
+  it('PublicScheduleSchema has no application keys at all', () => {
     const keys = Object.keys(PublicScheduleSchema.shape);
-    expect(keys).toEqual(expect.arrayContaining(['maleFull', 'femaleFull']));
-    expect(keys).not.toContain('appliedMale');
-    expect(keys).not.toContain('appliedFemale');
+    for (const key of SEAT_KEYS) expect(keys).not.toContain(key);
   });
 
-  it('AdminScheduleSchema keeps every public key and adds appliedMale · appliedFemale', () => {
+  it('AdminScheduleSchema keeps every public key and adds the six seat values', () => {
     const adminKeys = Object.keys(AdminScheduleSchema.shape);
     for (const key of Object.keys(PublicScheduleSchema.shape)) {
       expect(adminKeys).toContain(key);
     }
-    expect(adminKeys).toEqual(
-      expect.arrayContaining(['appliedMale', 'appliedFemale']),
-    );
+    expect(adminKeys).toEqual(expect.arrayContaining(SEAT_KEYS));
   });
 });
 
@@ -583,10 +615,25 @@ describe('eventEnvelopeSchema(PaymentCompletedPayloadSchema) (SPEC-004 8절)', (
   });
 });
 
-describe('APPLICATION_STATUSES matches the Prisma enum (SPEC-004 13절)', () => {
-  it('has the same values as ApplicationStatus', () => {
-    expect(new Set(APPLICATION_STATUSES)).toEqual(
-      new Set(Object.values(ApplicationStatus)),
+describe('APPLICATION_STATUSES matches the Prisma enum (SPEC-004 13절 · SPEC-003 D19)', () => {
+  it('is PENDING · CANCELLED · CONFIRMED · APPLIED — the ADD VALUE order', () => {
+    expect([...APPLICATION_STATUSES]).toEqual([
+      'PENDING',
+      'CANCELLED',
+      'CONFIRMED',
+      'APPLIED',
+    ]);
+  });
+
+  it('has the same values in the same order as the Prisma ApplicationStatus', () => {
+    expect(Object.values(ApplicationStatus)).toEqual([...APPLICATION_STATUSES]);
+  });
+});
+
+describe('API_ERROR_CODES (SPEC-003 13절 단위 (개정))', () => {
+  it('no longer has BIRTH_YEAR_OUT_OF_RANGE — age does not gate applications (★S1)', () => {
+    expect(Object.keys(API_ERROR_CODES)).not.toContain(
+      'BIRTH_YEAR_OUT_OF_RANGE',
     );
   });
 });

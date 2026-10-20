@@ -96,9 +96,9 @@ export class FakeMembers implements MemberLookup {
   private readonly profiles = new Map<string, Applicant | Error>();
 
   /** 새 회원(MEMBER) 하나를 만들어 등록한다. */
-  add(gender: Applicant['gender'], birthYear: number): Caller {
+  add(gender: Applicant['gender']): Caller {
     const caller: Caller = { id: randomUUID(), role: 'MEMBER' };
-    this.profiles.set(caller.id, { gender, birthYear });
+    this.profiles.set(caller.id, { gender });
     return caller;
   }
 

@@ -63,16 +63,17 @@ export class ApplicationsController {
   @UseGuards(JsonContentTypeGuard)
   @HttpCode(201)
   @ApiOperation({
-    summary: '참가 신청 — 입금 대기로 그 성별의 자리를 잡는다',
+    summary:
+      '참가 신청 — 접수(APPLIED). 자리는 운영자의 참가 가능 안내 때 잡힌다',
     description:
-      'member-service에 본인 성별 · 출생연도 · 계정 상태를 묻고(ADR-011) 회차 행을 잠근 뒤 판정한다(SPEC-003 D3 · D7).',
+      'member-service에 본인 성별 · 계정 상태를 묻고(ADR-011) 회차 행을 잠근 뒤 판정한다(SPEC-003 D3 · D15). 정원 · 연령은 보지 않는다.',
   })
   @ApiBody({
     description:
       'CreateApplicationRequest (@oneul-sai/contracts) — { scheduleId }만. 성별 · 참가비는 받지 않는다',
     schema: { type: 'object' },
   })
-  @ApiCreatedResponse({ description: 'MyApplication (status PENDING)' })
+  @ApiCreatedResponse({ description: 'MyApplication (status APPLIED)' })
   @ApiUnauthorizedResponse({ description: 'UNAUTHENTICATED (탈퇴)' })
   @ApiForbiddenResponse({
     description: 'ACCOUNT_SUSPENDED (정지) · FORBIDDEN (운영자)',
@@ -82,7 +83,7 @@ export class ApplicationsController {
   })
   @ApiConflictResponse({
     description:
-      'APPLICATION_CLOSED · ALREADY_APPLIED · REAPPLY_NOT_ALLOWED · PENDING_APPLICATION_LIMIT · BIRTH_YEAR_OUT_OF_RANGE · SCHEDULE_FULL (D7 순서의 첫 코드)',
+      'APPLICATION_CLOSED · ALREADY_APPLIED · REAPPLY_NOT_ALLOWED · PENDING_APPLICATION_LIMIT (D15 순서의 첫 코드)',
   })
   @ApiServiceUnavailableResponse({
     description:
@@ -118,7 +119,7 @@ export class ApplicationsController {
   @UseGuards(JsonContentTypeGuard)
   @ApiOperation({
     summary:
-      '본인 취소 — 신청 마감 전까지(회차가 CLOSED여도). 같은 상태는 no-op 200',
+      '본인 취소 — 접수는 언제든, 입금 대기는 신청 마감 전까지(회차가 CLOSED여도), 참가 확정은 불가. 같은 상태는 no-op 200',
   })
   @ApiParam({ name: 'applicationId', description: '신청 ID (UUID)' })
   @ApiBody({
@@ -130,7 +131,8 @@ export class ApplicationsController {
     description: 'APPLICATION_NOT_FOUND (없음 · 남의 신청, 같은 본문)',
   })
   @ApiConflictResponse({
-    description: 'APPLICATION_NOT_CANCELLABLE (신청 마감 뒤)',
+    description:
+      'APPLICATION_NOT_CANCELLABLE (입금 대기 · 신청 마감 뒤) · APPLICATION_CONFIRMED (참가 확정, SPEC-004)',
   })
   @ApiServiceUnavailableResponse({
     description: 'SERVICE_BUSY — 잠금 대기 2초 초과(Retry-After: 1)',
