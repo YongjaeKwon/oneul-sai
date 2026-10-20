@@ -4,7 +4,7 @@ PR은 "리뷰 가능한 크기의 변경 + 그 변경이 안전하다는 증거"
 이 문서는 PR을 만드는 사람과 리뷰하는 사람이 같은 기준을 갖기 위한 규칙이다.
 
 - 상태: 확정
-- 최종 갱신: 2026-09-28 (셀프 체크에 브라우저 e2e — CI `e2e` 잡, SPEC-003. 그 전: 2026-09-23 셀프 체크에 통합 테스트 — CI `integration` 잡에 event-service 추가, SPEC-002)
+- 최종 갱신: 2026-10-20 (`main` 보호 규칙 · 자동 머지 · 머지 뒤 브랜치 자동 삭제. 그 전: 2026-09-28 셀프 체크에 브라우저 e2e — CI `e2e` 잡, SPEC-003)
 
 리뷰를 **어떻게** 쓰고 답하는지(코멘트 머리표 · AI 리뷰 · 셀프 리뷰 순서)는 [코드 리뷰 가이드](./code-review.md)에 있다.
 
@@ -21,10 +21,11 @@ gh pr create --base main --fill-first            # 본문은 템플릿을 채운
 # AI 리뷰(/code-review) → 결과를 PR 코멘트로(코드 리뷰 가이드 5절)
 gh pr checks --watch                             # CI 초록 확인
 gh pr merge --rebase --delete-branch             # 승인 뒤, 작성자가 머지(6절)
+# 또는 CI를 기다려 머지: gh pr merge --auto --rebase  (필수 CI 셋이 통과하면 GitHub가 머지)
 git switch main && git pull
 ```
 
-- `main`에는 직접 커밋 · push하지 않는다. GitHub 무료 비공개 저장소는 브랜치 보호를 쓸 수 없어 **로컬 `pre-push` 훅**(`.githooks/pre-push`)이 `main` push를 막는다. 켜는 방법: `git config core.hooksPath .githooks`(설치 스크립트가 해 준다).
+- `main`에는 직접 커밋 · push하지 않는다. **GitHub 브랜치 보호 규칙**이 CI 작업 `ci` · `integration` · `e2e` 통과를 머지 조건으로 두고(리뷰 승인은 요구하지 않음, 강제 push · 삭제 금지), 관리자 우회를 대비해 **로컬 `pre-push` 훅**(`.githooks/pre-push`)도 `main` push를 막는다. 켜는 방법: `git config core.hooksPath .githooks`(설치 스크립트가 해 준다). 규칙 설명은 [브랜치와 커밋 1.1절](./branching-and-commits.md#11-main은-항상-배포-가능).
 - **의존하는 PR은 순서대로 하나씩 머지**한다. PR 위에 PR을 쌓지(stack) 않는다 — rebase 머지는 커밋 해시를 바꾸므로 쌓인 PR이 매번 다시 rebase되어야 한다. 앞 PR이 머지되면 최신 `main`에서 다음 브랜치를 딴다.
 - **AI 에이전트가 만드는 PR**도 같은 흐름이다. 에이전트는 브랜치를 만들고, 템플릿을 채운 PR을 올리고, AI 리뷰 결과를 코멘트로 남긴다. 머지는 사람이 맡긴 경우에만 한다. 본문 끝에 에이전트가 만들었음을 적고, 커밋 트레일러에는 AI를 적지 않는다.
 
@@ -104,7 +105,7 @@ PR을 올리는 사람이 먼저 확인한다. 리뷰어의 시간을 아끼는 
 
 - Rebase 머지 전 조건: PR의 모든 커밋이 [커밋 규약](./branching-and-commits.md#2-커밋-메시지-규약)을 따르고, 각 커밋이 빌드 가능한 상태다.
 - 머지는 **PR 작성자**가 한다(승인이 났고 CI가 초록일 때). 작성자가 부재면 승인한 리뷰어가 한다.
-- 머지 후 브랜치는 삭제한다.
+- 머지 후 브랜치는 삭제한다. 저장소 설정이 머지된 브랜치를 자동으로 지운다(2026-10-20). `gh pr merge --auto --rebase`(자동 머지)는 필수 CI가 모두 통과한 뒤에만 머지된다 — 필수 CI가 없던 때는 자동 머지를 켤 수 없었다.
 
 ## 7. Definition of Done
 
