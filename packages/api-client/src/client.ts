@@ -10,6 +10,7 @@ import {
   type AdminSchedule,
   type AdminScheduleListQuery,
   type AdminScheduleListResponse,
+  type AdminUpdateApplicationStatusRequest,
   type AuthResponse,
   type BatchCreateSchedulesRequest,
   type BatchCreateSchedulesResponse,
@@ -469,7 +470,7 @@ export class ApiClient {
 
   // ----- 참가 신청 (회원, SPEC-003) -----
 
-  /** `POST /api/v1/applications` (MEMBER). 201 입금 대기. */
+  /** `POST /api/v1/applications` (MEMBER). 201 접수(`APPLIED`) — 자리는 운영자 참가 가능 안내 때 잡는다. */
   apply(scheduleId: string): Promise<MyApplication> {
     return this.request<MyApplication>('POST', APPLICATION_PATHS.applications, {
       body: { scheduleId } satisfies CreateApplicationRequest,
@@ -487,7 +488,7 @@ export class ApiClient {
     );
   }
 
-  /** `PATCH /api/v1/applications/:applicationId/status` (MEMBER). 신청 마감 전까지 본인 취소. */
+  /** `PATCH /api/v1/applications/:applicationId/status` (MEMBER). 본인 취소 — 접수는 언제든, 입금 대기는 마감 전까지, 참가 확정은 409 `APPLICATION_CONFIRMED`. */
   cancelMyApplication(applicationId: string): Promise<MyApplication> {
     return this.request<MyApplication>(
       'PATCH',
@@ -513,7 +514,7 @@ export class ApiClient {
     );
   }
 
-  /** `PATCH .../schedules/:scheduleId/applications/:applicationId/status` (ADMIN). 언제든 취소, 사유 없음. */
+  /** `PATCH .../schedules/:scheduleId/applications/:applicationId/status` (ADMIN). 언제든 취소(참가 확정 포함), 사유 없음. */
   cancelApplication(
     meetupId: string,
     scheduleId: string,
@@ -523,7 +524,30 @@ export class ApiClient {
       'PATCH',
       MEETUP_PATHS.applicationStatus(meetupId, scheduleId, applicationId),
       {
-        body: { status: 'CANCELLED' } satisfies UpdateApplicationStatusRequest,
+        body: {
+          status: 'CANCELLED',
+        } satisfies AdminUpdateApplicationStatusRequest,
+      },
+    );
+  }
+
+  /**
+   * `PATCH .../schedules/:scheduleId/applications/:applicationId/status` `{ status: 'PENDING' }` (ADMIN). 참가 가능 안내 —
+   * 접수를 입금 대기로 바꾸고 그 성별의 자리를 잡는다. 이미 입금 대기면 200 no-op, 자리가 차면 409 `SCHEDULE_FULL`,
+   * 참가 확정 · 취소면 409 `INVALID_STATUS_TRANSITION`(SPEC-003 D16).
+   */
+  inviteApplication(
+    meetupId: string,
+    scheduleId: string,
+    applicationId: string,
+  ): Promise<AdminApplication> {
+    return this.request<AdminApplication>(
+      'PATCH',
+      MEETUP_PATHS.applicationStatus(meetupId, scheduleId, applicationId),
+      {
+        body: {
+          status: 'PENDING',
+        } satisfies AdminUpdateApplicationStatusRequest,
       },
     );
   }
