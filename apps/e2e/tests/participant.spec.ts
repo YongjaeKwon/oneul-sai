@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { env } from '../env.js';
 import { adminToken, openSchedule, signupMember } from './api.js';
 
-// SPEC-003 13절 e2e — 참가자 흐름(web): 로그인 → 같은 일정으로 돌아와 신청 → 내 신청 → 본인 취소.
+// SPEC-003 13절 e2e (개정 2026-10-14) — 참가자 흐름(web): 로그인 → 같은 일정으로 돌아와 신청(접수) → 내 신청 → 본인 취소.
 test('participant applies after logging in and cancels from 내 신청', async ({
   page,
 }) => {
@@ -29,15 +29,20 @@ test('participant applies after logging in and cancels from 내 신청', async (
   await expect(applyDialog).toContainText('참가비는 25,000원입니다.');
   await applyDialog.getByRole('button', { name: '신청' }).click();
 
+  // 신청은 접수(APPLIED)로 태어난다 — 자리는 운영자의 참가 가능 안내 때 잡는다(D14 · S7)
   await expect(area.getByText('참가 신청이 접수되었습니다.')).toBeVisible();
-  await expect(area.getByText('입금 대기')).toBeVisible();
+  await expect(area.getByText('접수', { exact: true })).toBeVisible();
   await expect(area.getByText('참가비 25,000원')).toBeVisible();
+  await expect(
+    area.getByText('참가 가능 여부는 따로 안내드릴게요.'),
+  ).toBeVisible();
 
   await page.goto(`${env.E2E_WEB_URL}/me/applications`);
   const card = page.getByRole('article').filter({ hasText: schedule.title });
-  await expect(card.getByText('입금 대기')).toBeVisible();
+  await expect(card.getByText('접수', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: '신청 취소' }).click();
   const cancelDialog = page.getByRole('dialog', { name: '신청 취소' });
+  await expect(cancelDialog).toContainText('참가 신청을 취소할까요?');
   await cancelDialog.getByRole('button', { name: '신청 취소' }).click();
 
   await expect(card.getByText('직접 취소했습니다.')).toBeVisible();

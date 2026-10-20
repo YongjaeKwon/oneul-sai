@@ -143,7 +143,7 @@ export async function signupMember(gender: Gender): Promise<TestMember> {
   return member;
 }
 
-/** 회원으로 로그인해 신청한다(운영자 흐름의 준비). */
+/** 회원으로 로그인해 신청한다(운영자 흐름의 준비). 신청은 접수(`APPLIED`)로 태어난다 — SPEC-003 D14. */
 export async function applyAs(
   member: TestMember,
   scheduleId: string,
