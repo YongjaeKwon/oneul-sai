@@ -5,6 +5,7 @@ import type {
   MemberListParams,
 } from '@oneul-sai/api-client';
 import type {
+  AdminApplication,
   AdminSchedule,
   BatchCreateSchedulesRequest,
   CreateMeetupRequest,
@@ -310,6 +311,23 @@ export function useCancelApplication(meetupId: string, scheduleId: string) {
   return useMutation({
     mutationFn: (applicationId: string) =>
       apiClient.cancelApplication(meetupId, scheduleId, applicationId),
+    onSettled: () =>
+      queryClient.invalidateQueries({
+        queryKey: meetupKeys.schedules(meetupId),
+      }),
+  });
+}
+
+/**
+ * A10 참가 가능 안내(접수 → 입금 대기, SPEC-003 D16). 취소와 같은 경로에 `{ status: 'PENDING' }`. 성공이든 실패든(409 `SCHEDULE_FULL` 뒤에도
+ * 목록 · 요약을 다시 부른다 — 4절 표) 회차 · 신청을 새로 부른다. 변수로 신청 성별까지 받아 오류 문구가 `variables.gender`를 쓴다.
+ */
+export function useInviteApplication(meetupId: string, scheduleId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (application: Pick<AdminApplication, 'id' | 'gender'>) =>
+      apiClient.inviteApplication(meetupId, scheduleId, application.id),
     onSettled: () =>
       queryClient.invalidateQueries({
         queryKey: meetupKeys.schedules(meetupId),

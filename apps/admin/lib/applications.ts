@@ -4,33 +4,47 @@ import {
   type AdminSchedule,
   type ApplicationCancelledBy,
   type ApplicationStatus,
+  type Gender,
   type MemberSummary,
   type UpdateScheduleRequest,
 } from '@oneul-sai/contracts';
 import type { BadgeTone } from '@oneul-sai/ui';
 
 import { describeError, isApiClientError } from './errors';
+import { GENDER_LABELS } from './format';
 
-// SPEC-003 4절 "운영자 웹" A6 · A8 · A10의 표시 도우미와 문구. 판정의 원천은 서버다.
+// SPEC-003 4절 "운영자 웹" A6 · A8 · A10의 표시 도우미와 문구(개정 2026-10-14 — 접수 · 참가 가능 안내). 판정의 원천은 서버다.
 
 type AppliedCounts = Pick<
   AdminSchedule,
-  'appliedMale' | 'capacityMale' | 'appliedFemale' | 'capacityFemale'
+  | 'appliedMale'
+  | 'capacityMale'
+  | 'appliedFemale'
+  | 'capacityFemale'
+  | 'receivedMale'
+  | 'receivedFemale'
 >;
 
-/** "남 3/7 · 여 5/7" — 성별 활성 신청 수 / 정원. 문장 속에서는 앞에 "신청"을 붙인다. */
+/**
+ * "남 3/7 · 여 5/7 · 접수 남 2 · 여 1" — 성별 자리 잡은 신청 수(입금 대기 · 참가 확정) / 정원, 뒤에 접수 수(SPEC-003 D17).
+ * 접수가 0이어도 늘 보인다(포맷 하나). 문장 속에서는 앞에 "신청"을 붙인다.
+ */
 export function formatAppliedCounts(schedule: AppliedCounts): string {
-  return `남 ${schedule.appliedMale}/${schedule.capacityMale} · 여 ${schedule.appliedFemale}/${schedule.capacityFemale}`;
+  return `남 ${schedule.appliedMale}/${schedule.capacityMale} · 여 ${schedule.appliedFemale}/${schedule.capacityFemale} · 접수 남 ${schedule.receivedMale} · 여 ${schedule.receivedFemale}`;
 }
 
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  APPLIED: '접수',
   PENDING: '입금 대기',
+  CONFIRMED: '참가 확정',
   CANCELLED: '취소',
 };
 
-/** 디자인 파운데이션 5절 `Badge` — 입금 대기 `warning`, 취소 `danger`. 뜻은 글자가 전한다. */
+/** 디자인 파운데이션 5절 `Badge` — 접수 `neutral`(S7), 입금 대기 `warning`, 참가 확정 `success`(SPEC-004), 취소 `danger`. 뜻은 글자가 전한다. */
 export const APPLICATION_STATUS_TONES: Record<ApplicationStatus, BadgeTone> = {
+  APPLIED: 'neutral',
   PENDING: 'warning',
+  CONFIRMED: 'success',
   CANCELLED: 'danger',
 };
 
@@ -49,21 +63,21 @@ export const APPLICATION_FILTERS: readonly {
   value: ApplicationFilter;
   label: string;
 }[] = [
+  { value: 'APPLIED', label: '접수' },
   { value: 'PENDING', label: '입금 대기' },
+  { value: 'CONFIRMED', label: '참가 확정' },
   { value: 'CANCELLED', label: '취소' },
   { value: 'ALL', label: '전체' },
 ];
 
-/** `?status=` → 필터. 없거나 모르는 값이면 기본값 — 입금 대기, 취소된 회차면 취소(연락처 확인용, I). */
-export function applicationFilterOf(
-  value: unknown,
-  scheduleCancelled: boolean,
-): ApplicationFilter {
-  const known = APPLICATION_FILTERS.find((filter) => filter.value === value);
-  if (known !== undefined) {
-    return known.value;
-  }
-  return scheduleCancelled ? 'CANCELLED' : 'PENDING';
+/**
+ * `?status=` → 필터. 없거나 모르는 값이면 "전체"(SPEC-004 K-1 — 한 회차 7+7 규모는 한 화면에 다 보인다).
+ * 취소된 회차도 같다 — A8의 "신청 목록 보기"가 `?status=CANCELLED`를 명시해 연다.
+ */
+export function applicationFilterOf(value: unknown): ApplicationFilter {
+  return (
+    APPLICATION_FILTERS.find((filter) => filter.value === value)?.value ?? 'ALL'
+  );
 }
 
 // ----- A10 신청 · 회원 합치기(D11) -----
@@ -111,6 +125,58 @@ export function adminCancelQuestion(member: MemberSummary | null): string {
   return `${who} ${ADMIN_CANCEL_AFTERWORD}`;
 }
 
+/**
+ * 접수 줄의 "참가 가능 안내" 버튼(A10 줄 표). 탈퇴한 회원 줄에는 취소만 — 연락할 수 없다(SPEC-004 L-3 선례).
+ * 회원 정보를 모르면(조회 실패) 버튼은 두고 질문만 "이 신청에 …"로 바꾼다.
+ */
+export function canInvite({ application, member }: ApplicationRow): boolean {
+  return application.status === 'APPLIED' && member?.status !== 'WITHDRAWN';
+}
+
+/** 참가 가능 안내 확인 창의 질문(S7). 성별은 신청의 스냅샷 — 안내하면 그 성별의 자리를 잡는다. */
+export function inviteQuestion(
+  member: MemberSummary | null,
+  gender: Gender,
+): string {
+  const who =
+    member?.name != null
+      ? `${member.name}님께 참가 가능 안내를 할까요?`
+      : '이 신청에 참가 가능 안내를 할까요?';
+  return `${who} 안내하면 ${GENDER_LABELS[gender]} 자리를 하나 잡고 신청이 입금 대기로 바뀝니다. 안내 메시지는 따로 보내 주세요.`;
+}
+
+/** 참가 가능 안내의 오류 문구(SPEC-003 4절 표) — `SCHEDULE_FULL`은 그 줄의 신청 성별을 넣는다. 404는 취소와 같다. */
+export function inviteErrorOverrides(
+  gender: Gender,
+): Partial<Record<string, string>> {
+  return {
+    ...APPLICATION_ERROR_OVERRIDES,
+    [API_ERROR_CODES.SCHEDULE_FULL]: `${GENDER_LABELS[gender]} 자리가 모두 찼습니다. 자리 잡은 신청을 취소하거나 정원을 늘린 뒤 다시 안내해 주세요.`,
+    [API_ERROR_CODES.INVALID_STATUS_TRANSITION]:
+      '접수 상태의 신청만 안내할 수 있습니다. 목록을 새로 고쳐 주세요.',
+  };
+}
+
+/**
+ * 출생연도 옆 "연령대 밖"(★S1 (a) — 신청은 막지 않고 운영자가 보고 고른다). 경계 포함. 범위가 없거나 출생연도를 모르면(탈퇴 ·
+ * 조회 실패) 거짓. 지금은 남성 쌍(`maleMin/MaxBirthYear`)만 본다 — 여성 쌍은 SPEC-002 개정 PR이 열을 더한 뒤(SPEC-003 15절).
+ */
+export function outsideBirthYears(
+  gender: Gender,
+  birthYear: number | null,
+  schedule: Pick<AdminSchedule, 'maleMinBirthYear' | 'maleMaxBirthYear'>,
+): boolean {
+  if (birthYear === null || gender !== 'MALE') {
+    return false;
+  }
+  return (
+    (schedule.maleMinBirthYear !== null &&
+      birthYear < schedule.maleMinBirthYear) ||
+    (schedule.maleMaxBirthYear !== null &&
+      birthYear > schedule.maleMaxBirthYear)
+  );
+}
+
 /** 계정 상태 칸 — 정지 · 탈퇴일 때만 보인다(4절 A10). */
 export function accountNoteOf(member: MemberSummary | null): string {
   switch (member?.status) {
@@ -139,11 +205,19 @@ export function memberLookupNotice(error: unknown): string | null {
 
 // ----- A8 회차 수정 · 취소 -----
 
-/** 활성 신청 수(남녀 합). */
-export function activeApplicationCount(
-  schedule: Pick<AdminSchedule, 'appliedMale' | 'appliedFemale'>,
-): number {
-  return schedule.appliedMale + schedule.appliedFemale;
+type ActiveCounts = Pick<
+  AdminSchedule,
+  'appliedMale' | 'appliedFemale' | 'receivedMale' | 'receivedFemale'
+>;
+
+/** 활성 신청 수(남녀 합) = 자리 잡은 수 + 접수 수 — H · I 문장의 N(접수된 사람도 안내 대상이다, SPEC-003 D18). */
+export function activeApplicationCount(schedule: ActiveCounts): number {
+  return (
+    schedule.appliedMale +
+    schedule.appliedFemale +
+    schedule.receivedMale +
+    schedule.receivedFemale
+  );
 }
 
 const NOTIFY_FIELDS = [
@@ -164,7 +238,7 @@ const NOTIFY_FIELDS = [
  * 신청 마감 시각을 바꾸면 본인 취소 기간도 바뀐다는 문장을 더한다(C · D4). 폼이 끝에 "이대로 저장할까요?"를 붙인다.
  */
 export function applicantWarnings(
-  schedule: Pick<AdminSchedule, 'appliedMale' | 'appliedFemale'>,
+  schedule: ActiveCounts,
   changes: UpdateScheduleRequest,
 ): string[] {
   const count = activeApplicationCount(schedule);
@@ -184,7 +258,7 @@ export function applicantWarnings(
 
 /** 회차 취소 창에 더하는 문장(I). 활성 신청이 없으면 null. */
 export function scheduleCancelApplicantsNote(
-  schedule: Pick<AdminSchedule, 'appliedMale' | 'appliedFemale'>,
+  schedule: ActiveCounts,
 ): string | null {
   const count = activeApplicationCount(schedule);
   return count === 0

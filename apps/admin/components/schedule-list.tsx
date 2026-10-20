@@ -45,7 +45,7 @@ interface Progress {
 }
 
 /**
- * A6 아래쪽 회차 목록 — 상태 · 기간 필터(기본 "오늘 이후"), 한 줄에 일시 · 지역 · 참가비 · 정원 · 신청 수 · 남성 연령대 · 상태.
+ * A6 아래쪽 회차 목록 — 상태 · 기간 필터(기본 "오늘 이후"), 한 줄에 일시 · 지역 · 참가비 · 정원 · 신청 수(자리 잡은 수 / 정원 · 접수 수) · 남성 연령대 · 상태.
  * DRAFT 행을 골라 "선택한 회차 공개"하면 회차마다 상태 API를 차례로 부르고 행마다 결과를 붙인다(D15).
  * 한 페이지(최대 100개)가 한 번에 고를 수 있는 수의 상한이다.
  */
@@ -328,7 +328,7 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
                             schedule.capacityFemale,
                           )}
                         </td>
-                        {/* SPEC-003 A6 — 성별 활성 신청 수 / 정원 */}
+                        {/* SPEC-003 A6 — 성별 자리 잡은 신청 수 / 정원 · 접수 수 */}
                         <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
                           {formatAppliedCounts(schedule)}
                         </td>

@@ -196,8 +196,8 @@ function ScheduleDetail({
 }
 
 /**
- * A8 신청 요약 카드(SPEC-003 4절): "신청 남 a/b · 여 c/d" + 신청 목록(A10). DRAFT는 아직 신청을 받지 않는다.
- * 취소된 회차에도 남아 A10을 "취소" 필터로 연다 — 신청자 연락처 확인용(I).
+ * A8 신청 요약 카드(SPEC-003 4절): "신청 남 a/b · 여 c/d · 접수 남 e · 여 f" + 신청 목록(A10). DRAFT는 아직 신청을 받지 않는다.
+ * 취소된 회차에도 남아 A10을 "취소" 필터로 연다(기본 필터는 "전체"라 주소에 명시한다) — 신청자 연락처 확인용(I).
  */
 function ApplicationSummary({ schedule }: { schedule: AdminSchedule }) {
   if (schedule.status === 'DRAFT') {
