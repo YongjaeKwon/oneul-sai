@@ -15,10 +15,10 @@ import {
 import { createLogger, type Logger } from '@oneul-sai/logger';
 import { apiError, type CallerUser } from '@oneul-sai/service-kit';
 import {
-  activeCountsBySchedule,
   cancelActiveForSchedule,
-  countActive,
+  countSeated,
   NO_APPLICATIONS,
+  seatCountsBySchedule,
   seatsOf,
   type ApplicationCounts,
 } from '../applications/application-queries.js';
@@ -46,7 +46,7 @@ import {
 // 운영자 회차: 목록 · 생성 · 여러 회차 등록 · 상세 · 수정 · 상태 · 삭제 (SPEC-002 7 · 10 · 11절).
 // 수정 · 상태 · 삭제는 한 트랜잭션에서 `SELECT ... FOR UPDATE`로 잠근 뒤 판정한다. 여러 회차 등록은 규칙 판정을
 // 트랜잭션 밖에서 끝내고 한 트랜잭션에서 INSERT만 한다(D15). 로그에는 식별자와 바뀐 필드 이름만 남긴다(12절).
-// SPEC-003 D8: 정원을 줄이면 잠금 뒤 활성 신청 수와 비교하고, 회차를 취소하면 같은 트랜잭션에서 신청을 함께 취소한다.
+// SPEC-003 D8: 정원을 줄이면 잠금 뒤 자리 잡은 신청 수(접수 제외)와 비교하고, 회차를 취소하면 같은 트랜잭션에서 활성 신청(접수 포함)을 함께 취소한다.
 // 잠금 대기는 2초가 상한이다(D3) — 넘으면 503. 신청 테이블은 applications 모듈의 함수로만 건드린다.
 
 type SchedulesPrisma = Pick<
@@ -74,7 +74,7 @@ const RULE_NAMES: Record<ScheduleRuleViolation, string> = {
   [API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID]: '연령대 규칙',
 };
 
-/** 신청 수를 붙여 운영자 응답으로 — 네 값(`applied*` · `*Full`)은 모든 운영자 회차 응답에 실린다(SPEC-003 D10). */
+/** 신청 수를 붙여 운영자 응답으로 — 여섯 값(`applied*` · `received*` · `*Full`)은 모든 운영자 회차 응답에 실린다(SPEC-003 D17). */
 export function toAdminSchedule(
   row: AdminScheduleRow,
   counts: ApplicationCounts = NO_APPLICATIONS,
@@ -93,7 +93,7 @@ async function countsOf(
   scheduleId: string,
 ): Promise<ApplicationCounts> {
   return (
-    (await activeCountsBySchedule(db, [scheduleId])).get(scheduleId) ??
+    (await seatCountsBySchedule(db, [scheduleId])).get(scheduleId) ??
     NO_APPLICATIONS
   );
 }
@@ -146,7 +146,7 @@ export class SchedulesService {
       }),
       this.prisma.schedule.count({ where }),
     ]);
-    const counts = await activeCountsBySchedule(
+    const counts = await seatCountsBySchedule(
       this.prisma,
       rows.map((row) => row.id),
     );
@@ -233,7 +233,7 @@ export class SchedulesService {
   }
 
   /**
-   * 잠금 → CANCELLED면 409 → 저장된 값과 병합 → 시간 · 연령대 규칙 → 정원을 바꾸면 그 성별 활성 신청 수와 비교(D8) →
+   * 잠금 → CANCELLED면 409 → 저장된 값과 병합 → 시간 · 연령대 규칙 → 정원을 바꾸면 그 성별 자리 잡은 신청 수와 비교(D8) →
    * 바뀐 필드만 UPDATE.
    */
   async update(
@@ -261,16 +261,16 @@ export class SchedulesService {
           now,
         );
         if (violation !== null) throw reject(400, violation);
-        // 신청과 같은 회차 행 잠금 뒤에 세므로, 그 사이에 신청이 끼어들어 정원을 넘지 못한다(11절)
+        // 참가 가능 안내와 같은 회차 행 잠금 뒤에 세므로, 그 사이에 안내가 끼어들어 정원을 넘지 못한다(11절). 접수는 세지 않는다
         if (
           data.capacityMale !== undefined &&
-          data.capacityMale < (await countActive(tx, current.id, 'MALE'))
+          data.capacityMale < (await countSeated(tx, current.id, 'MALE'))
         ) {
           throw reject(409, API_ERROR_CODES.CAPACITY_BELOW_APPLICATIONS);
         }
         if (
           data.capacityFemale !== undefined &&
-          data.capacityFemale < (await countActive(tx, current.id, 'FEMALE'))
+          data.capacityFemale < (await countSeated(tx, current.id, 'FEMALE'))
         ) {
           throw reject(409, API_ERROR_CODES.CAPACITY_BELOW_APPLICATIONS);
         }

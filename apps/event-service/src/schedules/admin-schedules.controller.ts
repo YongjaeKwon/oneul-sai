@@ -177,12 +177,12 @@ export class AdminSchedulesController {
   })
   @ApiOkResponse({
     description:
-      'AdminSchedule(+ appliedMale · appliedFemale · maleFull · femaleFull)',
+      'AdminSchedule(+ appliedMale · appliedFemale(자리 잡은 수) · receivedMale · receivedFemale(접수 수) · maleFull · femaleFull)',
   })
   @ApiNotFoundResponse({ description: 'SCHEDULE_NOT_FOUND' })
   @ApiConflictResponse({
     description:
-      'SCHEDULE_NOT_EDITABLE (CANCELLED) · CAPACITY_BELOW_APPLICATIONS (정원 < 그 성별 활성 신청 수, SPEC-003)',
+      'SCHEDULE_NOT_EDITABLE (CANCELLED) · CAPACITY_BELOW_APPLICATIONS (정원 < 그 성별 자리 잡은 신청 수 — 접수는 세지 않는다, SPEC-003)',
   })
   @ApiServiceUnavailableResponse({
     description: 'SERVICE_BUSY — 회차 잠금 대기 2초 초과(Retry-After: 1)',
@@ -212,7 +212,7 @@ export class AdminSchedulesController {
   })
   @ApiOkResponse({
     description:
-      'AdminSchedule. → CANCELLED면 같은 트랜잭션에서 그 회차의 활성 신청이 모두 취소된다(cancelledBy SCHEDULE, SPEC-003)',
+      'AdminSchedule. → CANCELLED면 같은 트랜잭션에서 그 회차의 활성 신청(접수 · 입금 대기 · 참가 확정)이 모두 취소된다(cancelledBy SCHEDULE, SPEC-003)',
   })
   @ApiNotFoundResponse({ description: 'SCHEDULE_NOT_FOUND' })
   @ApiConflictResponse({ description: 'INVALID_STATUS_TRANSITION' })

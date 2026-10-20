@@ -67,10 +67,14 @@ enum Gender {
   FEMALE
 }
 
-// 활성 신청 = CANCELLED가 아닌 신청. 확정 상태는 Step 4가 더한다 (D2)
+// 활성 신청 = CANCELLED가 아닌 신청(접수 포함). 자리 잡은 신청 = PENDING · CONFIRMED (SPEC-003 D14).
+// 값 순서는 ADD VALUE 순서다 — PENDING · CANCELLED(add_application) → CONFIRMED · APPLIED(add_application_statuses, D19).
+// contracts APPLICATION_STATUSES도 같은 순서.
 enum ApplicationStatus {
-  PENDING
+  PENDING // 입금 대기 — 참가 가능 안내를 받아 자리를 잡았다
   CANCELLED
+  CONFIRMED // 참가 확정 — payment.completed.v1 (SPEC-004 D2)
+  APPLIED // 접수 — 자리를 잡지 않았다 (SPEC-003 개정 2026-10-14)
 }
 
 enum ApplicationCancelledBy {
@@ -86,14 +90,14 @@ model Application {
   memberId    String
   gender      Gender // 신청 시점 스냅샷 (D1)
   price       Int // 신청 시점 그 성별의 참가비 (D1)
-  status      ApplicationStatus       @default(PENDING)
+  status      ApplicationStatus       @default(APPLIED) // 접수로 태어난다 (SPEC-003 D14)
   cancelledBy ApplicationCancelledBy? // CANCELLED일 때만 (CHECK)
   createdAt   DateTime                @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime                @updatedAt @db.Timestamptz(3)
 
   schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
 
-  // 한 회차 · 한 회원의 활성 신청은 하나 — 최종 방어선 (D3).
+  // 한 회차 · 한 회원의 활성 신청은 하나 — 최종 방어선 (D3). 접수도 활성이다.
   // 생성되는 복합 선택자 scheduleId_memberId는 쓰지 않는다 — CANCELLED 행은 여러 개일 수 있다 (9절)
   @@unique([scheduleId, memberId], map: "Application_active_member_key", where: raw("\"status\" <> 'CANCELLED'"))
   @@index([scheduleId, createdAt])

@@ -8,6 +8,7 @@ import { PUBLIC_SCHEDULE_SELECT } from '../schedules/schedule-select.js';
 import { PublicEventsService } from './public-events.service.js';
 
 // SPEC-002 13절 단위 "공개 필드 격리"(12절 네 겹 중 2 · 3번을 코드로 고정한다).
+// SPEC-003 D17(★S2): 공개 조회는 신청 테이블을 읽지 않고 신청 관련 값을 싣지 않는다.
 
 const PRIVATE_KEYS = [
   'venueName',
@@ -16,6 +17,14 @@ const PRIVATE_KEYS = [
   'venueMapUrl',
   'cancelReason',
   'meetupId',
+];
+const APPLICATION_KEYS = [
+  'maleFull',
+  'femaleFull',
+  'appliedMale',
+  'appliedFemale',
+  'receivedMale',
+  'receivedFemale',
 ];
 const NOW = new Date('2026-10-01T00:00:00.000Z');
 const ID = '2f7a1c1e-6c3f-4b2a-9d1e-5b6c7d8e9f01';
@@ -43,41 +52,28 @@ const leakyRow = {
   cancelReason: 'SECRET-REASON',
 };
 
-function build(
-  row: typeof leakyRow | null,
-  groups: {
-    scheduleId: string;
-    gender: 'MALE' | 'FEMALE';
-    count: number;
-  }[] = [],
-) {
+/** prisma에 `application`이 없다 — 공개 서비스가 신청 테이블을 건드리면 여기서 깨진다(★S2). */
+function build(row: typeof leakyRow | null) {
   const schedule = {
     findMany: vi.fn(async () => (row === null ? [] : [row])),
     count: vi.fn(async () => (row === null ? 0 : 1)),
     findFirst: vi.fn(async () => row),
   };
-  const application = {
-    groupBy: vi.fn(async () =>
-      groups.map(({ scheduleId, gender, count }) => ({
-        scheduleId,
-        gender,
-        _count: { _all: count },
-      })),
-    ),
-  };
   const service = new PublicEventsService(
-    { schedule, application } as unknown as ConstructorParameters<
+    { schedule } as unknown as ConstructorParameters<
       typeof PublicEventsService
     >[0],
     () => NOW,
   );
-  return { service, schedule, application };
+  return { service, schedule };
 }
 
 describe('public field isolation', () => {
-  it('PublicScheduleSchema has no private keys', () => {
+  it('PublicScheduleSchema has no private keys and no application keys', () => {
     const keys = Object.keys(PublicScheduleSchema.shape);
-    for (const key of PRIVATE_KEYS) expect(keys).not.toContain(key);
+    for (const key of [...PRIVATE_KEYS, ...APPLICATION_KEYS]) {
+      expect(keys).not.toContain(key);
+    }
   });
 
   it('PUBLIC_SCHEDULE_SELECT has no private columns', () => {
@@ -92,12 +88,14 @@ describe('public field isolation', () => {
     }
   });
 
-  it('strips private keys that slipped into a row (list and detail)', async () => {
+  it('strips private keys that slipped into a row (list and detail) and carries no application values', async () => {
     const { service } = build(leakyRow);
     const list = await service.list({ page: 1, pageSize: 20 });
     const detail = await service.detail(ID);
     for (const response of [list.items[0], detail]) {
-      for (const key of PRIVATE_KEYS) expect(response).not.toHaveProperty(key);
+      for (const key of [...PRIVATE_KEYS, ...APPLICATION_KEYS]) {
+        expect(response).not.toHaveProperty(key);
+      }
       expect(response).not.toHaveProperty('meetup');
     }
     expect(JSON.stringify([list, detail])).not.toContain('SECRET');
@@ -120,59 +118,6 @@ describe('PublicEventsService queries', () => {
       skip: 20,
       take: 10,
     });
-  });
-
-  it('shows whether each gender is full without the counts (SPEC-003 D10)', async () => {
-    // 정원 남 7 · 여 6(leakyRow)
-    const { service, application } = build(leakyRow, [
-      { scheduleId: ID, gender: 'MALE', count: 7 },
-      { scheduleId: ID, gender: 'FEMALE', count: 5 },
-    ]);
-    const list = await service.list({ page: 1, pageSize: 20 });
-    const detail = await service.detail(ID);
-    for (const response of [list.items[0], detail]) {
-      expect(response).toMatchObject({ maleFull: true, femaleFull: false });
-      expect(response).not.toHaveProperty('appliedMale');
-      expect(response).not.toHaveProperty('appliedFemale');
-    }
-    expect(application.groupBy).toHaveBeenCalledWith({
-      by: ['scheduleId', 'gender'],
-      where: { scheduleId: { in: [ID] }, status: { not: 'CANCELLED' } },
-      _count: { _all: true },
-    });
-  });
-
-  it('maps each schedule in a page to its own full flags', async () => {
-    const OTHER = '3b241101-e2bb-4255-8caf-4136c566a962';
-    // 정원 남 7 · 여 6(leakyRow). ID: 남성만 마감, OTHER: 여성만 마감
-    const { service, schedule } = build(leakyRow, [
-      { scheduleId: ID, gender: 'MALE', count: 7 },
-      { scheduleId: OTHER, gender: 'FEMALE', count: 6 },
-    ]);
-    schedule.findMany.mockResolvedValueOnce([
-      leakyRow,
-      { ...leakyRow, id: OTHER },
-    ]);
-
-    const list = await service.list({ page: 1, pageSize: 20 });
-
-    expect(
-      list.items.map(({ id, maleFull, femaleFull }) => ({
-        id,
-        maleFull,
-        femaleFull,
-      })),
-    ).toEqual([
-      { id: ID, maleFull: true, femaleFull: false },
-      { id: OTHER, maleFull: false, femaleFull: true },
-    ]);
-  });
-
-  it('skips the count query for an empty page', async () => {
-    const { service, application } = build(null);
-    const list = await service.list({ page: 1, pageSize: 20 });
-    expect(list.items).toEqual([]);
-    expect(application.groupBy).not.toHaveBeenCalled();
   });
 
   it('answers 404 SCHEDULE_NOT_FOUND when no public row matches', async () => {

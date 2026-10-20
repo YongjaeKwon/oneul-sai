@@ -4,7 +4,6 @@ import {
   type AdminSchedule,
   type AdminScheduleListResponse,
   type BatchCreateSchedulesResponse,
-  type PublicSchedule,
 } from '@oneul-sai/contracts';
 import {
   codeOf,
@@ -13,8 +12,9 @@ import {
   type ApiResult,
 } from '../testing/integration-app.js';
 
-// SPEC-003 13절 통합(5a — 회차 쪽): 정원 축소 409, 회차 취소 연쇄, 회원 취소와 회차 취소의 순서 강제,
-// 잠금 대기 상한(PATCH), 운영자 · 공개 응답의 신청 수 값. 신청 API는 아직 없어 신청 행은 테스트가 DB에 직접 넣는다.
+// SPEC-003 13절 통합(회차 쪽, 개정 2026-10-14): 정원 축소 409(자리 잡은 수 기준 — 접수는 세지 않는다), 회차 취소 연쇄(접수 포함),
+// 회원 취소와 회차 취소의 순서 강제, 잠금 대기 상한(PATCH), 운영자 응답의 여섯 값 · 공개 응답에 신청 관련 값 없음(★S2).
+// 신청 행은 테스트가 DB에 직접 넣는다 — 상태를 고르기 위해서다.
 
 let t: TestApp;
 
@@ -25,11 +25,13 @@ beforeEach(() => t.reset());
 afterAll(() => t.close());
 
 type Gender = 'MALE' | 'FEMALE';
+type Status = 'APPLIED' | 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 
 function insertApplication(
   scheduleId: string,
   gender: Gender,
-  overrides: { status?: 'PENDING' | 'CANCELLED'; cancelledBy?: 'MEMBER' } = {},
+  status: Status = 'PENDING',
+  cancelledBy: 'MEMBER' | null = status === 'CANCELLED' ? 'MEMBER' : null,
 ) {
   return t.prisma.application.create({
     data: {
@@ -37,14 +39,23 @@ function insertApplication(
       memberId: randomUUID(),
       gender,
       price: 39_000,
-      status: overrides.status ?? 'PENDING',
-      cancelledBy: overrides.cancelledBy ?? null,
+      status,
+      cancelledBy,
     },
   });
 }
 
 const schedulePath = (s: Pick<AdminSchedule, 'id' | 'meetupId'>) =>
   `/api/v1/meetups/${s.meetupId}/schedules/${s.id}`;
+
+const SIX_ZERO = {
+  appliedMale: 0,
+  appliedFemale: 0,
+  receivedMale: 0,
+  receivedFemale: 0,
+  maleFull: false,
+  femaleFull: false,
+};
 
 /** 이 DB에서 잠금을 기다리는 연결이 `count`개가 될 때까지 기다린다(요청이 실제로 줄을 섰다는 증거, D13). */
 async function waitForLockWaiters(count: number): Promise<void> {
@@ -59,99 +70,90 @@ async function waitForLockWaiters(count: number): Promise<void> {
   throw new Error(`lock waiters did not reach ${count}`);
 }
 
-describe('schedule side of applications (integration, SPEC-003 D8 · D10)', () => {
-  it('capacity: below the active count → 409, equal → 200 with the four seat values', async () => {
+describe('schedule side of applications (integration, SPEC-003 D8 · D17)', () => {
+  it('capacity: below the seated count → 409, equal → 200 with the six values; received applications are not counted', async () => {
     const meetup = await t.createMeetup();
     const schedule = await t.openSchedule(meetup.id);
-    for (let i = 0; i < 3; i += 1) await insertApplication(schedule.id, 'MALE');
-    await insertApplication(schedule.id, 'MALE', {
-      status: 'CANCELLED',
-      cancelledBy: 'MEMBER',
-    });
-    await insertApplication(schedule.id, 'FEMALE');
+    // 자리 잡은 남성 2(입금 대기 · 참가 확정) · 접수 남성 3 · 취소 1, 자리 잡은 여성 1
+    await insertApplication(schedule.id, 'MALE', 'PENDING');
+    await insertApplication(schedule.id, 'MALE', 'CONFIRMED');
+    for (let i = 0; i < 3; i += 1) {
+      await insertApplication(schedule.id, 'MALE', 'APPLIED');
+    }
+    await insertApplication(schedule.id, 'MALE', 'CANCELLED');
+    await insertApplication(schedule.id, 'FEMALE', 'PENDING');
 
     const below = await t.admin('PATCH', schedulePath(schedule), {
-      capacityMale: 2,
+      capacityMale: 1,
     });
     expect(below.status).toBe(409);
     expect(codeOf(below)).toBe(API_ERROR_CODES.CAPACITY_BELOW_APPLICATIONS);
 
+    // 접수를 세면 5 > 2라 409가 날 입력 — 자리 잡은 수만 세므로 200
     const equal = await t.admin('PATCH', schedulePath(schedule), {
-      capacityMale: 3,
+      capacityMale: 2,
     });
     expect(equal.status).toBe(200);
-    expect(equal.body).toMatchObject({
-      capacityMale: 3,
-      appliedMale: 3,
-      appliedFemale: 1,
+    const expected = {
+      capacityMale: 2,
+      appliedMale: 2,
+      receivedMale: 3,
       maleFull: true,
+      appliedFemale: 1,
+      receivedFemale: 0,
       femaleFull: false,
-    });
+    };
+    expect(equal.body).toMatchObject(expected);
 
     // 목록 · 상세도 같은 값을 싣는다
     const detail = await t.admin('GET', schedulePath(schedule));
-    expect(detail.body).toMatchObject({ appliedMale: 3, maleFull: true });
+    expect(detail.body).toMatchObject(expected);
     const list = await t.admin('GET', `/api/v1/meetups/${meetup.id}/schedules`);
-    expect((list.body as AdminScheduleListResponse).items[0]).toMatchObject({
-      appliedMale: 3,
-      appliedFemale: 1,
-      maleFull: true,
-    });
+    expect((list.body as AdminScheduleListResponse).items[0]).toMatchObject(
+      expected,
+    );
 
-    // 공개 응답은 마감 여부만 — 숫자는 없다
-    const open = await t.call({
-      method: 'GET',
-      path: `/api/v1/events/${schedule.id}`,
-    });
-    expect(open.body).toMatchObject({ maleFull: true, femaleFull: false });
-    expect(open.body as PublicSchedule).not.toHaveProperty('appliedMale');
-    expect(open.text).not.toContain('appliedFemale');
+    // 공개 응답에는 신청 관련 값이 없다(★S2) — 목록 · 상세 모두
+    for (const path of ['/api/v1/events', `/api/v1/events/${schedule.id}`]) {
+      const open = await t.call({ method: 'GET', path });
+      expect(open.status).toBe(200);
+      for (const key of ['maleFull', 'femaleFull', 'applied', 'received']) {
+        expect(open.text).not.toContain(key);
+      }
+    }
   });
 
   it('new schedules carry zero counts (single and batch)', async () => {
     const meetup = await t.createMeetup();
     const single = await t.createSchedule(meetup.id);
-    expect(single).toMatchObject({
-      appliedMale: 0,
-      appliedFemale: 0,
-      maleFull: false,
-      femaleFull: false,
-    });
+    expect(single).toMatchObject(SIX_ZERO);
     const batch = await t.admin(
       'POST',
       `/api/v1/meetups/${meetup.id}/schedules/batch`,
       { items: [scheduleInput({}, 14)] },
     );
     expect((batch.body as BatchCreateSchedulesResponse).items[0]).toMatchObject(
-      { appliedMale: 0, appliedFemale: 0, maleFull: false, femaleFull: false },
+      SIX_ZERO,
     );
   });
 
-  it('cancelling a schedule cancels its active applications as SCHEDULE and leaves cancelled ones alone', async () => {
+  it('cancelling a schedule cancels received · invited · confirmed applications as SCHEDULE and leaves cancelled ones alone', async () => {
     const meetup = await t.createMeetup();
     const schedule = await t.openSchedule(meetup.id);
-    const male = await insertApplication(schedule.id, 'MALE');
-    const female = await insertApplication(schedule.id, 'FEMALE');
-    const earlier = await insertApplication(schedule.id, 'MALE', {
-      status: 'CANCELLED',
-      cancelledBy: 'MEMBER',
-    });
+    const received = await insertApplication(schedule.id, 'MALE', 'APPLIED');
+    const invited = await insertApplication(schedule.id, 'FEMALE', 'PENDING');
+    const confirmed = await insertApplication(schedule.id, 'MALE', 'CONFIRMED');
+    const earlier = await insertApplication(schedule.id, 'MALE', 'CANCELLED');
 
     const cancelled = await t.setStatus(schedule, 'CANCELLED', '장소 사정');
-    expect(cancelled).toMatchObject({
-      status: 'CANCELLED',
-      appliedMale: 0,
-      appliedFemale: 0,
-      maleFull: false,
-      femaleFull: false,
-    });
+    expect(cancelled).toMatchObject({ status: 'CANCELLED', ...SIX_ZERO });
 
     const rows = await t.prisma.application.findMany({
       where: { scheduleId: schedule.id },
       select: { id: true, status: true, cancelledBy: true, updatedAt: true },
     });
     const byId = new Map(rows.map((row) => [row.id, row]));
-    for (const id of [male.id, female.id]) {
+    for (const id of [received.id, invited.id, confirmed.id]) {
       expect(byId.get(id)).toMatchObject({
         status: 'CANCELLED',
         cancelledBy: 'SCHEDULE',
@@ -166,8 +168,8 @@ describe('schedule side of applications (integration, SPEC-003 D8 · D10)', () =
   it('a member cancel that holds the row wins; the schedule cancel waits and skips it (ordering forced, 11절)', async () => {
     const meetup = await t.createMeetup();
     const schedule = await t.openSchedule(meetup.id);
-    const held = await insertApplication(schedule.id, 'MALE');
-    const other = await insertApplication(schedule.id, 'FEMALE');
+    const held = await insertApplication(schedule.id, 'MALE', 'PENDING');
+    const other = await insertApplication(schedule.id, 'FEMALE', 'APPLIED');
     const memberCancelledAt = new Date('2030-01-01T00:00:00.000Z');
 
     let request: Promise<ApiResult> | undefined;

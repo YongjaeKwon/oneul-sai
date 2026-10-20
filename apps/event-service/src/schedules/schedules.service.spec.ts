@@ -9,7 +9,8 @@ import type { AdminScheduleRow } from './schedule-select.js';
 import { SchedulesService } from './schedules.service.js';
 
 // SPEC-002 13절 단위: SchedulesService(가짜 prisma) — 여러 회차 등록(D15), FOR UPDATE 후 판정, 소속 404, 로그.
-// SPEC-003 13절 단위: 잠금 대기 상한(SET LOCAL lock_timeout → FOR UPDATE), 정원 축소 검사, 회차 취소 연쇄, 55P03 → 503.
+// SPEC-003 13절 단위(개정): 잠금 대기 상한(SET LOCAL lock_timeout → FOR UPDATE), 정원 축소 검사(자리 잡은 수 — `countSeated`),
+// 회차 취소 연쇄(활성 — 접수 포함), 운영자 응답의 여섯 값(`seatCountsBySchedule` 한 번), 55P03 → 503.
 
 const NOW = new Date('2026-10-01T00:00:00.000Z');
 const MEETUP_ID = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
@@ -67,8 +68,8 @@ interface BuildOptions {
   /** FOR UPDATE가 행을 찾지 못함 = 다른 상품의 회차 또는 없음 */
   locked?: boolean;
   failCreateAt?: number;
-  /** 성별 활성 신청 수(`countActive`) */
-  active?: { MALE?: number; FEMALE?: number };
+  /** 성별 자리 잡은 신청 수(`countSeated`) */
+  seated?: { MALE?: number; FEMALE?: number };
   /** 회차 취소가 함께 취소한 신청 수(`updateMany`) */
   cancelled?: number;
   /** 잠금 문장이 던질 에러(잠금 대기 상한 초과 등) */
@@ -106,7 +107,7 @@ function build(options: BuildOptions = {}) {
       count: vi.fn(
         async ({ where }: { where: { gender: 'MALE' | 'FEMALE' } }) => {
           calls.push(`count:${where.gender}`);
-          return options.active?.[where.gender] ?? 0;
+          return options.seated?.[where.gender] ?? 0;
         },
       ),
       updateMany: vi.fn(async () => {
@@ -432,10 +433,10 @@ describe('SchedulesService — lock first, then judge', () => {
 });
 
 describe('SchedulesService — applications on the schedule side (SPEC-003 D8)', () => {
-  it('update: a capacity change counts active applications after the lock', async () => {
+  it('update: a capacity change counts seated applications (not received ones) after the lock', async () => {
     const { service, calls, tx } = build({
       stored: row({ status: 'OPEN' }),
-      active: { MALE: 3 },
+      seated: { MALE: 3 },
     });
     await service.update(
       ADMIN,
@@ -454,7 +455,7 @@ describe('SchedulesService — applications on the schedule side (SPEC-003 D8)',
       where: {
         scheduleId: SCHEDULE_ID,
         gender: 'MALE',
-        status: { not: 'CANCELLED' },
+        status: { in: ['PENDING', 'CONFIRMED'] },
       },
     });
     expect(tx.schedule.update).toHaveBeenCalled();
@@ -464,11 +465,11 @@ describe('SchedulesService — applications on the schedule side (SPEC-003 D8)',
     ['capacityMale', 'MALE'],
     ['capacityFemale', 'FEMALE'],
   ] as const)(
-    'update: %s below the active count → 409 CAPACITY_BELOW_APPLICATIONS without writing',
+    'update: %s below the seated count → 409 CAPACITY_BELOW_APPLICATIONS without writing',
     async (field, gender) => {
       const { service, tx } = build({
         stored: row({ status: 'OPEN' }),
-        active: { [gender]: 3 },
+        seated: { [gender]: 3 },
       });
       const error = await errorOf(
         service.update(ADMIN, MEETUP_ID, SCHEDULE_ID, { [field]: 2 }, 'req'),
@@ -491,7 +492,7 @@ describe('SchedulesService — applications on the schedule side (SPEC-003 D8)',
     expect(tx.application.count).not.toHaveBeenCalled();
   });
 
-  it('status: → CANCELLED cancels the active applications in the same transaction and logs the count', async () => {
+  it('status: → CANCELLED cancels the active applications (received included) in the same transaction and logs the count', async () => {
     const { service, calls, tx, logger } = build({
       stored: row({ status: 'OPEN' }),
       cancelled: 4,
@@ -606,24 +607,42 @@ describe('SchedulesService — applications on the schedule side (SPEC-003 D8)',
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
-  it('get: the response carries the four seat values from one groupBy', async () => {
+  it('get: the response carries the six seat values from one groupBy — received rows do not fill seats', async () => {
     const { service, prisma } = build({ stored: row({ status: 'OPEN' }) });
     prisma.schedule.findFirst.mockResolvedValueOnce(
       row({ status: 'OPEN', capacityMale: 2 }) as never,
     );
     prisma.application.groupBy.mockResolvedValueOnce([
-      { scheduleId: SCHEDULE_ID, gender: 'MALE', _count: { _all: 2 } },
-      { scheduleId: SCHEDULE_ID, gender: 'FEMALE', _count: { _all: 1 } },
+      {
+        scheduleId: SCHEDULE_ID,
+        gender: 'MALE',
+        status: 'PENDING',
+        _count: { _all: 2 },
+      },
+      {
+        scheduleId: SCHEDULE_ID,
+        gender: 'MALE',
+        status: 'APPLIED',
+        _count: { _all: 3 },
+      },
+      {
+        scheduleId: SCHEDULE_ID,
+        gender: 'FEMALE',
+        status: 'CONFIRMED',
+        _count: { _all: 1 },
+      },
     ] as never);
     const detail = await service.get(MEETUP_ID, SCHEDULE_ID);
     expect(detail).toMatchObject({
       appliedMale: 2,
       appliedFemale: 1,
+      receivedMale: 3,
+      receivedFemale: 0,
       maleFull: true,
       femaleFull: false,
     });
     expect(prisma.application.groupBy).toHaveBeenCalledWith({
-      by: ['scheduleId', 'gender'],
+      by: ['scheduleId', 'gender', 'status'],
       where: {
         scheduleId: { in: [SCHEDULE_ID] },
         status: { not: 'CANCELLED' },
@@ -641,8 +660,24 @@ describe('SchedulesService — applications on the schedule side (SPEC-003 D8)',
     ]);
     prisma.schedule.count.mockResolvedValueOnce(2);
     prisma.application.groupBy.mockResolvedValueOnce([
-      { scheduleId: SCHEDULE_ID, gender: 'MALE', _count: { _all: 2 } },
-      { scheduleId: OTHER_ID, gender: 'FEMALE', _count: { _all: 1 } },
+      {
+        scheduleId: SCHEDULE_ID,
+        gender: 'MALE',
+        status: 'PENDING',
+        _count: { _all: 2 },
+      },
+      {
+        scheduleId: OTHER_ID,
+        gender: 'FEMALE',
+        status: 'PENDING',
+        _count: { _all: 1 },
+      },
+      {
+        scheduleId: OTHER_ID,
+        gender: 'MALE',
+        status: 'APPLIED',
+        _count: { _all: 4 },
+      },
     ] as never);
 
     const list = await service.list(MEETUP_ID, { page: 1, pageSize: 20 });
@@ -651,12 +686,16 @@ describe('SchedulesService — applications on the schedule side (SPEC-003 D8)',
     expect(list.items[0]).toMatchObject({
       appliedMale: 2,
       appliedFemale: 0,
+      receivedMale: 0,
+      receivedFemale: 0,
       maleFull: true,
       femaleFull: false,
     });
     expect(list.items[1]).toMatchObject({
       appliedMale: 0,
       appliedFemale: 1,
+      receivedMale: 4,
+      receivedFemale: 0,
       maleFull: false,
       femaleFull: true,
     });
