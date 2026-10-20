@@ -190,8 +190,8 @@ export type PublicScheduleListQuery = z.infer<
 >;
 
 // ----- 참가 신청 (SPEC-003 7절) -----
-// 신청할 수 있는지(회차 상태 · 신청 마감 · 중복 · 입금 대기 한도 · 남성 연령대 · 성별 정원)와 취소할 수 있는지는
-// 저장된 값과 요청 시각에 따라 달라서 event-service가 판정한다(D7).
+// 신청할 수 있는지(회차 상태 · 신청 마감 · 중복 · 재신청 금지 · 입금 대기 한도 — 정원 · 연령 검사 없음, D15), 취소할 수 있는지(D10 · SPEC-004 D10),
+// 참가 가능 안내를 할 수 있는지(자리 잡은 수 < 정원, D16)는 저장된 값과 요청 시각에 따라 달라서 event-service가 판정한다.
 
 /**
  * `POST /api/v1/applications` (MEMBER). 성별 · 참가비 · 회원 ID는 받지 않는다(모르는 필드 → 400) —
@@ -204,12 +204,24 @@ export type CreateApplicationRequest = z.infer<
   typeof CreateApplicationRequestSchema
 >;
 
-/** 본인 취소 `PATCH /api/v1/applications/:applicationId/status`와 운영자 취소가 같이 쓴다. 사유 필드는 없다. */
+/** 본인 취소 `PATCH /api/v1/applications/:applicationId/status`(회원). `CANCELLED`만, 사유 필드는 없다. */
 export const UpdateApplicationStatusRequestSchema = z.strictObject({
   status: ApplicationStatusSchema.extract(['CANCELLED']),
 });
 export type UpdateApplicationStatusRequest = z.infer<
   typeof UpdateApplicationStatusRequestSchema
+>;
+
+/**
+ * 운영자 `PATCH /api/v1/meetups/:meetupId/schedules/:scheduleId/applications/:applicationId/status`(개정 2026-10-14, D16).
+ * `PENDING` = 참가 가능 안내(접수 → 입금 대기, 이때 자리를 잡는다), `CANCELLED` = 운영자 취소.
+ * `APPLIED` · `CONFIRMED`는 받지 않는다(400) — 접수로 되돌리기 · 확정 만들기는 운영자 동작이 아니다(확정은 `payment.completed.v1`).
+ */
+export const AdminUpdateApplicationStatusRequestSchema = z.strictObject({
+  status: ApplicationStatusSchema.extract(['PENDING', 'CANCELLED']),
+});
+export type AdminUpdateApplicationStatusRequest = z.infer<
+  typeof AdminUpdateApplicationStatusRequestSchema
 >;
 
 /** `GET /api/v1/applications` query (MEMBER). 모든 상태, `createdAt` 내림차순 · `id`. */

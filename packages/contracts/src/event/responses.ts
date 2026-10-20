@@ -39,6 +39,7 @@ export type MeetupListResponse = z.infer<typeof MeetupListResponseSchema>;
 /**
  * 공개 응답(`/api/v1/events`) — 이 필드뿐이다. 제목 · 설명은 상품에서 읽는다.
  * `meetupId` · 장소 안내 넷 · `cancelReason` · `createdAt` · `updatedAt`은 없다(D4 · D9).
+ * 신청 관련 필드(`maleFull` 등)도 없다 — 참가자에게 남은 자리를 보이지 않는다(SPEC-003 D17, ★S2).
  */
 export const PublicScheduleSchema = z.object({
   id: z.uuid(),
@@ -55,9 +56,6 @@ export const PublicScheduleSchema = z.object({
   maleMaxBirthYear: z.number().int().nullable(),
   venueArea: z.string(),
   status: PublicScheduleStatusSchema,
-  /** 그 성별의 활성 신청 수 ≥ 정원 — 숫자 없이 "남성 · 여성 자리 마감"으로 보인다(SPEC-003 D10). */
-  maleFull: z.boolean(),
-  femaleFull: z.boolean(),
 });
 export type PublicSchedule = z.infer<typeof PublicScheduleSchema>;
 
@@ -81,9 +79,15 @@ export const AdminScheduleSchema = PublicScheduleSchema.extend({
   cancelReason: z.string().nullable(),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
-  /** 성별 활성 신청 수(취소되지 않은 신청). 운영자 화면에만 숫자로 보인다(SPEC-003 D10). */
+  /** 성별 **자리 잡은** 신청 수(`PENDING` · `CONFIRMED`). 이름은 그대로, 뜻만 좁혔다(SPEC-003 D17). */
   appliedMale: z.number().int().min(0),
   appliedFemale: z.number().int().min(0),
+  /** 성별 접수 수(`APPLIED` — 아직 자리를 잡지 않은 신청). 운영자가 참가 가능 안내를 고를 풀(SPEC-003 D17). */
+  receivedMale: z.number().int().min(0),
+  receivedFemale: z.number().int().min(0),
+  /** 자리 잡은 수 ≥ 정원. 운영자 응답에만 있다(SPEC-003 D17, ★S2). */
+  maleFull: z.boolean(),
+  femaleFull: z.boolean(),
 });
 export type AdminSchedule = z.infer<typeof AdminScheduleSchema>;
 

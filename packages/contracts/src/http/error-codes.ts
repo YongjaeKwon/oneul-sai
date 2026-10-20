@@ -44,15 +44,15 @@ export const API_ERROR_CODES = {
   ALREADY_APPLIED: 'ALREADY_APPLIED',
   /** 신청: 이 회차에 운영자가 취소한 내 신청이 있음. SPEC-003 */
   REAPPLY_NOT_ALLOWED: 'REAPPLY_NOT_ALLOWED',
-  /** 신청: 시작 전인 다른 회차에 내 입금 대기 신청이 있음(한 사람당 하나). SPEC-003 */
+  /** 신청: 시작 전인 다른 회차에 내 입금 대기 신청이 있음(한 사람당 하나 — 접수는 세지 않는다). SPEC-003 */
   PENDING_APPLICATION_LIMIT: 'PENDING_APPLICATION_LIMIT',
-  /** 신청: 남성이고 출생연도가 회차의 남성 연령대 밖. SPEC-003 */
-  BIRTH_YEAR_OUT_OF_RANGE: 'BIRTH_YEAR_OUT_OF_RANGE',
-  /** 신청: 내 성별의 활성 신청 수가 정원에 닿음. SPEC-003 */
+  /** 참가 가능 안내: 그 신청 성별의 자리 잡은 신청 수 ≥ 정원(신청에서는 나지 않는다 — 접수는 정원과 무관). SPEC-003(개정) */
   SCHEDULE_FULL: 'SCHEDULE_FULL',
-  /** 본인 취소: 신청 마감이 지남. SPEC-003 */
+  /** 본인 취소: 입금 대기이고 신청 마감이 지남(접수에는 나지 않는다). SPEC-003 */
   APPLICATION_NOT_CANCELLABLE: 'APPLICATION_NOT_CANCELLABLE',
-  /** 회차 수정: 새 정원이 그 성별의 활성 신청 수보다 작음. SPEC-003 */
+  /** 본인 취소: 참가 확정된 신청(마감 전후 모두). SPEC-004 */
+  APPLICATION_CONFIRMED: 'APPLICATION_CONFIRMED',
+  /** 회차 수정: 새 정원이 그 성별의 자리 잡은 신청 수보다 작음. SPEC-003 */
   CAPACITY_BELOW_APPLICATIONS: 'CAPACITY_BELOW_APPLICATIONS',
   /** 입금 확인: 이 신청에 결제 기록이 이미 있음. SPEC-004 */
   PAYMENT_ALREADY_RECORDED: 'PAYMENT_ALREADY_RECORDED',
