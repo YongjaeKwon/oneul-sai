@@ -7,28 +7,21 @@ import { useState, type ReactNode } from 'react';
 
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FormAlert } from '@/components/form-alert';
+import { DEPOSIT_ACCOUNT } from '@/lib/api';
 import {
   ADMIN_ACCOUNT_MESSAGE,
-  applicationErrorCopy,
+  applicationCard,
   applyAreaState,
-  birthYearRuleMessage,
   CANCEL_CONFIRM_MESSAGE,
+  depositAccountNote,
   describeApplicationError,
-  genderFullMessage,
-  NOT_CANCELLABLE_MESSAGE,
-  PENDING_NOTE,
   RECRUITMENT_CLOSED_MESSAGE,
   REAPPLY_BLOCKED_MESSAGE,
   type ApplyAreaState,
 } from '@/lib/applications';
 import { useAuth, useEndSessionOn401 } from '@/lib/auth';
 import { describeError, isApiClientError, isSessionEnded } from '@/lib/errors';
-import {
-  APPLICATION_STATUS_LABELS,
-  formatDateTime,
-  formatFee,
-  formatWon,
-} from '@/lib/format';
+import { formatDateTime, formatFee, formatWon } from '@/lib/format';
 import {
   useApply,
   useCancelMyApplication,
@@ -45,8 +38,8 @@ interface Notice {
 }
 
 /**
- * W9 일정 상세의 참가 신청 영역(SPEC-003 4절). 신청 데이터는 서버 렌더에 들어가지 않는다 — 여기서 TanStack Query로 부른다.
- * (a) 지난 일정은 페이지가 이 영역을 두지 않는다. 판정은 `applyAreaState`, 문구는 4절 표.
+ * W9 일정 상세의 참가 신청 영역(SPEC-003 4절 · SPEC-004 4절). 신청 데이터는 서버 렌더에 들어가지 않는다 — 여기서 TanStack Query로 부른다.
+ * (a) 지난 일정은 페이지가 이 영역을 두지 않는다. 판정은 `applyAreaState`, (e) 카드 내용은 `applicationCard`, 문구는 4절 표.
  * 영역은 한 `<section aria-live="polite">`로 유지해 신청 · 취소 결과로 바뀐 문구가 스크린 리더에 읽힌다. 확인 창은 그 밖에 둔다.
  */
 export function ApplyArea({ schedule }: { schedule: PublicSchedule }) {
@@ -103,33 +96,24 @@ export function ApplyArea({ schedule }: { schedule: PublicSchedule }) {
         return withNotice(<Message>{REAPPLY_BLOCKED_MESSAGE}</Message>, [
           REAPPLY_BLOCKED_MESSAGE,
         ]);
-      case 'birth-year': {
-        const rule = birthYearRuleMessage(
-          schedule.maleMinBirthYear,
-          schedule.maleMaxBirthYear,
-        );
-        return withNotice(<Message>{rule}</Message>, [rule]);
-      }
-      case 'full': {
-        const full = genderFullMessage(state.gender);
-        return withNotice(<Message>{full}</Message>, [full]);
-      }
-      case 'applied':
+      case 'applied': {
+        // 접수 · 입금 대기 · 참가 확정 카드 — 제목 · 배지 · 안내 · 취소 가능 여부를 상태로 고른다(SPEC-004 13절 목록 7)
+        const card = applicationCard(state.application);
+        const account = depositAccountNote(state.application, DEPOSIT_ACCOUNT);
         return withNotice(
           <>
             <div className="flex items-center justify-between gap-3">
-              <p className="text-base font-semibold text-ink">
-                참가 신청이 접수되었습니다.
-              </p>
-              <Badge tone="warning">
-                {APPLICATION_STATUS_LABELS[state.application.status]}
-              </Badge>
+              <p className="text-base font-semibold text-ink">{card.title}</p>
+              <Badge tone={card.tone}>{card.label}</Badge>
             </div>
             <p className="text-sm text-ink tabular-nums">
               {formatFee(state.application.price)}
             </p>
-            <p className="text-sm text-ink-soft">{PENDING_NOTE}</p>
-            {state.cancellable ? (
+            <p className="text-sm text-ink-soft">{card.note}</p>
+            {account !== null ? (
+              <p className="text-sm text-ink tabular-nums">{account}</p>
+            ) : null}
+            {card.cancellable ? (
               <Button
                 variant="secondary"
                 className="self-start"
@@ -138,12 +122,13 @@ export function ApplyArea({ schedule }: { schedule: PublicSchedule }) {
               >
                 신청 취소
               </Button>
-            ) : (
-              <p className="text-sm text-ink-soft">{NOT_CANCELLABLE_MESSAGE}</p>
-            )}
+            ) : card.cancelBlocked !== null ? (
+              <p className="text-sm text-ink-soft">{card.cancelBlocked}</p>
+            ) : null}
           </>,
-          state.cancellable ? [] : [NOT_CANCELLABLE_MESSAGE],
+          card.cancelBlocked === null ? [] : [card.cancelBlocked],
         );
+      }
       case 'apply':
         return withNotice(
           <Button disabled={apply.isPending} onClick={() => setDialog('apply')}>
@@ -184,11 +169,9 @@ export function ApplyArea({ schedule }: { schedule: PublicSchedule }) {
       endSession();
       return;
     }
+    // 409 `APPLICATION_CONFIRMED` · `ALREADY_APPLIED` 등은 onSettled의 무효화로 내 신청을 다시 불러와 (e)를 보인다
     setNotice({
-      message: describeApplicationError(
-        error,
-        applicationErrorCopy(me.data?.gender ?? null),
-      ),
+      message: describeApplicationError(error),
       myApplicationsLink:
         isApiClientError(error) &&
         error.code === API_ERROR_CODES.PENDING_APPLICATION_LIMIT,

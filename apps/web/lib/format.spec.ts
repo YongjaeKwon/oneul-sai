@@ -1,4 +1,6 @@
 import {
+  APPLICATION_STATUS_LABELS,
+  APPLICATION_STATUS_TONES,
   formatDateTime,
   formatFee,
   formatMaleAgeRange,
@@ -96,37 +98,41 @@ describe('normalizePage', () => {
   });
 });
 
-describe('scheduleBadgeLabel (SPEC-003 E)', () => {
+describe('scheduleBadgeLabel — only "모집 마감" (SPEC-003 ★S2: no seat badges)', () => {
   const now = Date.parse('2026-10-01T00:00:00.000Z');
   const open = {
     status: 'OPEN',
     applyDeadlineAt: '2026-10-03T15:00:00.000Z',
-    maleFull: false,
-    femaleFull: false,
   } as const;
 
-  it.each([
-    [false, false, null],
-    [true, false, '남성 자리 마감'],
-    [false, true, '여성 자리 마감'],
-    [true, true, '남녀 자리 모두 마감'],
-  ])(
-    'open, male full %s · female full %s → %s',
-    (maleFull, femaleFull, expected) => {
-      expect(scheduleBadgeLabel({ ...open, maleFull, femaleFull }, now)).toBe(
-        expected,
-      );
-    },
-  );
+  it('shows nothing while recruiting', () => {
+    expect(scheduleBadgeLabel(open, now)).toBeNull();
+  });
 
-  it('closed recruitment wins and is never mixed with a full gender', () => {
-    const full = { ...open, maleFull: true, femaleFull: true };
-    expect(scheduleBadgeLabel({ ...full, status: 'CLOSED' }, now)).toBe(
+  it('shows 모집 마감 when closed by the operator or from the deadline on', () => {
+    expect(scheduleBadgeLabel({ ...open, status: 'CLOSED' }, now)).toBe(
       '모집 마감',
     );
     expect(
-      scheduleBadgeLabel(full, Date.parse('2026-10-03T15:00:00.000Z')),
+      scheduleBadgeLabel(open, Date.parse('2026-10-03T15:00:00.000Z')),
     ).toBe('모집 마감');
+  });
+});
+
+describe('application status labels and tones (SPEC-003 S7 · SPEC-004 K)', () => {
+  it('has the four statuses with the foundation Badge tones', () => {
+    expect(APPLICATION_STATUS_LABELS).toEqual({
+      APPLIED: '접수',
+      PENDING: '입금 대기',
+      CONFIRMED: '참가 확정',
+      CANCELLED: '취소',
+    });
+    expect(APPLICATION_STATUS_TONES).toEqual({
+      APPLIED: 'neutral',
+      PENDING: 'warning',
+      CONFIRMED: 'success',
+      CANCELLED: 'danger',
+    });
   });
 });
 
