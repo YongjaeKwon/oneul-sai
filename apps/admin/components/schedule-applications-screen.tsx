@@ -18,10 +18,14 @@ import {
   accountNoteOf,
   adminCancelQuestion,
   applicationFilterOf,
+  canInvite,
   formatAppliedCounts,
+  inviteErrorOverrides,
+  inviteQuestion,
   memberIdsOf,
   memberLookupNotice,
   mergeApplicants,
+  outsideBirthYears,
   type ApplicationFilter,
   type ApplicationRow,
 } from '@/lib/applications';
@@ -37,6 +41,7 @@ import {
 } from '@/lib/format';
 import {
   useCancelApplication,
+  useInviteApplication,
   useMembersByIds,
   useSchedule,
   useScheduleApplications,
@@ -63,6 +68,12 @@ const COLUMNS = [
 const linkClasses =
   'text-ink underline decoration-line-strong underline-offset-4 hover:decoration-rose';
 
+/** 확인 창이 묻는 동작 — 접수 줄의 참가 가능 안내(SPEC-003 D16) 또는 운영자 취소. */
+interface DialogTarget {
+  applicationId: string;
+  action: 'invite' | 'cancel';
+}
+
 /** A10 신청 목록(`/meetups/[meetupId]/schedules/[scheduleId]/applications`, SPEC-003 4절). */
 export function ScheduleApplicationsScreen({
   meetupId,
@@ -71,7 +82,7 @@ export function ScheduleApplicationsScreen({
 }: {
   meetupId: string;
   scheduleId: string;
-  /** 주소의 `?status=` 원문. 모르는 값은 기본 필터로 읽는다. */
+  /** 주소의 `?status=` 원문. 모르는 값은 기본 필터("전체")로 읽는다. */
   status: string | string[] | undefined;
 }) {
   return (
@@ -133,7 +144,7 @@ function ScheduleApplications({
     );
   }
 
-  const filter = applicationFilterOf(status, schedule.status === 'CANCELLED');
+  const filter = applicationFilterOf(status);
 
   return (
     <div className="flex flex-col gap-6">
@@ -155,7 +166,7 @@ function ScheduleApplications({
   );
 }
 
-/** 상태 필터(입금 대기 · 취소 · 전체) — 주소의 `?status=`에 둔다(새로 고쳐도 · 링크로 보내도 같은 목록). */
+/** 상태 필터(접수 · 입금 대기 · 참가 확정 · 취소 · 전체) — 주소의 `?status=`에 둔다(새로 고쳐도 · 링크로 보내도 같은 목록). */
 function FilterLinks({
   schedule,
   current,
@@ -206,24 +217,27 @@ function ApplicationTable({
     data === undefined ? [] : memberIdsOf(data.items),
   );
   const cancel = useCancelApplication(meetupId, scheduleId);
+  const invite = useInviteApplication(meetupId, scheduleId);
   useEndSessionOn401(error);
   useEndSessionOn401(members.error);
   useEndSessionOn401(cancel.error);
-  // 확인 창은 신청 ID만 쥐고 회원은 지금의 행에서 읽는다 — 창을 연 뒤 도착한 이름도 질문에 들어가게
-  const [targetId, setTargetId] = useState<string | null>(null);
+  useEndSessionOn401(invite.error);
+  const busy = cancel.isPending || invite.isPending;
+  // 확인 창은 신청 ID · 동작만 쥐고 회원은 지금의 행에서 읽는다 — 창을 연 뒤 도착한 이름도 질문에 들어가게
+  const [target, setTarget] = useState<DialogTarget | null>(null);
   const questionId = useId();
-  // 취소한 행의 버튼이 사라져도 키보드 포커스가 갈 곳. 창이 닫힐 때(`dialog.close()`) 브라우저가 포커스를 연 버튼으로
+  // 동작한 행의 버튼이 사라져도 키보드 포커스가 갈 곳. 창이 닫힐 때(`dialog.close()`) 브라우저가 포커스를 연 버튼으로
   // 되돌리므로, 창이 닫힌 뒤(자식 Dialog의 effect 다음)에 옮긴다
-  // 취소가 끝날 때마다 늘린다 — 행이 먼저 사라져 창이 이미 닫혔어도 포커스를 옮기게(targetId 변화에 기대지 않는다)
+  // 동작이 끝날 때마다 늘린다 — 행이 먼저 사라져 창이 이미 닫혔어도 포커스를 옮기게(target 변화에 기대지 않는다)
   const tableRef = useRef<HTMLDivElement>(null);
-  const [cancelsSettled, setCancelsSettled] = useState(0);
+  const [actionsSettled, setActionsSettled] = useState(0);
   useEffect(() => {
-    if (cancelsSettled > 0) {
+    if (actionsSettled > 0) {
       tableRef.current?.focus();
     }
-  }, [cancelsSettled]);
+  }, [actionsSettled]);
 
-  // 가진 목록이 있으면(다시 부르기만 실패) 표 · 열린 창 · 취소 오류를 그대로 두고 위에 안내만 더한다
+  // 가진 목록이 있으면(다시 부르기만 실패) 표 · 열린 창 · 동작 오류를 그대로 두고 위에 안내만 더한다
   if (error && data === undefined) {
     return <Notice tone="danger">{describeEventError(error)}</Notice>;
   }
@@ -237,10 +251,19 @@ function ApplicationTable({
 
   const rows = mergeApplicants(data.items, members.data?.items);
   const memberNotice = memberLookupNotice(members.error);
-  const target: ApplicationRow | undefined = rows.find(
-    (row) => row.application.id === targetId,
+  const targetRow: ApplicationRow | undefined = rows.find(
+    (row) => row.application.id === target?.applicationId,
   );
-  const closeDialog = () => setTargetId(null);
+  const closeDialog = () => setTarget(null);
+  const open = (applicationId: string, action: DialogTarget['action']) => {
+    cancel.reset();
+    invite.reset();
+    setTarget({ applicationId, action });
+  };
+  const onSettled = () => {
+    closeDialog();
+    setActionsSettled((count) => count + 1);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -253,6 +276,14 @@ function ApplicationTable({
       {cancel.error ? (
         <Notice tone="danger">
           {describeEventError(cancel.error, APPLICATION_ERROR_OVERRIDES)}
+        </Notice>
+      ) : null}
+      {invite.error && invite.variables !== undefined ? (
+        <Notice tone="danger">
+          {describeEventError(
+            invite.error,
+            inviteErrorOverrides(invite.variables.gender),
+          )}
         </Notice>
       ) : null}
 
@@ -278,7 +309,7 @@ function ApplicationTable({
                 </th>
               ))}
               <th scope="col" className="px-4 py-3">
-                <span className="sr-only">취소</span>
+                <span className="sr-only">동작</span>
               </th>
             </tr>
           </thead>
@@ -297,12 +328,11 @@ function ApplicationTable({
                 <ApplicationRowView
                   key={row.application.id}
                   row={row}
+                  schedule={schedule}
                   ordinal={(data.page - 1) * data.pageSize + index + 1}
-                  cancelDisabled={cancel.isPending}
-                  onCancel={() => {
-                    cancel.reset();
-                    setTargetId(row.application.id);
-                  }}
+                  disabled={busy}
+                  onInvite={() => open(row.application.id, 'invite')}
+                  onCancel={() => open(row.application.id, 'cancel')}
                 />
               ))
             )}
@@ -319,24 +349,40 @@ function ApplicationTable({
       />
 
       <Dialog
-        open={target !== undefined}
-        title="신청 취소"
+        open={targetRow !== undefined}
+        title={target?.action === 'invite' ? '참가 가능 안내' : '신청 취소'}
         onClose={closeDialog}
         describedBy={questionId}
       >
-        {target !== undefined ? (
+        {targetRow !== undefined && target?.action === 'invite' ? (
           <>
-            <p id={questionId}>{adminCancelQuestion(target.member)}</p>
+            <p id={questionId}>
+              {inviteQuestion(targetRow.member, targetRow.application.gender)}
+            </p>
+            {/* 자리를 잡는 동작 — 운영자 취소로 자리를 돌려줄 수 있지만 접수로는 돌아가지 않는다. 주 동작 먼저(파운데이션 5절), 처음 포커스는 디자인 담당 확인 항목(SPEC-003 17절) */}
             <div className="flex flex-wrap gap-2">
               <Button
-                disabled={cancel.isPending}
+                disabled={busy}
                 onClick={() =>
-                  cancel.mutate(target.application.id, {
-                    onSettled: () => {
-                      closeDialog();
-                      setCancelsSettled((count) => count + 1);
-                    },
-                  })
+                  invite.mutate(targetRow.application, { onSettled })
+                }
+              >
+                {invite.isPending ? '처리 중…' : '참가 가능 안내'}
+              </Button>
+              <Button variant="ghost" disabled={busy} onClick={closeDialog}>
+                닫기
+              </Button>
+            </div>
+          </>
+        ) : null}
+        {targetRow !== undefined && target?.action === 'cancel' ? (
+          <>
+            <p id={questionId}>{adminCancelQuestion(targetRow.member)}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  cancel.mutate(targetRow.application.id, { onSettled })
                 }
               >
                 {cancel.isPending ? '처리 중…' : '신청 취소'}
@@ -345,7 +391,7 @@ function ApplicationTable({
               <Button
                 variant="ghost"
                 data-autofocus
-                disabled={cancel.isPending}
+                disabled={busy}
                 onClick={closeDialog}
               >
                 닫기
@@ -359,21 +405,27 @@ function ApplicationTable({
 }
 
 function ApplicationRowView({
-  row: { application, member },
+  row,
+  schedule,
   ordinal,
-  cancelDisabled,
+  disabled,
+  onInvite,
   onCancel,
 }: {
   row: ApplicationRow;
+  schedule: Pick<AdminSchedule, 'maleMinBirthYear' | 'maleMaxBirthYear'>;
   /** 지금 목록에서의 줄 번호(페이지를 넘어 이어진다, 필터마다 다르다) — 이름을 모르는 행을 한 화면 안에서 가르는 데 쓴다. */
   ordinal: number;
-  cancelDisabled: boolean;
+  disabled: boolean;
+  onInvite: () => void;
   onCancel: () => void;
 }) {
+  const { application, member } = row;
   const cancelled = application.status === 'CANCELLED';
   const appliedAt = formatScheduleTime(application.createdAt);
   // 이름을 모르는 행(탈퇴 · 조회 실패 · 불러오는 중)도 서로 가를 수 있게 목록 줄 번호와 신청 시각을 넣는다
   const who = member?.name ?? `${ordinal}번째 줄(${appliedAt} 신청)`;
+  const birthYear = member?.birthYear ?? null;
 
   return (
     <tr className="align-top hover:bg-ivory">
@@ -392,8 +444,12 @@ function ApplicationRowView({
       <td className="px-4 py-3 text-ink">
         {GENDER_LABELS[application.gender]}
       </td>
-      <td className="px-4 py-3 text-ink tabular-nums">
-        {member?.birthYear ?? EMPTY}
+      <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
+        {birthYear ?? EMPTY}
+        {/* ★S1 (a) — 신청은 막지 않고 운영자가 보고 고른다. 지금은 남성 쌍만(여성 쌍은 SPEC-002 개정 PR 뒤) */}
+        {outsideBirthYears(application.gender, birthYear, schedule) ? (
+          <span className="ml-2 text-xs text-ink-soft">연령대 밖</span>
+        ) : null}
       </td>
       <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
         {formatPhone(member?.phone ?? null)}
@@ -417,16 +473,28 @@ function ApplicationRowView({
       <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
         {cancelled ? formatScheduleTime(application.updatedAt) : ''}
       </td>
-      <td className="px-4 py-3 text-right">
+      {/* 줄 표(SPEC-003 4절): 접수 [참가 가능 안내][취소](탈퇴한 회원은 취소만), 입금 대기 · 참가 확정 [취소](입금 확인 · 환불 기록은 SPEC-004 7번 PR) */}
+      <td className="px-4 py-3 text-right whitespace-nowrap">
         {cancelled ? null : (
-          <Button
-            variant="secondary"
-            disabled={cancelDisabled}
-            aria-label={`${who}의 신청 취소`}
-            onClick={onCancel}
-          >
-            취소
-          </Button>
+          <span className="inline-flex gap-2">
+            {canInvite(row) ? (
+              <Button
+                disabled={disabled}
+                aria-label={`${who}에게 참가 가능 안내`}
+                onClick={onInvite}
+              >
+                참가 가능 안내
+              </Button>
+            ) : null}
+            <Button
+              variant="secondary"
+              disabled={disabled}
+              aria-label={`${who}의 신청 취소`}
+              onClick={onCancel}
+            >
+              취소
+            </Button>
+          </span>
         )}
       </td>
     </tr>

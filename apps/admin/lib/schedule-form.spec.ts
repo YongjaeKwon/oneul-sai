@@ -42,6 +42,8 @@ const saved: AdminSchedule = {
   femaleFull: false,
   appliedMale: 0,
   appliedFemale: 0,
+  receivedMale: 0,
+  receivedFemale: 0,
 };
 
 function formValues(

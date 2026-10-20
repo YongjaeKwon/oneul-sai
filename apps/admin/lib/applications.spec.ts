@@ -2,22 +2,30 @@ import { ApiClientError } from '@oneul-sai/api-client';
 import type { AdminApplication, MemberSummary } from '@oneul-sai/contracts';
 
 import {
+  APPLICATION_FILTERS,
+  APPLICATION_STATUS_LABELS,
+  APPLICATION_STATUS_TONES,
   accountNoteOf,
+  activeApplicationCount,
   adminCancelQuestion,
   applicantWarnings,
   applicationFilterOf,
+  canInvite,
   capacityBelowMessage,
   capacityConflictCount,
   capacityNotice,
   formatAppliedCounts,
+  inviteErrorOverrides,
+  inviteQuestion,
   memberIdsOf,
   memberLookupNotice,
   mergeApplicants,
+  outsideBirthYears,
   scheduleCancelApplicantsNote,
 } from './applications';
 import { describeEventError } from './errors';
 
-// SPEC-003 13절 단위 "admin 표시 도우미" — A6 · A8 · A10.
+// SPEC-003 13절 단위 "admin 표시 도우미"(개정 2026-10-14) — A6 · A8 · A10.
 
 const M1 = '11111111-1111-4111-8111-111111111111';
 const M2 = '22222222-2222-4222-8222-222222222222';
@@ -54,31 +62,186 @@ function member(id: string, name: string | null): MemberSummary {
   };
 }
 
-describe('formatAppliedCounts', () => {
-  it('shows active applications over capacity for each gender', () => {
+const apiError = (status: number, code: string) =>
+  new ApiClientError(status, {
+    statusCode: status,
+    error: 'x',
+    code,
+    message: 'server text',
+  });
+
+describe('formatAppliedCounts (A6 · A8 · A10)', () => {
+  it('shows seated applications over capacity, then received counts — always, even at 0', () => {
     expect(
       formatAppliedCounts({
         appliedMale: 3,
         capacityMale: 7,
         appliedFemale: 5,
         capacityFemale: 7,
+        receivedMale: 2,
+        receivedFemale: 1,
       }),
-    ).toBe('남 3/7 · 여 5/7');
+    ).toBe('남 3/7 · 여 5/7 · 접수 남 2 · 여 1');
+    expect(
+      formatAppliedCounts({
+        appliedMale: 0,
+        capacityMale: 7,
+        appliedFemale: 0,
+        capacityFemale: 7,
+        receivedMale: 0,
+        receivedFemale: 0,
+      }),
+    ).toBe('남 0/7 · 여 0/7 · 접수 남 0 · 여 0');
   });
 });
 
-describe('applicationFilterOf (A10 ?status=)', () => {
+describe('status labels · tones · filters (4절, S7)', () => {
+  it('has four statuses — 접수 neutral, 입금 대기 warning, 참가 확정 success, 취소 danger', () => {
+    expect(APPLICATION_STATUS_LABELS).toEqual({
+      APPLIED: '접수',
+      PENDING: '입금 대기',
+      CONFIRMED: '참가 확정',
+      CANCELLED: '취소',
+    });
+    expect(APPLICATION_STATUS_TONES).toEqual({
+      APPLIED: 'neutral',
+      PENDING: 'warning',
+      CONFIRMED: 'success',
+      CANCELLED: 'danger',
+    });
+  });
+
+  it('lists the filters in order with 접수 first and 전체 last', () => {
+    expect(APPLICATION_FILTERS.map((filter) => filter.value)).toEqual([
+      'APPLIED',
+      'PENDING',
+      'CONFIRMED',
+      'CANCELLED',
+      'ALL',
+    ]);
+    expect(APPLICATION_FILTERS.map((filter) => filter.label)).toEqual([
+      '접수',
+      '입금 대기',
+      '참가 확정',
+      '취소',
+      '전체',
+    ]);
+  });
+});
+
+describe('applicationFilterOf (A10 ?status= — 기본 "전체", SPEC-004 K-1)', () => {
   it.each([
-    ['PENDING', false, 'PENDING'],
-    ['CANCELLED', false, 'CANCELLED'],
-    ['ALL', true, 'ALL'],
-    [undefined, false, 'PENDING'],
-    ['pending', false, 'PENDING'],
-    [['CANCELLED'], false, 'PENDING'],
-    [undefined, true, 'CANCELLED'],
-    ['nope', true, 'CANCELLED'],
-  ])('%j (cancelled schedule %s) → %s', (value, cancelled, expected) => {
-    expect(applicationFilterOf(value, cancelled)).toBe(expected);
+    ['APPLIED', 'APPLIED'],
+    ['PENDING', 'PENDING'],
+    ['CONFIRMED', 'CONFIRMED'],
+    ['CANCELLED', 'CANCELLED'],
+    ['ALL', 'ALL'],
+    [undefined, 'ALL'],
+    ['pending', 'ALL'],
+    [['CANCELLED'], 'ALL'],
+    ['nope', 'ALL'],
+  ])('%j → %s', (value, expected) => {
+    expect(applicationFilterOf(value)).toBe(expected);
+  });
+});
+
+describe('canInvite (A10 접수 줄의 버튼)', () => {
+  it('offers the invite only on 접수 rows and not for a withdrawn member', () => {
+    const active = member(M1, '김하나');
+    const applied = application(M1, { status: 'APPLIED' });
+    expect(canInvite({ application: applied, member: active })).toBe(true);
+    // 회원 정보를 모르면(조회 실패) 버튼은 둔다 — 질문만 "이 신청에 …"
+    expect(canInvite({ application: applied, member: null })).toBe(true);
+    expect(canInvite({ application: applied, member: member(M1, null) })).toBe(
+      false,
+    );
+    for (const status of ['PENDING', 'CONFIRMED', 'CANCELLED'] as const) {
+      expect(
+        canInvite({ application: application(M1, { status }), member: active }),
+      ).toBe(false);
+    }
+  });
+});
+
+describe('inviteQuestion (S7)', () => {
+  const rest =
+    ' 안내하면 남성 자리를 하나 잡고 신청이 입금 대기로 바뀝니다. 안내 메시지는 따로 보내 주세요.';
+
+  it('names the member and the gender of the application', () => {
+    expect(inviteQuestion(member(M1, '김하나'), 'MALE')).toBe(
+      `김하나님께 참가 가능 안내를 할까요?${rest}`,
+    );
+    expect(inviteQuestion(member(M1, '김하나'), 'FEMALE')).toBe(
+      '김하나님께 참가 가능 안내를 할까요? 안내하면 여성 자리를 하나 잡고 신청이 입금 대기로 바뀝니다. 안내 메시지는 따로 보내 주세요.',
+    );
+  });
+
+  it('asks "이 신청에 …" when the name is unknown', () => {
+    expect(inviteQuestion(null, 'MALE')).toBe(
+      `이 신청에 참가 가능 안내를 할까요?${rest}`,
+    );
+  });
+});
+
+describe('inviteErrorOverrides (4절 운영자 화면 오류 문구)', () => {
+  it('uses the gender for SCHEDULE_FULL and the 접수-only copy for INVALID_STATUS_TRANSITION', () => {
+    expect(
+      describeEventError(
+        apiError(409, 'SCHEDULE_FULL'),
+        inviteErrorOverrides('FEMALE'),
+      ),
+    ).toBe(
+      '여성 자리가 모두 찼습니다. 자리 잡은 신청을 취소하거나 정원을 늘린 뒤 다시 안내해 주세요.',
+    );
+    expect(
+      describeEventError(
+        apiError(409, 'INVALID_STATUS_TRANSITION'),
+        inviteErrorOverrides('MALE'),
+      ),
+    ).toBe('접수 상태의 신청만 안내할 수 있습니다. 목록을 새로 고쳐 주세요.');
+    expect(
+      describeEventError(
+        apiError(404, 'APPLICATION_NOT_FOUND'),
+        inviteErrorOverrides('MALE'),
+      ),
+    ).toBe('찾을 수 없는 신청입니다. 목록을 새로 고쳐 주세요.');
+  });
+});
+
+describe('outsideBirthYears (★S1 (a) — 연령대 밖)', () => {
+  const range = { maleMinBirthYear: 1990, maleMaxBirthYear: 1995 };
+
+  it('is true outside the male range and false on the boundaries', () => {
+    expect(outsideBirthYears('MALE', 1989, range)).toBe(true);
+    expect(outsideBirthYears('MALE', 1996, range)).toBe(true);
+    expect(outsideBirthYears('MALE', 1990, range)).toBe(false);
+    expect(outsideBirthYears('MALE', 1995, range)).toBe(false);
+  });
+
+  it('checks one open end, and is false with no range or no birth year', () => {
+    expect(
+      outsideBirthYears('MALE', 1989, {
+        maleMinBirthYear: 1990,
+        maleMaxBirthYear: null,
+      }),
+    ).toBe(true);
+    expect(
+      outsideBirthYears('MALE', 1996, {
+        maleMinBirthYear: null,
+        maleMaxBirthYear: 1995,
+      }),
+    ).toBe(true);
+    expect(
+      outsideBirthYears('MALE', 1980, {
+        maleMinBirthYear: null,
+        maleMaxBirthYear: null,
+      }),
+    ).toBe(false);
+    expect(outsideBirthYears('MALE', null, range)).toBe(false);
+  });
+
+  it('does not judge women until SPEC-002 adds the female range columns', () => {
+    expect(outsideBirthYears('FEMALE', 1980, range)).toBe(false);
   });
 });
 
@@ -126,8 +289,27 @@ describe('adminCancelQuestion (A10)', () => {
   });
 });
 
+describe('activeApplicationCount (H · I의 N)', () => {
+  it('adds seated and received applications of both genders', () => {
+    expect(
+      activeApplicationCount({
+        appliedMale: 2,
+        appliedFemale: 1,
+        receivedMale: 3,
+        receivedFemale: 0,
+      }),
+    ).toBe(6);
+  });
+});
+
 describe('applicantWarnings (H)', () => {
-  const withApplicants = { appliedMale: 2, appliedFemale: 1 };
+  // 자리 잡은 1 + 접수 2 — 접수된 사람도 안내 대상이라 N(3)에 들어간다
+  const withApplicants = {
+    appliedMale: 0,
+    appliedFemale: 1,
+    receivedMale: 2,
+    receivedFemale: 0,
+  };
   const notify =
     '신청자 3명이 있습니다. 바뀐 내용은 신청자에게 따로 안내해 주세요. 참가비를 바꿔도 이미 한 신청의 금액은 그대로입니다.';
   const deadline =
@@ -158,7 +340,12 @@ describe('applicantWarnings (H)', () => {
   it('does not ask without active applications or for other fields', () => {
     expect(
       applicantWarnings(
-        { appliedMale: 0, appliedFemale: 0 },
+        {
+          appliedMale: 0,
+          appliedFemale: 0,
+          receivedMale: 0,
+          receivedFemale: 0,
+        },
         { startsAt: '2026-10-04T14:00:00+09:00' },
       ),
     ).toEqual([]);
@@ -174,14 +361,24 @@ describe('applicantWarnings (H)', () => {
 });
 
 describe('scheduleCancelApplicantsNote (I)', () => {
-  it('counts the active applications that will be cancelled too', () => {
+  it('counts the active applications that will be cancelled too — 접수 included', () => {
     expect(
-      scheduleCancelApplicantsNote({ appliedMale: 2, appliedFemale: 3 }),
+      scheduleCancelApplicantsNote({
+        appliedMale: 2,
+        appliedFemale: 3,
+        receivedMale: 1,
+        receivedFemale: 0,
+      }),
     ).toBe(
-      '신청 5건도 함께 취소됩니다. 취소한 뒤 신청 목록에서 연락처를 확인할 수 있습니다. 신청자에게는 따로 안내해 주세요.',
+      '신청 6건도 함께 취소됩니다. 취소한 뒤 신청 목록에서 연락처를 확인할 수 있습니다. 신청자에게는 따로 안내해 주세요.',
     );
     expect(
-      scheduleCancelApplicantsNote({ appliedMale: 0, appliedFemale: 0 }),
+      scheduleCancelApplicantsNote({
+        appliedMale: 0,
+        appliedFemale: 0,
+        receivedMale: 0,
+        receivedFemale: 0,
+      }),
     ).toBeNull();
   });
 });
@@ -233,14 +430,6 @@ describe('accountNoteOf (A10 계정 상태)', () => {
     expect(accountNoteOf(null)).toBe('');
   });
 });
-
-const apiError = (status: number, code: string) =>
-  new ApiClientError(status, {
-    statusCode: status,
-    error: 'x',
-    code,
-    message: 'server text',
-  });
 
 describe('memberLookupNotice (A10 회원 정보 조회 실패)', () => {
   it('uses the 4절 copy for 5xx and network, code copy for other 4xx, nothing for 401', () => {
