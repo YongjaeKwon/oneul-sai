@@ -8,23 +8,17 @@ import { useState } from 'react';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { FormAlert } from '@/components/form-alert';
 import { LoadingBlock } from '@/components/loading-block';
+import { DEPOSIT_ACCOUNT } from '@/lib/api';
 import {
   ADMIN_ACCOUNT_MESSAGE,
-  canCancelMine,
+  applicationCard,
   CANCEL_CONFIRM_MESSAGE,
+  depositAccountNote,
   describeApplicationError,
-  NOT_CANCELLABLE_MESSAGE,
-  PENDING_NOTE,
 } from '@/lib/applications';
 import { useAuth, useEndSessionOn401 } from '@/lib/auth';
 import { describeError, isSessionEnded } from '@/lib/errors';
-import {
-  APPLICATION_STATUS_LABELS,
-  APPLICATION_STATUS_TONES,
-  CANCELLED_BY_NOTES,
-  formatDateTime,
-  formatFee,
-} from '@/lib/format';
+import { formatDateTime, formatFee } from '@/lib/format';
 import {
   useCancelMyApplication,
   useMe,
@@ -191,8 +185,9 @@ function ApplicationCard({
   const { schedule } = application;
   // 공개 중인 일정만 상세로 잇는다 — 취소된 일정의 공개 상세는 404다.
   const isPublic = schedule.status === 'OPEN' || schedule.status === 'CLOSED';
-  const pending = application.status === 'PENDING';
-  const cancellable = canCancelMine(application);
+  // 배지 · 안내 · 취소 가능 여부는 상태로 고른다(SPEC-004 13절 목록 2) — 입금 계좌는 입금 대기 · 참가비 있음일 때만(★D)
+  const card = applicationCard(application);
+  const account = depositAccountNote(application, DEPOSIT_ACCOUNT);
 
   return (
     <article className="flex flex-col gap-2 rounded-card border border-line bg-surface p-6">
@@ -200,9 +195,7 @@ function ApplicationCard({
         <p className="font-display text-lg font-semibold text-ink tabular-nums">
           {formatDateTime(schedule.startsAt)}
         </p>
-        <Badge tone={APPLICATION_STATUS_TONES[application.status]}>
-          {APPLICATION_STATUS_LABELS[application.status]}
-        </Badge>
+        <Badge tone={card.tone}>{card.label}</Badge>
       </div>
       <h2 className="text-base font-semibold text-ink">
         {isPublic ? (
@@ -222,27 +215,25 @@ function ApplicationCard({
       </p>
       {/* 취소하면 이 줄이 바뀐다 — 스크린 리더가 결과를 읽는다 */}
       <p aria-live="polite" className="text-sm text-ink-soft">
-        {application.cancelledBy === null
-          ? PENDING_NOTE
-          : CANCELLED_BY_NOTES[application.cancelledBy]}
+        {card.note}
       </p>
-      {pending ? (
-        cancellable ? (
-          <Button
-            variant="secondary"
-            className="mt-2 self-start"
-            disabled={cancelDisabled}
-            onClick={onCancel}
-          >
-            신청 취소
-          </Button>
-        ) : (
-          <p className="text-sm text-ink-soft">{NOT_CANCELLABLE_MESSAGE}</p>
-        )
+      {account !== null ? (
+        <p className="text-sm text-ink tabular-nums">{account}</p>
       ) : null}
-      {/* 마감 직후 409 APPLICATION_NOT_CANCELLABLE — 카드가 이미 같은 문장을 보이면 두 번 보이지 않는다 */}
-      {failure !== null &&
-      !(pending && !cancellable && failure === NOT_CANCELLABLE_MESSAGE) ? (
+      {card.cancellable ? (
+        <Button
+          variant="secondary"
+          className="mt-2 self-start"
+          disabled={cancelDisabled}
+          onClick={onCancel}
+        >
+          신청 취소
+        </Button>
+      ) : card.cancelBlocked !== null ? (
+        <p className="text-sm text-ink-soft">{card.cancelBlocked}</p>
+      ) : null}
+      {/* 마감 직후 409 APPLICATION_NOT_CANCELLABLE · 확정 직후 409 APPLICATION_CONFIRMED — 다시 불러온 카드가 같은 문장을 보이면 두 번 보이지 않는다 */}
+      {failure !== null && failure !== card.cancelBlocked ? (
         <FormAlert>{failure}</FormAlert>
       ) : null}
     </article>

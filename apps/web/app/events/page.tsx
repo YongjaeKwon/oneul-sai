@@ -25,7 +25,7 @@ interface EventsPageProps {
 }
 
 // W8 일정 목록(SPEC-002 4절). 서버 렌더 — 공개 조회는 lib/public-api.ts의 데이터 캐시(30초)를 거친다.
-// 남은 자리 수 대신 모집 마감 · 성별 자리 마감만 보이고(SPEC-003 E · D10), 회차별로 "N명과 대화"를 약속하지 않는다(결정 예정 (Step 5)).
+// 남은 자리 수 · 자리 마감은 보이지 않고 "모집 마감"만 보인다(SPEC-003 D10 · ★S2 — 접수는 정원과 무관). 회차별로 "N명과 대화"를 약속하지 않는다(결정 예정 (Step 5)).
 export default async function EventsPage({ searchParams }: EventsPageProps) {
   const { page } = await searchParams;
 

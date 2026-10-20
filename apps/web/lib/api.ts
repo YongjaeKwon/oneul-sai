@@ -15,3 +15,11 @@ export const apiClient = new ApiClient({
   client: 'WEB',
   credentials: 'include',
 });
+
+/**
+ * 입금 계좌 안내 문자열(SPEC-004 ★D) — 운영자가 "{은행} {계좌번호} ({예금주})"를 한 문자열로 준다. 빌드 시점에 인라인되는
+ * 공개 설정이라 로그인하지 않은 사람도 번들에서 읽을 수 있다(★D 알아 둘 점 (2)). 비어 있으면 안내를 숨긴다 — 쓰는 곳은
+ * `lib/applications.ts`의 `depositAccountNote`(입금 대기 · 참가비 0원 초과일 때만).
+ */
+export const DEPOSIT_ACCOUNT =
+  process.env.NEXT_PUBLIC_DEPOSIT_ACCOUNT?.trim() ?? '';

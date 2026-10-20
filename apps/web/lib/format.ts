@@ -92,7 +92,7 @@ export function formatFee(price: number): string {
   return `참가비 ${formatWon(price)}`;
 }
 
-/** "정원 남 7 · 여 7". 남은 자리 수는 보이지 않는다 — 찼는지만(`scheduleBadgeLabel`, SPEC-003 D10). */
+/** "정원 남 7 · 여 7". 남은 자리 수 · 자리 마감은 보이지 않는다 — 접수는 정원과 무관하다(SPEC-003 D10 · ★S2). */
 export function formatCapacity(
   capacityMale: number,
   capacityFemale: number,
@@ -134,26 +134,14 @@ export function isRecruitmentClosed(
 }
 
 /**
- * W8 · W9 배지(SPEC-003 E). 모집 마감이 먼저이고, 모집 중일 때만 성별 자리 마감을 보인다 — 두 표시를 섞지 않는다.
- * 공개 조회는 30초 캐시라 늦게 보일 수 있다 — 신청 판정의 원천은 서버다.
+ * W8 · W9 배지 — "모집 마감"뿐이다(SPEC-002). 성별 자리 마감 표시는 없다 — 공개 응답에 자리 값이 없고 접수는 정원과
+ * 무관하다(SPEC-003 ★S2). 공개 조회는 30초 캐시라 늦게 보일 수 있다 — 신청 판정의 원천은 서버다.
  */
 export function scheduleBadgeLabel(
-  schedule: Pick<
-    PublicSchedule,
-    'status' | 'applyDeadlineAt' | 'maleFull' | 'femaleFull'
-  >,
+  schedule: Pick<PublicSchedule, 'status' | 'applyDeadlineAt'>,
   now: number = Date.now(),
 ): string | null {
-  if (isRecruitmentClosed(schedule, now)) {
-    return '모집 마감';
-  }
-  if (schedule.maleFull && schedule.femaleFull) {
-    return '남녀 자리 모두 마감';
-  }
-  if (schedule.maleFull) {
-    return '남성 자리 마감';
-  }
-  return schedule.femaleFull ? '여성 자리 마감' : null;
+  return isRecruitmentClosed(schedule, now) ? '모집 마감' : null;
 }
 
 /** "지난 일정입니다." 표시: 시작 시각이 지났다. */
@@ -170,16 +158,20 @@ export function normalizePage(value: unknown): number {
   return result.success ? result.data : 1;
 }
 
-// ----- 참가 신청 (SPEC-003 4절 W9 · W10) -----
+// ----- 참가 신청 (SPEC-003 4절 W9 · W10, SPEC-004 4절 K) -----
 
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  APPLIED: '접수',
   PENDING: '입금 대기',
+  CONFIRMED: '참가 확정',
   CANCELLED: '취소',
 };
 
-/** 디자인 파운데이션 5절 `Badge` — 입금 대기 `warning`, 취소 `danger`. 뜻은 글자가 전한다. */
+/** 디자인 파운데이션 5절 `Badge` — 접수 `neutral`(S7), 입금 대기 `warning`, 참가 확정 `success`, 취소 `danger`. 뜻은 글자가 전한다. */
 export const APPLICATION_STATUS_TONES: Record<ApplicationStatus, BadgeTone> = {
+  APPLIED: 'neutral',
   PENDING: 'warning',
+  CONFIRMED: 'success',
   CANCELLED: 'danger',
 };
 

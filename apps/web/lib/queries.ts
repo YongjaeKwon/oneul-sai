@@ -75,7 +75,7 @@ function useInvalidateMyApplications() {
   return () => queryClient.invalidateQueries({ queryKey: myApplicationsKey });
 }
 
-/** W9 참가 신청. 201이면 입금 대기. */
+/** W9 참가 신청. 201이면 접수(`APPLIED`) — 자리는 운영자 참가 가능 안내 때 잡는다. */
 export function useApply() {
   const invalidate = useInvalidateMyApplications();
 
@@ -85,7 +85,7 @@ export function useApply() {
   });
 }
 
-/** W9 · W10 본인 취소(신청 마감 전까지). */
+/** W9 · W10 본인 취소 — 접수는 언제든, 입금 대기는 신청 마감 전까지, 참가 확정은 409 `APPLICATION_CONFIRMED`. */
 export function useCancelMyApplication() {
   const invalidate = useInvalidateMyApplications();
 
