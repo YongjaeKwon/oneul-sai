@@ -59,7 +59,7 @@ const defaultLogger = createLogger({ service: SERVICE_NAMES.eventService });
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   [API_ERROR_CODES.SCHEDULE_TIME_INVALID]: '일시가 규칙에 맞지 않습니다.',
   [API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID]:
-    '남성 연령대의 앞 연도가 뒤 연도보다 클 수 없습니다.',
+    '연령대의 앞 연도가 뒤 연도보다 클 수 없습니다.',
   [API_ERROR_CODES.INVALID_STATUS_TRANSITION]:
     '지금 상태에서는 바꿀 수 없습니다.',
   [API_ERROR_CODES.SCHEDULE_NOT_EDITABLE]:

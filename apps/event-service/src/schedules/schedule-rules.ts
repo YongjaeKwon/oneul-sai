@@ -21,10 +21,12 @@ export interface ScheduleTimes {
   applyDeadlineAt: Date;
 }
 
-/** 남성 연령대(출생연도 범위). 없거나 null이면 그쪽 제한이 없다(D5). */
-export interface MaleBirthYearRange {
+/** 성별 연령대(출생연도 범위) — 성별마다 한 쌍. 없거나 null이면 그쪽 제한이 없다(D16). */
+export interface BirthYearRanges {
   maleMinBirthYear?: number | null;
   maleMaxBirthYear?: number | null;
+  femaleMinBirthYear?: number | null;
+  femaleMaxBirthYear?: number | null;
 }
 
 type WithDates<T> = { [K in keyof T]: K extends TimeField ? Date : T[K] };
@@ -80,11 +82,17 @@ export function isValidScheduleTime(
   );
 }
 
-/** 병합한 남성 연령대의 `min ≤ max`(D5). 한쪽만 있거나 둘 다 없으면 통과. */
-export function isValidMaleBirthYearRange(range: MaleBirthYearRange): boolean {
-  const min = range.maleMinBirthYear ?? null;
-  const max = range.maleMaxBirthYear ?? null;
-  return min === null || max === null || min <= max;
+/** 한 쌍의 `min ≤ max`. 한쪽만 있거나 둘 다 없으면 통과. */
+function isOrdered(min?: number | null, max?: number | null): boolean {
+  return min == null || max == null || min <= max;
+}
+
+/** 병합한 성별 연령대가 성별마다 `min ≤ max`(D16). 남녀 사이의 관계는 보지 않는다. */
+export function isValidBirthYearRanges(range: BirthYearRanges): boolean {
+  return (
+    isOrdered(range.maleMinBirthYear, range.maleMaxBirthYear) &&
+    isOrdered(range.femaleMinBirthYear, range.femaleMaxBirthYear)
+  );
 }
 
 export type ScheduleRuleViolation =
@@ -94,9 +102,10 @@ export type ScheduleRuleViolation =
 /**
  * 생성 · 수정 · 여러 회차 등록의 규칙 판정(병합한 값). `changed`는 값이 바뀐 필드 이름 — 생성은 `TIME_FIELDS` 전부.
  * 여러 회차 등록은 항목마다 같은 `now`로 부른다(D15, 새 규칙 없음).
+ * 참가 조건 · 참가비 보조 문구 · 최소 인원으로는 아무것도 판정하지 않는다 — 최소 인원과 정원의 비교도 운영자 화면 몫이다(D17).
  */
 export function scheduleRuleViolation(
-  values: ScheduleTimes & MaleBirthYearRange,
+  values: ScheduleTimes & BirthYearRanges,
   changed: readonly PropertyKey[],
   now: Date,
 ): ScheduleRuleViolation | null {
@@ -106,7 +115,7 @@ export function scheduleRuleViolation(
   if (!isValidScheduleTime(values, changedTimes, now)) {
     return API_ERROR_CODES.SCHEDULE_TIME_INVALID;
   }
-  if (!isValidMaleBirthYearRange(values)) {
+  if (!isValidBirthYearRanges(values)) {
     return API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID;
   }
   return null;

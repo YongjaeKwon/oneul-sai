@@ -2,7 +2,7 @@ import { API_ERROR_CODES, type ScheduleStatus } from '@oneul-sai/contracts';
 import {
   changedFields,
   decideTransition,
-  isValidMaleBirthYearRange,
+  isValidBirthYearRanges,
   isValidScheduleTime,
   scheduleRuleViolation,
   TIME_FIELDS,
@@ -11,7 +11,7 @@ import {
   type TransitionDecision,
 } from './schedule-rules.js';
 
-// SPEC-002 13절 단위: schedule-rules 시간 규칙 · 남성 연령대 순서 · 6절 전이 표 20칸.
+// SPEC-002 13절 단위: schedule-rules 시간 규칙 · 성별 연령대 순서(D16, 개정 2026-10-14) · 6절 전이 표 20칸.
 
 const NOW = new Date('2026-10-01T00:00:00.000Z');
 const MINUTE = 60_000;
@@ -26,6 +26,10 @@ const stored = {
   applyDeadlineAt: start,
   maleMinBirthYear: null as number | null,
   maleMaxBirthYear: null as number | null,
+  femaleMinBirthYear: null as number | null,
+  femaleMaxBirthYear: null as number | null,
+  minPerGender: null as number | null,
+  capacityMale: 7,
   venueArea: '성수',
 };
 const TIME = API_ERROR_CODES.SCHEDULE_TIME_INVALID;
@@ -120,36 +124,78 @@ describe('schedule-rules — time rules', () => {
   });
 });
 
-describe('schedule-rules — male birth-year range', () => {
-  it.each<[string, number | null, number | null, boolean]>([
-    ['both null', null, null, true],
-    ['min only', 1990, null, true],
-    ['max only', null, 1995, true],
-    ['min = max', 1990, 1990, true],
-    ['min > max', 1996, 1995, false],
-  ])('%s', (_label, min, max, valid) => {
+describe.each([['male'], ['female']] as const)(
+  'schedule-rules — %s birth-year range (D16)',
+  (gender) => {
+    const minKey = `${gender}MinBirthYear` as const;
+    const maxKey = `${gender}MaxBirthYear` as const;
+
+    it.each<[string, number | null, number | null, boolean]>([
+      ['both null', null, null, true],
+      ['min only', 1990, null, true],
+      ['max only', null, 1995, true],
+      ['min = max', 1990, 1990, true],
+      ['min > max', 1996, 1995, false],
+    ])('%s', (_label, min, max, valid) => {
+      expect(isValidBirthYearRanges({ [minKey]: min, [maxKey]: max })).toBe(
+        valid,
+      );
+      expect(createCheck({ [minKey]: min, [maxKey]: max })).toBe(
+        valid ? null : BIRTH,
+      );
+    });
+
+    it('merges: stored max 1995 + min 1996 only → fails', () => {
+      const base = { ...stored, [maxKey]: 1995 };
+      expect(patchCheck(base, { [minKey]: 1996 })).toBe(BIRTH);
+    });
+
+    it('merges: stored min 1990 + max 1985 only → fails, max 1999 only → passes', () => {
+      const base = { ...stored, [minKey]: 1990 };
+      expect(patchCheck(base, { [maxKey]: 1985 })).toBe(BIRTH);
+      expect(patchCheck(base, { [maxKey]: 1999 })).toBeNull();
+    });
+
+    it('merges: clearing max with null lets min stand alone', () => {
+      const base = { ...stored, [maxKey]: 1995 };
+      expect(patchCheck(base, { [minKey]: 1996, [maxKey]: null })).toBeNull();
+    });
+  },
+);
+
+describe('schedule-rules — birth-year ranges across genders (D16)', () => {
+  it('treats absent fields as no limit (create without any range)', () => {
+    expect(isValidBirthYearRanges({})).toBe(true);
+  });
+
+  it('male pair fine, female pair min > max → fails with the same code', () => {
     expect(
-      isValidMaleBirthYearRange({
-        maleMinBirthYear: min,
-        maleMaxBirthYear: max,
+      createCheck({
+        maleMinBirthYear: 1990,
+        maleMaxBirthYear: 1995,
+        femaleMinBirthYear: 1999,
+        femaleMaxBirthYear: 1990,
       }),
-    ).toBe(valid);
+    ).toBe(BIRTH);
   });
 
-  it('treats absent fields as no limit (create without the range)', () => {
-    expect(isValidMaleBirthYearRange({})).toBe(true);
-  });
-
-  it('merges: stored max 1995 + min 1996 only → fails', () => {
-    const base = { ...stored, maleMaxBirthYear: 1995 };
-    expect(patchCheck(base, { maleMinBirthYear: 1996 })).toBe(BIRTH);
-  });
-
-  it('merges: clearing max with null lets min stand alone', () => {
-    const base = { ...stored, maleMaxBirthYear: 1995 };
+  it('passes different ranges for men and women (no relation between genders)', () => {
     expect(
-      patchCheck(base, { maleMinBirthYear: 1996, maleMaxBirthYear: null }),
+      createCheck({
+        maleMinBirthYear: 1990,
+        maleMaxBirthYear: 1995,
+        femaleMinBirthYear: 1990,
+        femaleMaxBirthYear: 1999,
+      }),
     ).toBeNull();
+    // 남 범위가 여 범위보다 뒤여도 된다
+    expect(
+      createCheck({ maleMinBirthYear: 2000, femaleMaxBirthYear: 1990 }),
+    ).toBeNull();
+  });
+
+  it('does not compare minPerGender with capacity (D17 — operator screen warns only)', () => {
+    expect(createCheck({ minPerGender: 8, capacityMale: 7 })).toBeNull();
   });
 });
 

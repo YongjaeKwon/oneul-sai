@@ -4,7 +4,7 @@ import { dbErrorFields } from '../common/db-error.js';
 import { resetTestDatabase } from '../testing/test-database.js';
 import { PrismaService } from './prisma.service.js';
 
-// 마이그레이션 init_event에 손으로 넣은 CHECK 제약 (SPEC-002 9절 · 13절).
+// 마이그레이션 init_event · add_schedule_condition_columns에 손으로 넣은 CHECK 제약 (SPEC-002 9절 · 13절).
 // API를 거치지 않는 INSERT · UPDATE에서도 불변식이 서는지 실제 DB로 확인한다.
 
 const prisma = new PrismaService(inject('testDatabaseUrl'));
@@ -19,6 +19,9 @@ interface Row {
   capacityFemale: number;
   maleMinBirthYear: number | null;
   maleMaxBirthYear: number | null;
+  femaleMinBirthYear: number | null;
+  femaleMaxBirthYear: number | null;
+  minPerGender: number | null;
   venueMapUrl: string | null;
   status: 'DRAFT' | 'OPEN' | 'CLOSED' | 'CANCELLED';
   cancelReason: string | null;
@@ -35,6 +38,9 @@ const valid: Row = {
   capacityFemale: 6,
   maleMinBirthYear: null,
   maleMaxBirthYear: null,
+  femaleMinBirthYear: null,
+  femaleMaxBirthYear: null,
+  minPerGender: null,
   venueMapUrl: null,
   status: 'DRAFT',
   cancelReason: null,
@@ -48,12 +54,14 @@ function insert(overrides: Partial<Row>, id = randomUUID()) {
     INSERT INTO "Schedule" (
       "id", "meetupId", "startsAt", "endsAt", "applyDeadlineAt",
       "priceMale", "priceFemale", "capacityMale", "capacityFemale",
-      "maleMinBirthYear", "maleMaxBirthYear", "venueArea", "venueMapUrl",
+      "maleMinBirthYear", "maleMaxBirthYear", "femaleMinBirthYear", "femaleMaxBirthYear",
+      "minPerGender", "venueArea", "venueMapUrl",
       "status", "cancelReason", "updatedAt"
     ) VALUES (
       ${id}, ${meetupId}, ${r.startsAt}, ${r.endsAt}, ${r.applyDeadlineAt},
       ${r.priceMale}, ${r.priceFemale}, ${r.capacityMale}, ${r.capacityFemale},
-      ${r.maleMinBirthYear}, ${r.maleMaxBirthYear}, '성수', ${r.venueMapUrl},
+      ${r.maleMinBirthYear}, ${r.maleMaxBirthYear}, ${r.femaleMinBirthYear}, ${r.femaleMaxBirthYear},
+      ${r.minPerGender}, '성수', ${r.venueMapUrl},
       ${r.status}::"ScheduleStatus", ${r.cancelReason}, now()
     )`;
 }
@@ -66,6 +74,8 @@ function update(id: string, overrides: Partial<Row>) {
       "priceMale" = ${r.priceMale}, "priceFemale" = ${r.priceFemale},
       "capacityMale" = ${r.capacityMale}, "capacityFemale" = ${r.capacityFemale},
       "maleMinBirthYear" = ${r.maleMinBirthYear}, "maleMaxBirthYear" = ${r.maleMaxBirthYear},
+      "femaleMinBirthYear" = ${r.femaleMinBirthYear}, "femaleMaxBirthYear" = ${r.femaleMaxBirthYear},
+      "minPerGender" = ${r.minPerGender},
       "venueMapUrl" = ${r.venueMapUrl},
       "status" = ${r.status}::"ScheduleStatus", "cancelReason" = ${r.cancelReason}
     WHERE "id" = ${id}`;
@@ -104,6 +114,24 @@ const violations: [string, string, Partial<Row>][] = [
     'Schedule_male_birth_year_valid',
     { maleMinBirthYear: 1899 },
   ],
+  // 개정 2026-10-14 (D16 · D17)
+  [
+    'femaleMinBirthYear > femaleMaxBirthYear',
+    'Schedule_female_birth_year_valid',
+    { femaleMinBirthYear: 1995, femaleMaxBirthYear: 1990 },
+  ],
+  [
+    'femaleMinBirthYear 1899',
+    'Schedule_female_birth_year_valid',
+    { femaleMinBirthYear: 1899 },
+  ],
+  [
+    'femaleMaxBirthYear 1899',
+    'Schedule_female_birth_year_valid',
+    { femaleMaxBirthYear: 1899 },
+  ],
+  ['minPerGender 0', 'Schedule_min_per_gender_valid', { minPerGender: 0 }],
+  ['minPerGender 51', 'Schedule_min_per_gender_valid', { minPerGender: 51 }],
   [
     "venueMapUrl 'javascript:alert(1)'",
     'Schedule_venue_map_url_https',
@@ -171,6 +199,22 @@ describe('Schedule CHECK constraints (integration)', () => {
       { maleMinBirthYear: 1900, maleMaxBirthYear: 1900 },
     ],
     ['only maleMaxBirthYear', { maleMaxBirthYear: 1995 }],
+    [
+      'female birth years 1900 · min = max',
+      { femaleMinBirthYear: 1900, femaleMaxBirthYear: 1900 },
+    ],
+    ['only femaleMinBirthYear', { femaleMinBirthYear: 1990 }],
+    [
+      'male and female ranges that differ',
+      {
+        maleMinBirthYear: 1990,
+        maleMaxBirthYear: 1995,
+        femaleMinBirthYear: 1985,
+        femaleMaxBirthYear: 1999,
+      },
+    ],
+    ['minPerGender 1', { minPerGender: 1 }],
+    ['minPerGender 50 (above capacity 7 — no relation)', { minPerGender: 50 }],
     ['https map url', { venueMapUrl: 'https://naver.me/abc' }],
     ['CANCELLED with reason', { status: 'CANCELLED', cancelReason: '사유' }],
   ])('accepts %s', async (_label, row) => {

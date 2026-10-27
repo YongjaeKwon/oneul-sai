@@ -46,8 +46,13 @@ function row(overrides: Partial<AdminScheduleRow> = {}): AdminScheduleRow {
     priceFemale: 29_000,
     capacityMale: 7,
     capacityFemale: 7,
+    priceNote: null,
+    minPerGender: 5,
     maleMinBirthYear: null,
     maleMaxBirthYear: 1995,
+    femaleMinBirthYear: null,
+    femaleMaxBirthYear: null,
+    participantCondition: null,
     venueArea: '성수',
     venueName: 'SECRET-NAME',
     venueAddress: null,
@@ -226,19 +231,41 @@ describe('SchedulesService.createBatch (D15)', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('rejects the third item on the male birth-year order', async () => {
-    const { service, prisma } = build();
-    const items = [
-      input(4),
-      input(11),
-      input(18, { maleMinBirthYear: 1996, maleMaxBirthYear: 1995 }),
-    ];
-    const error = await errorOf(
-      service.createBatch(ADMIN, MEETUP_ID, { items }, 'req'),
+  it.each<[string, Partial<CreateScheduleRequest>]>([
+    ['male', { maleMinBirthYear: 1996, maleMaxBirthYear: 1995 }],
+    ['female', { femaleMinBirthYear: 1996, femaleMaxBirthYear: 1995 }],
+  ])(
+    'rejects the third item on the %s birth-year order (D16)',
+    async (_label, range) => {
+      const { service, prisma } = build();
+      const items = [input(4), input(11), input(18, range)];
+      const error = await errorOf(
+        service.createBatch(ADMIN, MEETUP_ID, { items }, 'req'),
+      );
+      expect(error.code).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
+      expect(messageOf(error)).toBe('items.2: 연령대 규칙');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it('passes the five revision fields to INSERT as sent (D16 · D17)', async () => {
+    const { service, tx } = build();
+    const fields = {
+      femaleMinBirthYear: 1990,
+      femaleMaxBirthYear: 1999,
+      participantCondition: '90년대생 직장인',
+      priceNote: '커피 1잔 포함',
+      minPerGender: 5,
+    };
+    await service.createBatch(
+      ADMIN,
+      MEETUP_ID,
+      { items: [input(4, fields), input(11)] },
+      'req',
     );
-    expect(error.code).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
-    expect(messageOf(error)).toMatch(/^items\.2: /);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    const datas = tx.schedule.create.mock.calls.map(([args]) => args.data);
+    expect(datas[0]).toMatchObject(fields);
+    expect(datas[1]).not.toHaveProperty('minPerGender');
   });
 
   it('answers 404 MEETUP_NOT_FOUND before judging any rule', async () => {
@@ -308,6 +335,63 @@ describe('SchedulesService — lock first, then judge', () => {
     );
     expect(error.code).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
     expect(tx.schedule.update).not.toHaveBeenCalled();
+  });
+
+  it('update: merged female birth-year violation (stored min 1990 + max 1985) → 400 with a gender-neutral message', async () => {
+    const { service, tx } = build({
+      stored: row({ femaleMinBirthYear: 1990 }),
+    });
+    const error = await errorOf(
+      service.update(
+        ADMIN,
+        MEETUP_ID,
+        SCHEDULE_ID,
+        { femaleMaxBirthYear: 1985 },
+        'req',
+      ),
+    );
+    expect(error.code).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
+    expect(messageOf(error)).toBe(
+      '연령대의 앞 연도가 뒤 연도보다 클 수 없습니다.',
+    );
+    expect(tx.schedule.update).not.toHaveBeenCalled();
+  });
+
+  it('update: logs the revision field names only, not their values (14절)', async () => {
+    const { service, logger, tx } = build();
+    await service.update(
+      ADMIN,
+      MEETUP_ID,
+      SCHEDULE_ID,
+      {
+        priceNote: 'NOTE-SECRET',
+        participantCondition: 'CONDITION-SECRET',
+        minPerGender: 8,
+        femaleMinBirthYear: 1991,
+        // 저장값과 같다 — 쓰지 않는다
+        maleMaxBirthYear: 1995,
+      },
+      'req',
+    );
+    expect(tx.schedule.update.mock.calls[0]?.[0].data).toEqual({
+      priceNote: 'NOTE-SECRET',
+      participantCondition: 'CONDITION-SECRET',
+      minPerGender: 8,
+      femaleMinBirthYear: 1991,
+    });
+    expect(logger.info).toHaveBeenCalledWith(
+      'schedule.updated',
+      expect.objectContaining({
+        fields: [
+          'priceNote',
+          'participantCondition',
+          'minPerGender',
+          'femaleMinBirthYear',
+        ],
+      }),
+    );
+    expect(loggedText(logger)).not.toContain('SECRET');
+    expect(loggedText(logger)).not.toContain('1991');
   });
 
   it('update: CANCELLED → 409 SCHEDULE_NOT_EDITABLE', async () => {

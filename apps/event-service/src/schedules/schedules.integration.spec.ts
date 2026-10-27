@@ -20,6 +20,7 @@ import {
 } from '../testing/integration-app.js';
 
 // SPEC-002 13절 통합: 운영자 흐름 전체(D1 · D8), 검증 끝점, 여러 회차 등록(D15), 동시 수정 · 상태 경합(11절).
+// 개정 2026-10-14(D16 · D17 · D20): 성별 연령대 순서, 새 열 다섯의 저장 · 공개(넷) · 운영자(다섯) 응답.
 
 let t: TestApp;
 
@@ -61,6 +62,12 @@ describe('operator flow (integration, D1 · D8)', () => {
       capacityFemale: 6,
       maleMinBirthYear: null,
       maleMaxBirthYear: null,
+      // 새 선택 필드를 보내지 않아도 201이고 모두 null이다 (13절 e2e 행)
+      femaleMinBirthYear: null,
+      femaleMaxBirthYear: null,
+      participantCondition: null,
+      priceNote: null,
+      minPerGender: null,
       venueArea: '성수',
       venueName: null,
       cancelReason: null,
@@ -138,7 +145,13 @@ describe('validation end points (integration)', () => {
   it.each<[string, Record<string, unknown>]>([
     ['capacity 51', { capacityMale: 51 }],
     ['priceFemale -1', { priceFemale: -1 }],
-    ['female birth-year field', { femaleMinBirthYear: 1990 }],
+    [
+      'participantCondition 101 characters',
+      { participantCondition: '가'.repeat(101) },
+    ],
+    ['priceNote 51 characters', { priceNote: '가'.repeat(51) }],
+    ['minPerGender 51', { minPerGender: 51 }],
+    ['femaleMinBirthYear 1899', { femaleMinBirthYear: 1899 }],
   ])('%s → 400 VALIDATION_FAILED', async (_label, overrides) => {
     const result = await create({ ...scheduleInput(), ...overrides });
     expect(result.status).toBe(400);
@@ -161,35 +174,51 @@ describe('validation end points (integration)', () => {
     expect(created).toMatchObject({ capacityMale: 7, capacityFemale: 6 });
   });
 
-  it('male birth years: min > max → 400 BIRTH_YEAR_RANGE_INVALID, also after merging', async () => {
-    const direct = await create(
-      scheduleInput({ maleMinBirthYear: 1996, maleMaxBirthYear: 1995 }),
-    );
-    expect(direct.status).toBe(400);
-    expect(codeOf(direct)).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
+  it.each([['male'], ['female']] as const)(
+    '%s birth years: min > max → 400 BIRTH_YEAR_RANGE_INVALID, also after merging (D16)',
+    async (gender) => {
+      const minKey = `${gender}MinBirthYear` as const;
+      const maxKey = `${gender}MaxBirthYear` as const;
+      const direct = await create(
+        scheduleInput({ [minKey]: 1996, [maxKey]: 1995 }),
+      );
+      expect(direct.status).toBe(400);
+      expect(codeOf(direct)).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
 
-    const created = await t.createSchedule(
-      meetup.id,
-      scheduleInput({ maleMaxBirthYear: 1995 }),
-    );
-    const merged = await t.admin('PATCH', schedulePath(created), {
-      maleMinBirthYear: 1996,
-    });
-    expect(merged.status).toBe(400);
-    expect(codeOf(merged)).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
+      const created = await t.createSchedule(
+        meetup.id,
+        scheduleInput({ [maxKey]: 1995 }),
+      );
+      const merged = await t.admin('PATCH', schedulePath(created), {
+        [minKey]: 1996,
+      });
+      expect(merged.status).toBe(400);
+      expect(codeOf(merged)).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
 
-    const cleared = await t.admin('PATCH', schedulePath(created), {
-      maleMinBirthYear: 1996,
-      maleMaxBirthYear: null,
-    });
-    expect(cleared.status).toBe(200);
-    expect(cleared.body).toMatchObject({
-      maleMinBirthYear: 1996,
-      maleMaxBirthYear: null,
-    });
+      const cleared = await t.admin('PATCH', schedulePath(created), {
+        [minKey]: 1996,
+        [maxKey]: null,
+      });
+      expect(cleared.status).toBe(200);
+      expect(cleared.body).toMatchObject({ [minKey]: 1996, [maxKey]: null });
+    },
+  );
+
+  it('male range valid but female min > max → 400 BIRTH_YEAR_RANGE_INVALID and no row', async () => {
+    const result = await create(
+      scheduleInput({
+        maleMinBirthYear: 1990,
+        maleMaxBirthYear: 1995,
+        femaleMinBirthYear: 1999,
+        femaleMaxBirthYear: 1990,
+      }),
+    );
+    expect(result.status).toBe(400);
+    expect(codeOf(result)).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
+    expect(await t.prisma.schedule.count()).toBe(0);
   });
 
-  it('a schedule without the male range is public with both fields null', async () => {
+  it('a schedule without any range is public with all four fields null', async () => {
     const open = await t.openSchedule(meetup.id);
     const detail = await t.call({
       method: 'GET',
@@ -198,6 +227,70 @@ describe('validation end points (integration)', () => {
     expect(detail.body).toMatchObject({
       maleMinBirthYear: null,
       maleMaxBirthYear: null,
+      femaleMinBirthYear: null,
+      femaleMaxBirthYear: null,
+    });
+  });
+
+  it('stores the five revision fields: admin has all five, public list · detail have four and no minPerGender (D17 · D20)', async () => {
+    const publicFields = {
+      maleMinBirthYear: 1990,
+      maleMaxBirthYear: 1995,
+      femaleMinBirthYear: 1991,
+      femaleMaxBirthYear: 1999,
+      participantCondition: '90년대생 직장인',
+      priceNote: '커피 1잔 포함',
+    };
+    const fields = { ...publicFields, minPerGender: 5 };
+    const open = await t.openSchedule(meetup.id, scheduleInput(fields));
+    expect(open).toMatchObject(fields);
+    const adminDetail = await t.admin('GET', schedulePath(open));
+    expect(adminDetail.body).toMatchObject(fields);
+
+    const list = await t.call({ method: 'GET', path: '/api/v1/events' });
+    const detail = await t.call({
+      method: 'GET',
+      path: `/api/v1/events/${open.id}`,
+    });
+    expect((list.body as PublicScheduleListResponse).items[0]).toMatchObject(
+      publicFields,
+    );
+    expect(detail.body).toMatchObject(publicFields);
+    for (const result of [list, detail]) {
+      expect(result.text).toContain('90년대생 직장인');
+      expect(result.text).toContain('커피 1잔 포함');
+      expect(result.text).not.toContain('minPerGender');
+    }
+    expect(detail.body).not.toHaveProperty('minPerGender');
+  });
+
+  it('PATCH sets and clears the revision fields with null', async () => {
+    const created = await t.createSchedule(meetup.id);
+    const set = await t.admin('PATCH', schedulePath(created), {
+      participantCondition: '90년대생 직장인',
+      priceNote: '커피 1잔 포함',
+      minPerGender: 8, // 정원 7보다 커도 된다 — 서버 판정 없음 (D17)
+      femaleMinBirthYear: 1990,
+    });
+    expect(set.status).toBe(200);
+    expect(set.body).toMatchObject({
+      participantCondition: '90년대생 직장인',
+      priceNote: '커피 1잔 포함',
+      minPerGender: 8,
+      femaleMinBirthYear: 1990,
+    });
+    const cleared = await t.admin('PATCH', schedulePath(created), {
+      participantCondition: null,
+      priceNote: null,
+      minPerGender: null,
+      femaleMinBirthYear: null,
+    });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).toMatchObject({
+      participantCondition: null,
+      priceNote: null,
+      minPerGender: null,
+      femaleMinBirthYear: null,
     });
   });
 
@@ -464,6 +557,44 @@ describe('batch create (integration, D15)', () => {
       capacityMale: 8,
       capacityFemale: 6,
     });
+  });
+
+  it('stores the five revision fields per item (D16 · D17)', async () => {
+    const fields = {
+      femaleMinBirthYear: 1990,
+      femaleMaxBirthYear: 1999,
+      participantCondition: '90년대생 직장인',
+      priceNote: '커피 1잔 포함',
+      minPerGender: 5,
+    };
+    const result = await batch([
+      scheduleInput(fields, 7),
+      scheduleInput({}, 14),
+    ]);
+    expect(result.status).toBe(201);
+    const [first, second] = (result.body as BatchCreateSchedulesResponse).items;
+    expect(first).toMatchObject(fields);
+    expect(second).toMatchObject({
+      femaleMinBirthYear: null,
+      femaleMaxBirthYear: null,
+      participantCondition: null,
+      priceNote: null,
+      minPerGender: null,
+    });
+  });
+
+  it('the third item with female min > max → 400 BIRTH_YEAR_RANGE_INVALID naming items.2 and no rows', async () => {
+    const items = weekly(4);
+    items[2] = {
+      ...items[2]!,
+      femaleMinBirthYear: 1999,
+      femaleMaxBirthYear: 1990,
+    };
+    const result = await batch(items);
+    expect(result.status).toBe(400);
+    expect(codeOf(result)).toBe(API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID);
+    expect(messageOf(result)).toBe('items.2: 연령대 규칙');
+    expect(await rowCount()).toBe(0);
   });
 
   it('MEMBER → 403, no caller → 401', async () => {
