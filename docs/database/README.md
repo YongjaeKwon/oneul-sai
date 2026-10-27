@@ -3,7 +3,7 @@
 DB 소유권, Prisma 7 워크플로우, 마이그레이션 규칙, 그리고 실제로 있는 테이블의 인덱스다. 스키마의 원천은 `apps/<service>/prisma/schema.prisma`이고, 이 문서와 다르면 스키마가 맞다.
 
 - 상태: 확정
-- 최종 갱신: 2026-10-15 (SPEC-003 개정 · SPEC-004 4번 PR — event_db 마이그레이션 `add_application_statuses`(`ApplicationStatus`에 `CONFIRMED` · `APPLIED`, 기본값 `APPLIED`), 활성 · 자리 잡은 집합 둘, 점검 쿼리 조건, 되살리기 절차에 "되살릴 상태". 그 전: 2026-10-01 SPEC-004 확정 — NEXT 재참가 혜택의 결정 예정 시점. 그 전: 2026-09-25 Step 3 — event_db `Application`(마이그레이션 `add_application`), 부분 유니크 인덱스, 점검 쿼리 · 되살리기 절차. 그 전: 2026-09-24 SPEC-003 확정 — NEXT 재참가 혜택의 결정 예정 시점. 그 전: 2026-09-23 Step 2 — event_db 첫 마이그레이션 `init_event`, 테스트 전용 DB `event_test_db`. seed 전 빌드를 `turbo run build`로)
+- 최종 갱신: 2026-10-27 (SPEC-002 개정 2번 PR — event_db 마이그레이션 `add_schedule_condition_columns`(`Schedule` nullable 열 다섯 · CHECK `Schedule_female_birth_year_valid` · `Schedule_min_per_gender_valid`). 그 전: 2026-10-15 SPEC-003 개정 · SPEC-004 4번 PR — event_db 마이그레이션 `add_application_statuses`(`ApplicationStatus`에 `CONFIRMED` · `APPLIED`, 기본값 `APPLIED`), 활성 · 자리 잡은 집합 둘, 점검 쿼리 조건, 되살리기 절차에 "되살릴 상태". 그 전: 2026-10-01 SPEC-004 확정 — NEXT 재참가 혜택의 결정 예정 시점. 그 전: 2026-09-25 Step 3 — event_db `Application`(마이그레이션 `add_application`), 부분 유니크 인덱스, 점검 쿼리 · 되살리기 절차. 그 전: 2026-09-24 SPEC-003 확정 — NEXT 재참가 혜택의 결정 예정 시점. 그 전: 2026-09-23 Step 2 — event_db 첫 마이그레이션 `init_event`, 테스트 전용 DB `event_test_db`. seed 전 빌드를 `turbo run build`로)
 
 ## 1. Database per Service
 
@@ -168,11 +168,12 @@ pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-
 
 원천: `apps/event-service/prisma/schema.prisma`, 마이그레이션 `prisma/migrations/*/migration.sql`. 설계 이유는 [SPEC-002 5 · 9절](../specs/SPEC-002-meetup-schedule.md#9-db-변경) · [SPEC-003 5 · 9절](../specs/SPEC-003-application.md#9-db-변경) · [SPEC-004 9절](../specs/SPEC-004-payment.md#9-db-변경). Step 3부터 event_db가 회원과 이어진 값을 가진다 — `Application.memberId`(member_db 회원 ID, FK 없음)와 신청할 때의 성별이다. 이름 · 휴대폰 · 출생연도는 저장하지 않는다(SPEC-003 D1 · 12절). 모든 시각은 `TIMESTAMPTZ(3)`이다 — SQL `now()`와 직접 비교하는 조건 때문이며 member_db의 `TIMESTAMP(3)`과 다르다(D7). seed는 없다(운영자가 화면에서 만든다).
 
-| 마이그레이션                              | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `20260923014911_init_event`               | enum `ScheduleStatus`, `Meetup`, `Schedule`, 인덱스, FK, 손으로 추가한 CHECK 6개                                                                                                                                                                                                                                                                                                                                                             |
-| `20260925001239_add_application`          | enum `Gender` · `ApplicationStatus` · `ApplicationCancelledBy`, `Application`, 인덱스 둘 + 부분 유니크 인덱스, FK, 손으로 추가한 CHECK 2개                                                                                                                                                                                                                                                                                                   |
-| `20261015030000_add_application_statuses` | `ApplicationStatus`에 `CONFIRMED` · `APPLIED`를 `ADD VALUE`(이 순서 — 끝에 붙는다, 되돌릴 수 없다), `Application.status` 기본값 `APPLIED`(SPEC-003 D14 · D19, SPEC-004 9절). 손으로 썼다 — Prisma는 마이그레이션 파일을 트랜잭션으로 감싸지 않고 문장을 하나씩 실행해 새 값을 쓰는 `SET DEFAULT`가 같은 파일에 있다(SPEC-003 17절 "개정 기록"). psql로 손수 적용할 때 `BEGIN … COMMIT`으로 감싸면 55P04 "unsafe use of new value"로 실패한다 |
+| 마이그레이션                                    | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20260923014911_init_event`                     | enum `ScheduleStatus`, `Meetup`, `Schedule`, 인덱스, FK, 손으로 추가한 CHECK 6개                                                                                                                                                                                                                                                                                                                                                             |
+| `20260925001239_add_application`                | enum `Gender` · `ApplicationStatus` · `ApplicationCancelledBy`, `Application`, 인덱스 둘 + 부분 유니크 인덱스, FK, 손으로 추가한 CHECK 2개                                                                                                                                                                                                                                                                                                   |
+| `20261015030000_add_application_statuses`       | `ApplicationStatus`에 `CONFIRMED` · `APPLIED`를 `ADD VALUE`(이 순서 — 끝에 붙는다, 되돌릴 수 없다), `Application.status` 기본값 `APPLIED`(SPEC-003 D14 · D19, SPEC-004 9절). 손으로 썼다 — Prisma는 마이그레이션 파일을 트랜잭션으로 감싸지 않고 문장을 하나씩 실행해 새 값을 쓰는 `SET DEFAULT`가 같은 파일에 있다(SPEC-003 17절 "개정 기록"). psql로 손수 적용할 때 `BEGIN … COMMIT`으로 감싸면 55P04 "unsafe use of new value"로 실패한다 |
+| `20261027063854_add_schedule_condition_columns` | `Schedule`에 nullable 열 다섯(`femaleMinBirthYear` · `femaleMaxBirthYear` · `participantCondition` · `priceNote` · `minPerGender` — DB 기본값 없음, 기존 행은 NULL로 남아 옮길 데이터가 없다)과 손으로 추가한 CHECK 2개(SPEC-002 개정 D16 · D17 · 9절). enum을 건드리지 않아 `add_application_statuses`와 독립이다                                                                                                                           |
 
 ### `Meetup` — 모임 상품 (회차가 함께 쓰는 제목 · 설명)
 
@@ -187,32 +188,38 @@ pnpm turbo run build --filter=@oneul-sai/member-service && pnpm --filter @oneul-
 
 ### `Schedule` — 회차 (참가자 화면: 일정)
 
-| 열                                                               | 타입 · 제약                        | 뜻                                                                               |
-| ---------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------- |
-| `id`                                                             | `TEXT` PK, UUID v4                 | 랜덤이라 비공개 회차의 ID를 추측할 수 없다                                       |
-| `meetupId`                                                       | `TEXT` FK → `Meetup.id` (RESTRICT) | 상품. 제목 · 설명은 복사하지 않고 응답을 만들 때 상품에서 읽는다                 |
-| `startsAt` · `endsAt` · `applyDeadlineAt`                        | `TIMESTAMPTZ(3)` NOT NULL          | 시작 · 종료 · 신청 마감(필수)                                                    |
-| `priceMale` · `priceFemale`                                      | `INTEGER` NOT NULL                 | 남녀 참가비. 같아도 달라도 된다                                                  |
-| `capacityMale` · `capacityFemale`                                | `INTEGER` NOT NULL                 | 남녀 정원. 같아도 달라도 된다(차이는 화면 경고뿐)                                |
-| `maleMinBirthYear` · `maleMaxBirthYear`                          | `INTEGER` nullable                 | 남성 연령대(출생연도 범위). null = 제한 없음. 여성은 연령 조건이 없어 열도 없다  |
-| `venueArea`                                                      | `TEXT` NOT NULL                    | 지역 — 공개 화면의 유일한 장소 정보                                              |
-| `venueName` · `venueAddress` · `venueDirections` · `venueMapUrl` | `TEXT` nullable                    | **운영자 전용**. 공개 응답에 싣지 않는다(SPEC-002 12절). null = 아직 정하지 않음 |
-| `status`                                                         | `ScheduleStatus` DEFAULT `DRAFT`   | 회차 상태(SPEC-002 6절)                                                          |
-| `cancelReason`                                                   | `TEXT` nullable                    | 취소 사유. CANCELLED일 때만 값이 있다                                            |
-| `createdAt` · `updatedAt`                                        | `TIMESTAMPTZ(3)`                   | 생성 · 갱신 시각                                                                 |
+| 열                                                               | 타입 · 제약                        | 뜻                                                                                                                                                 |
+| ---------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                                             | `TEXT` PK, UUID v4                 | 랜덤이라 비공개 회차의 ID를 추측할 수 없다                                                                                                         |
+| `meetupId`                                                       | `TEXT` FK → `Meetup.id` (RESTRICT) | 상품. 제목 · 설명은 복사하지 않고 응답을 만들 때 상품에서 읽는다                                                                                   |
+| `startsAt` · `endsAt` · `applyDeadlineAt`                        | `TIMESTAMPTZ(3)` NOT NULL          | 시작 · 종료 · 신청 마감(필수)                                                                                                                      |
+| `priceMale` · `priceFemale`                                      | `INTEGER` NOT NULL                 | 남녀 참가비. 같아도 달라도 된다                                                                                                                    |
+| `priceNote`                                                      | `TEXT` nullable                    | 참가비 보조 문구(예 "커피 1잔 포함"). 공개 응답에 싣는 표시 값. 상한 50자는 요청 스키마에만 있다(SPEC-002 D17)                                     |
+| `capacityMale` · `capacityFemale`                                | `INTEGER` NOT NULL                 | 남녀 정원. 같아도 달라도 된다(차이는 화면 경고뿐)                                                                                                  |
+| `minPerGender`                                                   | `INTEGER` nullable                 | 성별 최소 인원. **운영자 응답에만** 싣는 표시 값 — 서버 판정 · 자동 취소 없음, 정원과의 관계도 보지 않는다. DB 기본값 없음(화면이 5로 채운다, D17) |
+| `maleMinBirthYear` · `maleMaxBirthYear`                          | `INTEGER` nullable                 | 남성 연령대(출생연도 범위). null = 그 성별 제한 없음(SPEC-002 D16)                                                                                 |
+| `femaleMinBirthYear` · `femaleMaxBirthYear`                      | `INTEGER` nullable                 | 여성 연령대 — 남성 두 열과 같은 규칙. null = 그 성별 제한 없음(D16, 개정 2026-10-14)                                                               |
+| `participantCondition`                                           | `TEXT` nullable                    | 참가 조건 문구(예 "90년대생 직장인"). 공개 응답에 싣는 표시 값 — 판정 없음. 상한 100자는 요청 스키마에만 있다(D17)                                 |
+| `venueArea`                                                      | `TEXT` NOT NULL                    | 지역 — 공개 화면의 유일한 장소 정보                                                                                                                |
+| `venueName` · `venueAddress` · `venueDirections` · `venueMapUrl` | `TEXT` nullable                    | **운영자 전용**. 공개 응답에 싣지 않는다(SPEC-002 12절). null = 아직 정하지 않음                                                                   |
+| `status`                                                         | `ScheduleStatus` DEFAULT `DRAFT`   | 회차 상태(SPEC-002 6절)                                                                                                                            |
+| `cancelReason`                                                   | `TEXT` nullable                    | 취소 사유. CANCELLED일 때만 값이 있다                                                                                                              |
+| `createdAt` · `updatedAt`                                        | `TIMESTAMPTZ(3)`                   | 생성 · 갱신 시각                                                                                                                                   |
 
 - 인덱스: `Schedule_meetupId_startsAt_idx`(`meetupId`, `startsAt`) — 운영자 회차 목록과 FK 조회용(PostgreSQL은 FK 열에 인덱스를 자동으로 만들지 않는다). 공개 목록용 `(status, startsAt)` 인덱스는 두지 않는다 — 공개 목록 p95가 나빠지면 더한다. `Meetup`은 인덱스 없음.
 - 유니크: 없다. 같은 상품 · 같은 시각의 회차를 DB에서 막지 않는다. 여러 회차 등록은 한 요청 안의 `(startsAt, venueArea)` 중복만 요청 검사로 막는다(D15).
 - CHECK(마이그레이션 SQL에만 있음 — drift로 잡히지 않는다. 테스트: `apps/event-service/src/prisma/schedule-checks.integration.spec.ts`):
 
-| 제약                             | 조건                                                                                       |
-| -------------------------------- | ------------------------------------------------------------------------------------------ |
-| `Schedule_price_valid`           | `priceMale >= 0 AND priceFemale >= 0`. 상한(1,000,000)은 요청 스키마에만 있다              |
-| `Schedule_capacity_valid`        | `capacityMale` · `capacityFemale` 각각 1~50                                                |
-| `Schedule_time_order`            | `applyDeadlineAt <= startsAt AND startsAt < endsAt`                                        |
-| `Schedule_male_birth_year_valid` | 두 출생연도 각각 null이거나 1900 이상, 둘 다 있으면 `maleMinBirthYear <= maleMaxBirthYear` |
-| `Schedule_venue_map_url_https`   | `venueMapUrl IS NULL OR venueMapUrl LIKE 'https://%'`                                      |
-| `Schedule_cancel_reason`         | `(status = 'CANCELLED') = (cancelReason IS NOT NULL)` — CANCELLED일 때만, 그리고 반드시    |
+| 제약                               | 조건                                                                                                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Schedule_price_valid`             | `priceMale >= 0 AND priceFemale >= 0`. 상한(1,000,000)은 요청 스키마에만 있다                                                                       |
+| `Schedule_capacity_valid`          | `capacityMale` · `capacityFemale` 각각 1~50                                                                                                         |
+| `Schedule_time_order`              | `applyDeadlineAt <= startsAt AND startsAt < endsAt`                                                                                                 |
+| `Schedule_male_birth_year_valid`   | 두 출생연도 각각 null이거나 1900 이상, 둘 다 있으면 `maleMinBirthYear <= maleMaxBirthYear`                                                          |
+| `Schedule_female_birth_year_valid` | 남성과 같은 모양 — 두 출생연도 각각 null이거나 1900 이상, 둘 다 있으면 `femaleMinBirthYear <= femaleMaxBirthYear`(`add_schedule_condition_columns`) |
+| `Schedule_min_per_gender_valid`    | `minPerGender IS NULL OR minPerGender BETWEEN 1 AND 50`. 정원과의 관계는 보지 않는다(`add_schedule_condition_columns`)                              |
+| `Schedule_venue_map_url_https`     | `venueMapUrl IS NULL OR venueMapUrl LIKE 'https://%'`                                                                                               |
+| `Schedule_cancel_reason`           | `(status = 'CANCELLED') = (cancelReason IS NOT NULL)` — CANCELLED일 때만, 그리고 반드시                                                             |
 
 ### `Application` — 참가 신청 (SPEC-003)
 
@@ -279,7 +286,8 @@ COMMIT; -- 하나라도 어긋나면 ROLLBACK
 ### event_db에 없는 것 (설계로 뺀 것)
 
 - 작성자 · 수정자 열 — 로그(`adminId`)가 원천이다(SPEC-002 5절).
-- 여성 연령대 열 — 여성에게는 연령 조건이 없다(D5).
+- 환불 규정 열 — 회차마다 다르지 않아 contracts 상수 `REFUND_POLICY`로 두고 화면이 보여 준다(SPEC-002 D18). 여성 연령대 열은 개정으로 생겼다(D16 — D5의 "여성 열 없음"을 대체).
+- 최소 인원 판정 · 자동 취소 상태 — `minPerGender`는 표시 값이고, 미달 판단과 회차 취소는 운영자가 한다(SPEC-002 D17).
 - NEXT 재참가 혜택 · "같은 금액" 여부 — 혜택 내용은 결정 예정 (Step 6) — Step 3 신청에는 없음. 같은 금액 여부는 두 값의 비교로 안다(D3).
 - 신청자의 이름 · 휴대폰 · 출생연도 — member_db에만 있다. 운영자 화면이 member API로 붙인다(SPEC-003 D11).
 - 대기자 명단 · 취소 사유 · 취소 시각 열 — 대기자와 취소 사유는 없고(SPEC-003 확인 요청 E · J), 취소 시각은 `updatedAt`이다. 취소된 행을 고치는 Step이 생기면 `cancelledAt`을 먼저 더한다(SPEC-003 9절 "Step 4가 더할 것").
