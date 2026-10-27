@@ -13,6 +13,8 @@ export const CAPACITY_MIN = 1;
 export const CAPACITY_MAX = 50;
 /** 운영자 화면이 미리 채우는 성별 정원. 서버는 쓰지 않는다(D2). */
 export const DEFAULT_CAPACITY_PER_GENDER = 7;
+/** 운영자 화면이 미리 채우는 성별 최소 인원. 서버는 쓰지 않는다 — DB 기본값도 없다(D17). */
+export const DEFAULT_MIN_PER_GENDER = 5;
 
 export const MEETUP_TITLE_MAX_LENGTH = 100;
 export const DESCRIPTION_MAX_LENGTH = 2000;
@@ -21,8 +23,12 @@ export const VENUE_NAME_MAX_LENGTH = 100;
 export const VENUE_ADDRESS_MAX_LENGTH = 200;
 export const VENUE_DIRECTIONS_MAX_LENGTH = 1000;
 export const CANCEL_REASON_MAX_LENGTH = 200;
+/** 참가 조건 문구(예: 90년대생 직장인). 서버는 뜻을 판정하지 않는다(D17). */
+export const PARTICIPANT_CONDITION_MAX_LENGTH = 100;
+/** 참가비 보조 문구(예: 커피 1잔 포함, D17). */
+export const PRICE_NOTE_MAX_LENGTH = 50;
 
-/** 남성 연령대(출생연도 범위)의 형식. event 쪽 상수다 — member의 가입 상수를 가져오지 않는다(D5). */
+/** 성별 연령대(출생연도 범위)의 형식. 남녀 네 필드 공통. event 쪽 상수다 — member의 가입 상수를 가져오지 않는다(D16). */
 export const BIRTH_YEAR_RANGE_MIN = 1900;
 export const BIRTH_YEAR_RANGE_MAX = 9999;
 
@@ -30,6 +36,8 @@ export const BIRTH_YEAR_RANGE_MAX = 9999;
 export const SCHEDULE_MAX_LEAD_DAYS = 365;
 /** `endsAt − startsAt` 상한(분, 서비스, D7). */
 export const SCHEDULE_MAX_DURATION_MINUTES = 720;
+/** 운영자 화면이 종료를 `시작 + 90분`으로 채우는 기본값. 서버는 쓰지 않는다(D19). */
+export const SCHEDULE_DEFAULT_DURATION_MINUTES = 90;
 
 /** 여러 회차 등록 한 번의 항목 수 상한(D15). */
 export const SCHEDULE_BATCH_MAX = 12;
@@ -112,6 +120,19 @@ export const VenueAddressSchema = safeText(1, VENUE_ADDRESS_MAX_LENGTH);
 /** 여러 줄 허용. */
 export const VenueDirectionsSchema = safeText(1, VENUE_DIRECTIONS_MAX_LENGTH);
 export const CancelReasonSchema = safeText(1, CANCEL_REASON_MAX_LENGTH);
+/** 한 줄 문구(7절 — 참가 조건 · 참가비 보조 문구). 줄바꿈도 쓸 수 없는 문자로 거절한다. */
+function oneLineText(max: number) {
+  return safeText(1, max).refine((value) => !/[\r\n]/.test(value), {
+    error: FORBIDDEN_CHARS,
+  });
+}
+
+/** 참가 조건 문구. 공개 응답에 실린다(D17). */
+export const ParticipantConditionSchema = oneLineText(
+  PARTICIPANT_CONDITION_MAX_LENGTH,
+);
+/** 참가비 보조 문구. 공개 응답에 실린다(D17). */
+export const PriceNoteSchema = oneLineText(PRICE_NOTE_MAX_LENGTH);
 
 /** 지도 링크(요청). 파싱 결과의 정규화된 `href`로 바뀐다 — 서비스는 이 값을 저장한다. 응답은 이 규칙을 재사용하지 않는다(7절). */
 export const VenueMapUrlSchema = z
@@ -140,7 +161,21 @@ export const ScheduleCapacitySchema = z
     error: `정원은 ${CAPACITY_MIN}명 이상 ${CAPACITY_MAX}명 이하로 입력해 주세요.`,
   });
 
-/** 남성 연령대의 한쪽 끝(출생연도). `min ≤ max`는 서비스가 병합한 값으로 판정한다(400 `BIRTH_YEAR_RANGE_INVALID`). */
+/**
+ * 성별 최소 인원(명). 범위는 정원과 같다. 정원과의 관계는 검사하지 않는다 — 크면 운영자 화면이 경고만 한다.
+ * 서버는 이 값으로 아무것도 판정하지 않는다(자동 취소 없음, D17). 운영자 응답에만 실린다.
+ */
+export const MinPerGenderSchema = z
+  .number({ error: '최소 인원을 입력해 주세요.' })
+  .int({ error: '최소 인원은 정수로 입력해 주세요.' })
+  .min(CAPACITY_MIN, {
+    error: `최소 인원은 ${CAPACITY_MIN}명 이상 ${CAPACITY_MAX}명 이하로 입력해 주세요.`,
+  })
+  .max(CAPACITY_MAX, {
+    error: `최소 인원은 ${CAPACITY_MIN}명 이상 ${CAPACITY_MAX}명 이하로 입력해 주세요.`,
+  });
+
+/** 성별 연령대의 한쪽 끝(출생연도). 성별마다 `min ≤ max`는 서비스가 병합한 값으로 판정한다(400 `BIRTH_YEAR_RANGE_INVALID`, D16). */
 export const ScheduleBirthYearSchema = z
   .number({ error: '출생연도를 입력해 주세요.' })
   .int({ error: '출생연도는 네 자리 숫자로 입력해 주세요.' })
