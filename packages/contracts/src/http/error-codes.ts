@@ -9,7 +9,7 @@ export const API_ERROR_CODES = {
   SELF_STATUS_CHANGE: 'SELF_STATUS_CHANGE',
   /** 회차 시각 규칙 위반(순서 · 진행 상한 · 바뀐 시각의 미래 · 선행 상한, → OPEN인데 신청 마감 지남). SPEC-002 */
   SCHEDULE_TIME_INVALID: 'SCHEDULE_TIME_INVALID',
-  /** 병합한 남성 연령대가 `maleMinBirthYear > maleMaxBirthYear`. SPEC-002 */
+  /** 병합한 성별 연령대가 남 · 여 어느 쌍이든 `min > max`(D16). SPEC-002 */
   BIRTH_YEAR_RANGE_INVALID: 'BIRTH_YEAR_RANGE_INVALID',
   // 401
   UNAUTHENTICATED: 'UNAUTHENTICATED',

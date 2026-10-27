@@ -38,7 +38,7 @@ export type MeetupListResponse = z.infer<typeof MeetupListResponseSchema>;
 
 /**
  * 공개 응답(`/api/v1/events`) — 이 필드뿐이다. 제목 · 설명은 상품에서 읽는다.
- * `meetupId` · 장소 안내 넷 · `cancelReason` · `createdAt` · `updatedAt`은 없다(D4 · D9).
+ * `meetupId` · 장소 안내 넷 · `cancelReason` · `createdAt` · `updatedAt` · `minPerGender`는 없다(D4 · D9 · D17).
  * 신청 관련 필드(`maleFull` 등)도 없다 — 참가자에게 남은 자리를 보이지 않는다(SPEC-003 D17, ★S2).
  */
 export const PublicScheduleSchema = z.object({
@@ -54,6 +54,11 @@ export const PublicScheduleSchema = z.object({
   capacityFemale: z.number().int(),
   maleMinBirthYear: z.number().int().nullable(),
   maleMaxBirthYear: z.number().int().nullable(),
+  femaleMinBirthYear: z.number().int().nullable(),
+  femaleMaxBirthYear: z.number().int().nullable(),
+  /** 참가 조건 문구 · 참가비 보조 문구(D17 · D20). */
+  participantCondition: z.string().nullable(),
+  priceNote: z.string().nullable(),
   venueArea: z.string(),
   status: PublicScheduleStatusSchema,
 });
@@ -77,6 +82,8 @@ export const AdminScheduleSchema = PublicScheduleSchema.extend({
   venueDirections: z.string().nullable(),
   venueMapUrl: z.string().nullable(),
   cancelReason: z.string().nullable(),
+  /** 성별 최소 인원. 운영자 응답에만 있다 — 공개 응답에 싣지 않는다(D17 · D20). */
+  minPerGender: z.number().int().nullable(),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
   /** 성별 **자리 잡은** 신청 수(`PENDING` · `CONFIRMED`). 이름은 그대로, 뜻만 좁혔다(SPEC-003 D17). */

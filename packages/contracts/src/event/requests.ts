@@ -9,7 +9,10 @@ import {
   ListPageSchema,
   MeetupDescriptionSchema,
   MeetupTitleSchema,
+  MinPerGenderSchema,
   MY_APPLICATION_LIST_MAX_PAGE_SIZE,
+  ParticipantConditionSchema,
+  PriceNoteSchema,
   PUBLIC_SCHEDULE_LIST_MAX_PAGE_SIZE,
   SCHEDULE_BATCH_MAX,
   ScheduleBirthYearSchema,
@@ -30,7 +33,8 @@ import {
 // 스키마가 거르지 않고 서비스가 판정하는 규칙(D14):
 //   - 병합한 값의 `applyDeadlineAt ≤ startsAt < endsAt`, 진행 ≤ SCHEDULE_MAX_DURATION_MINUTES,
 //     바뀌는 시각이 now 이후 · now + SCHEDULE_MAX_LEAD_DAYS 이하, → OPEN이면 applyDeadlineAt > now → 400 SCHEDULE_TIME_INVALID
-//   - 병합한 값의 maleMinBirthYear ≤ maleMaxBirthYear → 400 BIRTH_YEAR_RANGE_INVALID
+//   - 병합한 값의 성별마다 min ≤ max(male* · female*BirthYear) → 400 BIRTH_YEAR_RANGE_INVALID(D16)
+//   - participantCondition · priceNote · minPerGender로는 아무것도 판정하지 않는다(D17)
 
 const hasAnyField = (value: Record<string, unknown>): boolean =>
   Object.values(value).some((field) => field !== undefined);
@@ -68,8 +72,8 @@ export type MeetupListQuery = z.infer<typeof MeetupListQuerySchema>;
 
 /**
  * `POST /api/v1/meetups/:meetupId/schedules`. 결과는 항상 DRAFT.
- * `status` · `meetupId`(경로) · `cancelReason`, 옛 이름(`price` · `minBirthYear` · `maxBirthYear`), 여성 범위는 받지 않는다(strict).
- * 선택 필드(남성 연령대 · 장소 안내 넷)는 없거나 `null`이면 비어 있다.
+ * `status` · `meetupId`(경로) · `cancelReason`, 옛 이름(`price` · `minBirthYear` · `maxBirthYear`)은 받지 않는다(strict).
+ * 선택 필드(성별 연령대 넷 · 참가 조건 · 참가비 보조 문구 · 최소 인원 · 장소 안내 넷)는 없거나 `null`이면 비어 있다(D16 · D17).
  */
 export const CreateScheduleRequestSchema = z.strictObject({
   startsAt: ScheduleDateTimeSchema,
@@ -81,6 +85,11 @@ export const CreateScheduleRequestSchema = z.strictObject({
   capacityFemale: ScheduleCapacitySchema,
   maleMinBirthYear: ScheduleBirthYearSchema.nullable().optional(),
   maleMaxBirthYear: ScheduleBirthYearSchema.nullable().optional(),
+  femaleMinBirthYear: ScheduleBirthYearSchema.nullable().optional(),
+  femaleMaxBirthYear: ScheduleBirthYearSchema.nullable().optional(),
+  participantCondition: ParticipantConditionSchema.nullable().optional(),
+  priceNote: PriceNoteSchema.nullable().optional(),
+  minPerGender: MinPerGenderSchema.nullable().optional(),
   venueArea: VenueAreaSchema,
   venueName: VenueNameSchema.nullable().optional(),
   venueAddress: VenueAddressSchema.nullable().optional(),
@@ -122,7 +131,7 @@ export type BatchCreateSchedulesRequest = z.infer<
 
 /**
  * `PATCH /api/v1/meetups/:meetupId/schedules/:scheduleId`. 생성 필드가 모두 선택, 최소 한 필드.
- * 남성 연령대 · 장소 안내 넷은 `null`로 비운다. `venueArea` · 시각 · 참가비 · 정원은 `null`을 받지 않는다.
+ * 성별 연령대 넷 · 참가 조건 · 참가비 보조 문구 · 최소 인원 · 장소 안내 넷은 `null`로 비운다. `venueArea` · 시각 · 참가비 · 정원은 `null`을 받지 않는다.
  */
 export const UpdateScheduleRequestSchema =
   CreateScheduleRequestSchema.partial().refine(hasAnyField, {
