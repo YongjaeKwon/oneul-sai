@@ -8,7 +8,7 @@ datasource db {
   provider = "postgresql"
 }
 
-// SPEC-002 · SPEC-003 9절. Prisma가 표현하지 못하는 CHECK 제약은 마이그레이션 SQL(init_event · add_application)에만 있다.
+// SPEC-002 · SPEC-003 9절. Prisma가 표현하지 못하는 CHECK 제약은 마이그레이션 SQL(init_event · add_application · add_schedule_condition_columns)에만 있다.
 
 // 행사를 마친 상태는 Step 5(SPEC-005)가 값과 전이를 함께 더한다 (D8)
 enum ScheduleStatus {
@@ -31,29 +31,34 @@ model Meetup {
 
 // 회차(참가자 화면: 일정). 참가비 · 정원 · 시각 · 연령대 · 장소는 회차에만 있다 (D1)
 model Schedule {
-  id               String         @id @default(uuid())
-  meetupId         String
-  startsAt         DateTime       @db.Timestamptz(3)
-  endsAt           DateTime       @db.Timestamptz(3)
-  applyDeadlineAt  DateTime       @db.Timestamptz(3) // 필수 — 운영자 두 번째 답변 (D7)
+  id                   String         @id @default(uuid())
+  meetupId             String
+  startsAt             DateTime       @db.Timestamptz(3)
+  endsAt               DateTime       @db.Timestamptz(3)
+  applyDeadlineAt      DateTime       @db.Timestamptz(3) // 필수 — 운영자 두 번째 답변 (D7)
   // 남녀 참가비 — 같을 수도 다를 수도 있다. "같은 금액" 여부는 저장하지 않는다 (D3)
-  priceMale        Int
-  priceFemale      Int
-  capacityMale     Int
-  capacityFemale   Int
-  // 남성 연령대(출생연도 범위). 여성에게는 연령 조건이 없어 열도 없다 (D5)
-  maleMinBirthYear Int?
-  maleMaxBirthYear Int?
-  venueArea        String
+  priceMale            Int
+  priceFemale          Int
+  priceNote            String? // 참가비 보조 문구 — 예 "커피 1잔 포함". 표시 값 (D17, 개정 2026-10-14)
+  capacityMale         Int
+  capacityFemale       Int
+  minPerGender         Int? // 성별 최소 인원 — 운영자 화면 표시 값. 서버 판정 · 자동 취소 없음 (D17, 개정 2026-10-14)
+  // 성별 연령대(출생연도 범위) — 성별마다 한 쌍, 비우면 그 성별 제한 없음. 여성 두 열은 개정 2026-10-14에 더했다 (D16)
+  maleMinBirthYear     Int?
+  maleMaxBirthYear     Int?
+  femaleMinBirthYear   Int?
+  femaleMaxBirthYear   Int?
+  participantCondition String? // 참가 조건 문구 — 예 "90년대생 직장인". 판정 없음 (D17, 개정 2026-10-14)
+  venueArea            String
   // 아래 넷은 운영자 전용 — 공개 응답에 절대 싣지 않는다 (D4, 12절)
-  venueName        String?
-  venueAddress     String?
-  venueDirections  String?
-  venueMapUrl      String?
-  status           ScheduleStatus @default(DRAFT)
-  cancelReason     String?
-  createdAt        DateTime       @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime       @updatedAt @db.Timestamptz(3)
+  venueName            String?
+  venueAddress         String?
+  venueDirections      String?
+  venueMapUrl          String?
+  status               ScheduleStatus @default(DRAFT)
+  cancelReason         String?
+  createdAt            DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime       @updatedAt @db.Timestamptz(3)
 
   meetup       Meetup        @relation(fields: [meetupId], references: [id], onDelete: Restrict)
   applications Application[]

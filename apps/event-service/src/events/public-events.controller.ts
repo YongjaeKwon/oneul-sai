@@ -62,7 +62,8 @@ export class PublicEventsController {
   })
   @ApiParam({ name: 'id', description: '회차 ID (UUID)' })
   @ApiOkResponse({
-    description: 'PublicSchedule — 신청 관련 필드 없음(SPEC-003 D17)',
+    description:
+      'PublicSchedule — 신청 관련 필드 · 최소 인원(minPerGender) 없음(SPEC-003 D17 · SPEC-002 D17)',
   })
   @ApiBadRequestResponse({ description: 'VALIDATION_FAILED (UUID 아님)' })
   @ApiNotFoundResponse({ description: 'SCHEDULE_NOT_FOUND' })

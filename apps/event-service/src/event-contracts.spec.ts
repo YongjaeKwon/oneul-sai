@@ -19,6 +19,7 @@ import {
   PaymentCompletedPayloadSchema,
   PublicScheduleListQuerySchema,
   PublicScheduleSchema,
+  REFUND_POLICY,
   UpdateApplicationStatusRequestSchema,
   UpdateScheduleRequestSchema,
   UpdateScheduleStatusRequestSchema,
@@ -110,7 +111,6 @@ describe('CreateScheduleRequest — required · strict', () => {
     ['price', 39_000],
     ['minBirthYear', 1990],
     ['maxBirthYear', 1995],
-    ['femaleMinBirthYear', 1990],
     ['status', 'OPEN'],
     ['meetupId', '2f7a1c1e-6c3f-4b2a-9d1e-5b6c7d8e9f01'],
     ['defaultPrice', 39_000],
@@ -120,17 +120,89 @@ describe('CreateScheduleRequest — required · strict', () => {
   });
 });
 
-describe('CreateScheduleRequest — male birth years (D5)', () => {
-  it.each([[1899], [10_000], [1990.5]])('rejects %s', (year) => {
-    expectRejected(create({ maleMinBirthYear: year }));
-    expectRejected(create({ maleMaxBirthYear: year }));
+describe('CreateScheduleRequest — birth years per gender (D16, 개정 2026-10-14)', () => {
+  const BIRTH_YEAR_FIELDS = [
+    'maleMinBirthYear',
+    'maleMaxBirthYear',
+    'femaleMinBirthYear',
+    'femaleMaxBirthYear',
+  ] as const;
+
+  it.each(BIRTH_YEAR_FIELDS.map((field) => [field]))(
+    '%s rejects 1899 · 10000 · 1990.5, accepts 1900 · 9999 · null',
+    (field) => {
+      for (const year of [1899, 10_000, 1990.5]) {
+        expectRejected(create({ [field]: year }));
+      }
+      for (const year of [1900, 9999, null]) {
+        expect(create({ [field]: year }).success).toBe(true);
+      }
+    },
+  );
+
+  it('accepts all four absent', () => {
+    expect(create({}).success).toBe(true);
+  });
+});
+
+describe('CreateScheduleRequest — participantCondition · priceNote · minPerGender (D17, 개정 2026-10-14)', () => {
+  it.each([
+    ['participantCondition', 100],
+    ['priceNote', 50],
+  ] as const)('%s: max %i characters pass, one more fails', (field, max) => {
+    expect(create({ [field]: '가'.repeat(max) }).success).toBe(true);
+    expectRejected(create({ [field]: '가'.repeat(max + 1) }));
   });
 
-  it('accepts 1900 · 9999 and absent', () => {
-    expect(
-      create({ maleMinBirthYear: 1900, maleMaxBirthYear: 9999 }).success,
-    ).toBe(true);
-    expect(create({}).success).toBe(true);
+  it.each([['participantCondition'], ['priceNote']])(
+    '%s: empty · whitespace only (0 after trim) · NUL · U+202E fail, absent · null pass',
+    (field) => {
+      for (const value of ['', '   ', 'a\u0000b', '직장인\u202e']) {
+        expectRejected(create({ [field]: value }));
+      }
+      expect(create({ [field]: null }).success).toBe(true);
+      expect(create({}).success).toBe(true);
+    },
+  );
+
+  it.each([['participantCondition'], ['priceNote']])(
+    '%s: one line — a newline (\\n · \\r) is rejected, a tab passes (7절)',
+    (field) => {
+      expectRejected(create({ [field]: '첫 줄\n둘째 줄' }));
+      expectRejected(create({ [field]: '첫 줄\r둘째 줄' }));
+      expect(create({ [field]: '탭\t포함' }).success).toBe(true);
+    },
+  );
+
+  it('trims surrounding spaces', () => {
+    const result = create({ participantCondition: '  90년대생 직장인  ' });
+    expect(result.success && result.data.participantCondition).toBe(
+      '90년대생 직장인',
+    );
+  });
+
+  it('minPerGender: 0 · 51 · 1.5 fail, 1 · 50 · 5 · null pass (no relation to capacity)', () => {
+    for (const value of [0, 51, 1.5, '5']) {
+      expectRejected(create({ minPerGender: value }));
+    }
+    for (const value of [1, 50, 5, null]) {
+      expect(create({ minPerGender: value }).success).toBe(true);
+    }
+    expect(create({ minPerGender: 8, capacityMale: 7 }).success).toBe(true);
+  });
+
+  it('UpdateScheduleRequest clears each of the five with null', () => {
+    for (const field of [
+      'femaleMinBirthYear',
+      'femaleMaxBirthYear',
+      'participantCondition',
+      'priceNote',
+      'minPerGender',
+    ]) {
+      expect(
+        UpdateScheduleRequestSchema.safeParse({ [field]: null }).success,
+      ).toBe(true);
+    }
   });
 });
 
@@ -350,6 +422,11 @@ describe('venueMapUrl (D4)', () => {
       capacityFemale: 7,
       maleMinBirthYear: null,
       maleMaxBirthYear: null,
+      femaleMinBirthYear: null,
+      femaleMaxBirthYear: null,
+      participantCondition: null,
+      priceNote: null,
+      minPerGender: null,
       venueArea: '성수',
       venueName: null,
       venueAddress: null,
@@ -524,6 +601,37 @@ describe('schedule responses with applications (SPEC-003 D17 · ★S2)', () => {
       expect(adminKeys).toContain(key);
     }
     expect(adminKeys).toEqual(expect.arrayContaining(SEAT_KEYS));
+  });
+});
+
+describe('schedule responses — revision fields (SPEC-002 D17 · D20, 개정 2026-10-14)', () => {
+  const PUBLIC_NEW_KEYS = [
+    'femaleMinBirthYear',
+    'femaleMaxBirthYear',
+    'participantCondition',
+    'priceNote',
+  ];
+
+  it('PublicScheduleSchema has the four new keys and no minPerGender', () => {
+    const keys = Object.keys(PublicScheduleSchema.shape);
+    expect(keys).toEqual(expect.arrayContaining(PUBLIC_NEW_KEYS));
+    expect(keys).not.toContain('minPerGender');
+  });
+
+  it('AdminScheduleSchema has minPerGender', () => {
+    expect(Object.keys(AdminScheduleSchema.shape)).toContain('minPerGender');
+  });
+});
+
+describe('REFUND_POLICY (SPEC-002 D18 · site-facts 1절 7번)', () => {
+  it('is the site capture of 2026-10-13, four sentences in the site order', () => {
+    expect(REFUND_POLICY.version).toBe('2026-10-13');
+    expect([...REFUND_POLICY.lines]).toEqual([
+      '참가자 사정으로 취소하는 경우, 행사일 4일 전까지는 참가비 전액을 환불해 드립니다.',
+      '이후에는 인원 확정 및 행사 준비가 진행되어 환불이 어려운 점 양해 부탁드립니다.',
+      '그 외 주최 측 사정으로 행사가 취소되는 경우에도 참가비 전액을 환불해 드립니다.',
+      '자세한 환불 기준은 결제 안내 메시지에서 다시 안내드립니다.',
+    ]);
   });
 });
 

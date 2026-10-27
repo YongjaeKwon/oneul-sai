@@ -17,6 +17,14 @@ const PRIVATE_KEYS = [
   'venueMapUrl',
   'cancelReason',
   'meetupId',
+  'minPerGender', // 운영자 응답에만 (D17 · D20, 개정 2026-10-14)
+];
+/** 개정으로 공개 응답에 더한 키 (D20) */
+const PUBLIC_NEW_KEYS = [
+  'femaleMinBirthYear',
+  'femaleMaxBirthYear',
+  'participantCondition',
+  'priceNote',
 ];
 const APPLICATION_KEYS = [
   'maleFull',
@@ -41,6 +49,10 @@ const leakyRow = {
   capacityFemale: 6,
   maleMinBirthYear: 1990,
   maleMaxBirthYear: null,
+  femaleMinBirthYear: 1990,
+  femaleMaxBirthYear: 1999,
+  participantCondition: '90년대생 직장인',
+  priceNote: '커피 1잔 포함',
   venueArea: '성수',
   status: 'OPEN' as const,
   meetup: { title: '오늘사이', description: '' },
@@ -50,6 +62,7 @@ const leakyRow = {
   venueDirections: 'SECRET-DIRECTIONS',
   venueMapUrl: 'https://naver.me/SECRET',
   cancelReason: 'SECRET-REASON',
+  minPerGender: 31_415,
 };
 
 /** prisma에 `application`이 없다 — 공개 서비스가 신청 테이블을 건드리면 여기서 깨진다(★S2). */
@@ -81,6 +94,15 @@ describe('public field isolation', () => {
     for (const key of PRIVATE_KEYS) expect(keys).not.toContain(key);
   });
 
+  it('the public schema and select both carry the four revision keys (D20)', () => {
+    expect(Object.keys(PublicScheduleSchema.shape)).toEqual(
+      expect.arrayContaining(PUBLIC_NEW_KEYS),
+    );
+    expect(Object.keys(PUBLIC_SCHEDULE_SELECT)).toEqual(
+      expect.arrayContaining(PUBLIC_NEW_KEYS),
+    );
+  });
+
   it('AdminScheduleSchema widens the public schema (contains every public key)', () => {
     const adminKeys = Object.keys(AdminScheduleSchema.shape);
     for (const key of Object.keys(PublicScheduleSchema.shape)) {
@@ -99,10 +121,15 @@ describe('public field isolation', () => {
       expect(response).not.toHaveProperty('meetup');
     }
     expect(JSON.stringify([list, detail])).not.toContain('SECRET');
+    expect(JSON.stringify([list, detail])).not.toContain('31415');
     expect(detail).toMatchObject({
       title: '오늘사이',
       startsAt: '2026-10-04T05:00:00.000Z',
       capacityFemale: 6,
+      femaleMinBirthYear: 1990,
+      femaleMaxBirthYear: 1999,
+      participantCondition: '90년대생 직장인',
+      priceNote: '커피 1잔 포함',
     });
   });
 });

@@ -9,8 +9,8 @@
 지금 구현된 것은 Step 2([SPEC-002](../../docs/specs/SPEC-002-meetup-schedule.md))와 Step 3 참가 신청([SPEC-003](../../docs/specs/SPEC-003-application.md))이다:
 
 - **모임 상품** `Meetup` — 제목 · 설명만. 회차가 함께 쓰는 틀이다. 등록 · 수정만 있다(상태 · 삭제 없음).
-- **회차** `Schedule` — 시각(시작 · 종료 · 신청 마감), 남녀 참가비 · 정원, 남성 연령대(출생연도 범위, 선택), 장소(공개 지역 + 운영자 전용 장소 안내 넷), 상태 `DRAFT → OPEN ⇄ CLOSED → CANCELLED`(6절 전이 표). 여러 회차 한 번에 등록(D15).
-- **참가자 공개 조회** — OPEN · CLOSED 회차의 공개 필드만. 정확한 장소(`venueName` · `venueAddress` · `venueDirections` · `venueMapUrl`)와 취소 사유는 공개 경로에 절대 나오지 않는다 — 경로 · select · 응답 스키마가 나뉘어 있다(SPEC-002 12절).
+- **회차** `Schedule` — 시각(시작 · 종료 · 신청 마감), 남녀 참가비 · 정원, 성별 연령대(출생연도 범위 — 남 · 여 한 쌍씩, 선택, SPEC-002 개정 D16), 참가 조건 문구 · 참가비 보조 문구 · 성별 최소 인원(선택 표시 값 — 서버는 판정하지 않는다, D17), 장소(공개 지역 + 운영자 전용 장소 안내 넷), 상태 `DRAFT → OPEN ⇄ CLOSED → CANCELLED`(6절 전이 표). 여러 회차 한 번에 등록(D15).
+- **참가자 공개 조회** — OPEN · CLOSED 회차의 공개 필드만. 정확한 장소(`venueName` · `venueAddress` · `venueDirections` · `venueMapUrl`)와 취소 사유는 공개 경로에 절대 나오지 않는다 — 경로 · select · 응답 스키마가 나뉘어 있다(SPEC-002 12절). 성별 최소 인원 `minPerGender`도 운영자 응답에만 있다(D17 · D20).
 
 - **참가 신청** `Application` — 회원이 일정에 신청하면 **접수**(`APPLIED`)로 태어나고 자리를 잡지 않는다(SPEC-003 개정 2026-10-14, D14). 정원 · 연령은 보지 않는다(D15). 운영자가 **참가 가능 안내**(`PATCH …/status { status: 'PENDING' }`)를 하면 그때 그 성별의 자리를 잡고 입금 대기(`PENDING`)가 된다 — 회차 행 → 신청 행을 `FOR UPDATE`로 잠근 뒤 자리 잡은 수(`PENDING` · `CONFIRMED`)를 세어 정원을 넘지 않는다(D16, 잠금 한 번의 대기 `lock_timeout` 2초 — 요청 하나는 최대 약 4초, SPEC-003 17절). 참가 확정(`CONFIRMED`)은 `payment.completed.v1` 소비자(SPEC-004 5번 PR)가 만든다 — 이 서비스에 확정을 만드는 API는 없다. 본인 취소(접수는 언제든, 입금 대기는 신청 마감 전, 참가 확정은 불가) · 운영자 취소(언제든) · 회차 취소 연쇄(활성 전부 — 접수 포함). 입금 기한은 두지 않는다(SPEC-004 D12).
 
@@ -45,6 +45,7 @@
 - 에러 코드: 400 `VALIDATION_FAILED` · `SCHEDULE_TIME_INVALID` · `BIRTH_YEAR_RANGE_INVALID`, 401 `UNAUTHENTICATED` · `INTERNAL_TOKEN_INVALID`, 403 `FORBIDDEN` · `ACCOUNT_SUSPENDED`(신청 — 위임 호출이 정지 계정을 알림), 404 `MEETUP_NOT_FOUND` · `SCHEDULE_NOT_FOUND` · `APPLICATION_NOT_FOUND`, 409 `INVALID_STATUS_TRANSITION`(회차 상태 전이, 참가 가능 안내의 CONFIRMED · CANCELLED 신청) · `SCHEDULE_NOT_EDITABLE` · `CAPACITY_BELOW_APPLICATIONS`(회차 수정에서 정원 < 그 성별 **자리 잡은** 신청 수 — 접수는 세지 않는다) · 신청 `APPLICATION_CLOSED` · `ALREADY_APPLIED` · `REAPPLY_NOT_ALLOWED` · `PENDING_APPLICATION_LIMIT`(이 순서의 첫 코드 — 정원 · 연령 코드는 없다) · 참가 가능 안내 `SCHEDULE_FULL`(그 성별의 자리 잡은 수 ≥ 정원) · 본인 취소 `APPLICATION_NOT_CANCELLABLE`(입금 대기 · 신청 마감 뒤) · `APPLICATION_CONFIRMED`(참가 확정, SPEC-004), 503 `SERVICE_BUSY` + `Retry-After: 1`(회차 쓰기 · 신청 · 취소 · 참가 가능 안내가 잠금 · 트랜잭션 연결을 기다리다 끝남, 또는 신청의 위임 호출 실패)(SPEC-002 · SPEC-003 · SPEC-004 7절 에러 코드 표).
 - 운영자 회차 응답에는 모두 여섯 값 — 자리 잡은 수 `appliedMale` · `appliedFemale`(`PENDING` · `CONFIRMED`), 접수 수 `receivedMale` · `receivedFemale`(`APPLIED`), `maleFull` · `femaleFull`(자리 잡은 수 ≥ 정원) — 이 실린다. **공개 응답에는 신청 관련 값이 없다**(SPEC-003 D17, ★S2 — 공개 조회는 신청 테이블을 읽지 않는다). 회차를 취소하면 같은 트랜잭션에서 그 회차의 활성 신청(접수 · 입금 대기 · 참가 확정)이 모두 취소된다(`cancelledBy: SCHEDULE`).
 - 여러 회차 등록은 전부 또는 없음이다. 문제 항목은 `message`의 `items.<순번>`(0부터)으로 알린다 — Zod 실패는 `items.3.capacityMale: 범위` 형식, 시간 · 연령대 규칙 위반은 첫 위반 항목 하나를 `items.5: 시간 규칙` · `items.2: 연령대 규칙`으로 준다.
+- 연령대 순서(`min ≤ max`)는 병합한 값으로 성별마다 본다 — 남 · 여 어느 쌍이 어긋나도 400 `BIRTH_YEAR_RANGE_INVALID`이고, 남녀 사이의 관계는 보지 않는다(D16). 최소 인원과 정원의 비교는 서버에 없다 — 운영자 화면이 경고만 한다(D17).
 - 서비스 포트를 직접 부를 때는 `x-internal-token`(`.env`의 `INTERNAL_API_TOKEN`)을, 운영자 경로는 `x-user-id`(UUID) · `x-user-role: ADMIN`도, 신청 경로는 `x-user-id` · `x-user-role: MEMBER`를 직접 채운다(신청은 그 헤더 그대로 member-service를 부르므로 member_db에 있는 회원 ID여야 한다).
 
 ## 구조
@@ -106,7 +107,7 @@
 
 ## 마이그레이션
 
-`event_db`의 스키마는 `prisma/schema.prisma`, 마이그레이션은 `prisma/migrations/`(`init_event` · `add_application` — CHECK 제약은 SQL에만 있다 — · `add_application_statuses` — `ApplicationStatus`에 `CONFIRMED` · `APPLIED`를 `ADD VALUE`로 더하고 기본값을 `APPLIED`로. Prisma는 마이그레이션 파일을 트랜잭션으로 감싸지 않아 새 값을 쓰는 `SET DEFAULT`가 같은 파일에 있다 — psql로 손수 적용할 때 `BEGIN … COMMIT`으로 감싸면 55P04로 실패한다, SPEC-003 17절). `Application`의 부분 유니크 인덱스는 Prisma `partialIndexes` 미리보기로 스키마에 선언한다 — 생성 선택자 `scheduleId_memberId`는 쓰지 않는다(기술 스택 함정 11). enum 값 순서는 `ADD VALUE` 순서(`PENDING` · `CANCELLED` · `CONFIRMED` · `APPLIED`)이고 `schema.prisma` · contracts `APPLICATION_STATUSES`도 같다 — `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma`가 비어 있어야 한다. 테이블 · CHECK 목록은 [docs/database/README.md](../../docs/database/README.md) 6절.
+`event_db`의 스키마는 `prisma/schema.prisma`, 마이그레이션은 `prisma/migrations/`(`init_event` · `add_application` — CHECK 제약은 SQL에만 있다 — · `add_application_statuses` — `ApplicationStatus`에 `CONFIRMED` · `APPLIED`를 `ADD VALUE`로 더하고 기본값을 `APPLIED`로. Prisma는 마이그레이션 파일을 트랜잭션으로 감싸지 않아 새 값을 쓰는 `SET DEFAULT`가 같은 파일에 있다 — psql로 손수 적용할 때 `BEGIN … COMMIT`으로 감싸면 55P04로 실패한다, SPEC-003 17절 — · `add_schedule_condition_columns` — `Schedule`에 nullable 열 다섯(`femaleMinBirthYear` · `femaleMaxBirthYear` · `participantCondition` · `priceNote` · `minPerGender`, DB 기본값 없음 — 기존 행은 NULL)과 CHECK `Schedule_female_birth_year_valid` · `Schedule_min_per_gender_valid`, SPEC-002 개정 9절). `Application`의 부분 유니크 인덱스는 Prisma `partialIndexes` 미리보기로 스키마에 선언한다 — 생성 선택자 `scheduleId_memberId`는 쓰지 않는다(기술 스택 함정 11). enum 값 순서는 `ADD VALUE` 순서(`PENDING` · `CANCELLED` · `CONFIRMED` · `APPLIED`)이고 `schema.prisma` · contracts `APPLICATION_STATUSES`도 같다 — `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma`가 비어 있어야 한다. 테이블 · CHECK 목록은 [docs/database/README.md](../../docs/database/README.md) 6절.
 
 ## 테스트
 
@@ -115,7 +116,7 @@ pnpm --filter @oneul-sai/event-service test               # 단위 — .env 없�
 pnpm --filter @oneul-sai/event-service test:integration   # 통합 — event_test_db
 ```
 
-- 단위: `schedule-rules`(시간 · 연령대 · 전이 표 20칸), `application-rules`(`decideApply` 순서 · 경계, `decideCancel` · `decideInvite` 전이 표), `application-queries`(집합 둘 · 집계 가르기), contracts 스키마 경계값(`src/event-contracts.spec.ts` — `APPLICATION_STATUSES`와 Prisma enum의 값 · 순서 비교 포함), 서비스(가짜 prisma — 신청은 잠금 → 판정 → 저장 순서, 참가 가능 안내는 회차 행 → 신청 행 잠금 → 별도 집계 → UPDATE), `member-client`(응답 해석 표 — `birthYear`를 받지 않는다), 공개 필드 격리, DB 에러 로그.
+- 단위: `schedule-rules`(시간 · 성별 연령대 · 전이 표 20칸), `application-rules`(`decideApply` 순서 · 경계, `decideCancel` · `decideInvite` 전이 표), `application-queries`(집합 둘 · 집계 가르기), contracts 스키마 경계값(`src/event-contracts.spec.ts` — `APPLICATION_STATUSES`와 Prisma enum의 값 · 순서 비교 포함), 서비스(가짜 prisma — 신청은 잠금 → 판정 → 저장 순서, 참가 가능 안내는 회차 행 → 신청 행 잠금 → 별도 집계 → UPDATE), `member-client`(응답 해석 표 — `birthYear`를 받지 않는다), 공개 필드 격리, DB 에러 로그.
 - 통합: 앱을 임시 포트로 띄워 `fetch`로 부른다(`src/testing/integration-app.ts`, Gateway가 붙이는 헤더는 테스트가 채운다). 운영자 흐름, 공개 응답 원문에 비공개 값 · 키 이름(신청 관련 값 포함)이 없음, 404 본문 동일, 인가, 라우트 목록(기본 거부), 여러 회차 등록, 동시 수정 경합, CHECK 제약, 신청의 부분 유니크 인덱스 · CHECK · FK · enum 값 넷 · 기본값 `APPLIED`, 회차 쪽 신청 규칙(정원 축소 409는 자리 잡은 수 기준 · 회차 취소 연쇄에 접수 포함 · 회원 취소와의 순서 강제 · 잠금 대기 초과 503 · 응답의 여섯 값), 신청 API(접수 흐름 · 참가 가능 안내 · 거절 코드 · 확정 뒤 규칙(DB에서 직접 CONFIRMED) · 인가 · 위임 호출 실패 시 행 0건 — 회원 조회는 가짜 `FakeMembers`), 동시성(`applications-concurrency.integration.spec.ts` — 참가 가능 안내의 마지막 한 자리 · 정원 축소 · 몰림, 신청 몰림은 전부 201, 같은 회원 중복, 순서 강제).
 - 잠금 순서 강제 테스트는 테스트 쪽 트랜잭션이 행을 `FOR UPDATE`로 잡은 채 요청을 보내고, `pg_locks`로 요청이 실제로 기다리는지 확인한 뒤 커밋한다(SPEC-003 D13).
 - 개발 DB `event_db`가 아니라 **테스트 전용 DB `event_test_db`**(`TEST_DATABASE_URL`)에서 돈다(SPEC-002 9절, D13). `.env`의 `DATABASE_URL`은 보지 않는다.

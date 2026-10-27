@@ -102,7 +102,7 @@ export class AdminSchedulesController {
   @ApiOperation({ summary: '운영자: 회차 생성 (항상 DRAFT)' })
   @ApiBody({
     description:
-      'CreateScheduleRequest (@oneul-sai/contracts). 시각 · 순서 규칙 위반 400 SCHEDULE_TIME_INVALID, 남성 연령대 min > max 400 BIRTH_YEAR_RANGE_INVALID',
+      'CreateScheduleRequest (@oneul-sai/contracts). 시각 · 순서 규칙 위반 400 SCHEDULE_TIME_INVALID, 성별 연령대(남 · 여 어느 쌍이든) min > max 400 BIRTH_YEAR_RANGE_INVALID. 참가 조건 · 참가비 보조 문구 · 최소 인원은 선택(판정 없음)',
     schema: { type: 'object' },
   })
   @ApiCreatedResponse({ description: 'AdminSchedule' })
