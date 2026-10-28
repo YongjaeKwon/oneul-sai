@@ -1,5 +1,6 @@
 import {
-  formatMaleBirthYears,
+  formatBirthYears,
+  formatCapacity,
   formatPrice,
   formatScheduleRange,
   formatScheduleTime,
@@ -24,14 +25,75 @@ describe('formatPrice (D3)', () => {
     expect(formatPrice(30000, 25000)).toBe('참가비 남 30,000원 · 여 25,000원');
     expect(formatPrice(0, 1000000)).toBe('참가비 남 0원 · 여 1,000,000원');
   });
+
+  it('appends the price note only when there is one (D17)', () => {
+    expect(formatPrice(40000, 40000, '커피 1잔 포함')).toBe(
+      '참가비 40,000원 · 커피 1잔 포함',
+    );
+    expect(formatPrice(30000, 25000, '커피 1잔 포함')).toBe(
+      '참가비 남 30,000원 · 여 25,000원 · 커피 1잔 포함',
+    );
+    expect(formatPrice(40000, 40000, null)).toBe('참가비 40,000원');
+  });
 });
 
-describe('formatMaleBirthYears (D5)', () => {
-  it('covers both ends, one end and none', () => {
-    expect(formatMaleBirthYears(1990, 1995)).toBe('남성 1990~1995년생');
-    expect(formatMaleBirthYears(1990, null)).toBe('남성 1990년생부터');
-    expect(formatMaleBirthYears(null, 1995)).toBe('남성 1995년생까지');
-    expect(formatMaleBirthYears(null, null)).toBe('');
+describe('formatCapacity (D17)', () => {
+  it('adds "최소 N" only when the minimum is set', () => {
+    expect(formatCapacity(7, 7, 5)).toBe('정원 남 7 · 여 7 · 최소 5');
+    expect(formatCapacity(7, 6, 8)).toBe('정원 남 7 · 여 6 · 최소 8');
+    expect(formatCapacity(7, 7, null)).toBe('정원 남 7 · 여 7');
+    expect(formatCapacity(7, 7)).toBe('정원 남 7 · 여 7');
+  });
+});
+
+describe('formatBirthYears (D16)', () => {
+  const none = {
+    maleMinBirthYear: null,
+    maleMaxBirthYear: null,
+    femaleMinBirthYear: null,
+    femaleMaxBirthYear: null,
+  };
+  const male = (min: number | null, max: number | null) =>
+    formatBirthYears({ ...none, maleMinBirthYear: min, maleMaxBirthYear: max });
+
+  it('covers both ends, one end and none within one gender', () => {
+    expect(male(1990, 1995)).toBe('남성 1990~1995년생');
+    expect(male(1990, null)).toBe('남성 1990년생부터');
+    expect(male(null, 1995)).toBe('남성 1995년생까지');
+    expect(male(null, null)).toBe('');
+  });
+
+  it('drops the gender word when both genders have the same range', () => {
+    expect(
+      formatBirthYears({
+        maleMinBirthYear: 1990,
+        maleMaxBirthYear: 1999,
+        femaleMinBirthYear: 1990,
+        femaleMaxBirthYear: 1999,
+      }),
+    ).toBe('1990~1999년생');
+    expect(
+      formatBirthYears({
+        ...none,
+        maleMinBirthYear: 1990,
+        femaleMinBirthYear: 1990,
+      }),
+    ).toBe('1990년생부터');
+  });
+
+  it('shows both when they differ, and only the gender that has a range', () => {
+    expect(
+      formatBirthYears({
+        maleMinBirthYear: 1990,
+        maleMaxBirthYear: 1995,
+        femaleMinBirthYear: 1990,
+        femaleMaxBirthYear: 1999,
+      }),
+    ).toBe('남성 1990~1995년생 · 여성 1990~1999년생');
+    expect(formatBirthYears({ ...none, femaleMaxBirthYear: 1999 })).toBe(
+      '여성 1999년생까지',
+    );
+    expect(formatBirthYears(none)).toBe('');
   });
 });
 

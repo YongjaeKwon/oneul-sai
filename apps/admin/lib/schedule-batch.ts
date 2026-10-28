@@ -1,25 +1,23 @@
 import {
   API_ERROR_CODES,
   CreateScheduleRequestSchema,
-  DEFAULT_CAPACITY_PER_GENDER,
   SCHEDULE_BATCH_MAX,
   SCHEDULE_MAX_LEAD_DAYS,
   type CreateScheduleRequest,
 } from '@oneul-sai/contracts';
 import { z } from 'zod';
 
+import { describeError, isApiClientError } from './errors';
+import { fromSeoulLocal, toSeoulLocal } from './format';
 import {
-  BIRTH_YEAR_RANGE_MESSAGE,
-  describeError,
-  isApiClientError,
-} from './errors';
-import { fromSeoulLocal, toSeoulLocal, weekdayOf } from './format';
-import {
-  DEFAULT_START_TIME,
   ScheduleSharedFieldsShape,
   addDays,
+  birthYearOrderIssues,
   checkScheduleValues,
+  defaultEndsAt,
+  minAboveCapacity,
   numberValue,
+  sharedDefaults,
   toFieldIssues,
   toSharedRequestInput,
   type ScheduleSharedValues,
@@ -50,7 +48,15 @@ export function deadlineHoursBefore(startsAt: string, hours: number): string {
   return toSeoulLocal(Date.parse(fromSeoulLocal(startsAt)) - hours * 3_600_000);
 }
 
-/** 미리보기 표의 한 행. 행마다 고칠 수 있는 칸만 둔다 — 남성 연령대 · 장소 안내는 공통 값을 쓴다. */
+/**
+ * 공통 값의 종료 시각 기본값 = 시작 시각 + 90분(`HH:mm`, D19). 시작이 비면 빈 문자열. 자정을 넘기면 다음 날 시각이 되어
+ * "종료 시각은 시작 시각보다 늦어야 합니다."로 알린다(같은 날짜 안).
+ */
+export function defaultEndTime(startTime: string): string {
+  return defaultEndsAt(`2000-01-01T${startTime}`).slice(11);
+}
+
+/** 미리보기 표의 한 행. 행마다 고칠 수 있는 칸만 둔다 — 연령대 · 참가 조건 · 보조 문구 · 최소 인원 · 장소 안내는 공통 값을 쓴다. */
 export interface BatchRow {
   /** 처음 만든 날짜. 행을 고쳐도 바뀌지 않는 React key · 서버 오류 표시 기준. */
   key: string;
@@ -82,7 +88,7 @@ const SharedRequestSchema = CreateScheduleRequestSchema.omit({
 });
 
 /**
- * A9 공통 값 검사. 참가비 · 정원 · 연령대 · 장소는 contracts 스키마 그대로(+ 남성 연령대 순서), 시각은 "같은 날짜 안에서
+ * A9 공통 값 검사. 참가비 · 정원 · 연령대 · 장소는 contracts 스키마 그대로(+ 남 · 여 연령대 순서), 시각은 "같은 날짜 안에서
  * 시작 < 종료". 바탕 객체는 막지 않는다 — 막으면 Zod 4가 superRefine을 건너뛰어 다른 칸의 오류가 늦게 보인다.
  */
 export const BatchCommonSchema = z
@@ -125,12 +131,12 @@ export const BatchCommonSchema = z
       });
     }
     // 서버는 병합한 값으로 판정한다(400 `BIRTH_YEAR_RANGE_INVALID`). 공통 값은 모든 회차에 같아 여기서 먼저 알린다.
-    if (
-      values.maleMinBirthYear !== null &&
-      values.maleMaxBirthYear !== null &&
-      values.maleMinBirthYear > values.maleMaxBirthYear
-    ) {
-      add('maleMinBirthYear', BIRTH_YEAR_RANGE_MESSAGE);
+    for (const issue of birthYearOrderIssues(shared)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: issue.path,
+        message: issue.message,
+      });
     }
   });
 
@@ -148,24 +154,13 @@ export function batchFormKey(values: BatchCommonValues): string {
   );
 }
 
-/** A9 공통 값 초기값: 시작 14:00 · 종료 비움 · 신청 마감 0시간 전(= 시작) · 정원 7 · 7(D2 · D6 · D15). */
+/** A9 공통 값 초기값: 시작 · 종료 비움 · 신청 마감 0시간 전(= 시작), 나머지는 새 회차와 같다(D15 · D19). */
 export function batchCommonDefaults(): BatchCommonValues {
   return {
-    startTime: DEFAULT_START_TIME,
+    startTime: '',
     endTime: '',
     hoursBefore: 0,
-    samePrice: true,
-    priceMale: null,
-    priceFemale: null,
-    capacityMale: DEFAULT_CAPACITY_PER_GENDER,
-    capacityFemale: DEFAULT_CAPACITY_PER_GENDER,
-    maleMinBirthYear: null,
-    maleMaxBirthYear: null,
-    venueArea: '',
-    venueName: '',
-    venueAddress: '',
-    venueDirections: '',
-    venueMapUrl: '',
+    ...sharedDefaults(),
   };
 }
 
@@ -193,9 +188,9 @@ export function buildRows(
 export interface RowCheck {
   /** 제출을 막는 문제. */
   errors: string[];
-  /** 확인만 하는 경고(일요일 아님 · 남녀 정원 다름). */
-  notSunday: boolean;
+  /** 확인만 하는 경고(남녀 정원 다름 · 최소 인원이 정원보다 큼 — D2 · D17). */
   capacityDiffers: boolean;
+  minAboveCapacity: boolean;
 }
 
 export interface RowsCheck {
@@ -215,13 +210,19 @@ export function checkRows(
   const seen = new Set<string>();
 
   for (const row of rows) {
+    // 비었거나 숫자가 아닌 정원은 경고하지 않는다 — 오류가 알린다(숫자가 아닌 최소 인원은 비교가 늘 거짓)
+    const staffed =
+      Number.isFinite(row.capacityMale) && Number.isFinite(row.capacityFemale);
     const check: RowCheck = {
       errors: [],
-      notSunday: row.startsAt !== '' && weekdayOf(row.startsAt) !== 0,
-      capacityDiffers:
-        Number.isFinite(row.capacityMale) &&
-        Number.isFinite(row.capacityFemale) &&
-        row.capacityMale !== row.capacityFemale,
+      capacityDiffers: staffed && row.capacityMale !== row.capacityFemale,
+      minAboveCapacity:
+        staffed &&
+        minAboveCapacity({
+          capacityMale: Number(row.capacityMale),
+          capacityFemale: Number(row.capacityFemale),
+          minPerGender: shared.minPerGender,
+        }),
     };
     byKey[row.key] = check;
 

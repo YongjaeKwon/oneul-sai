@@ -158,23 +158,29 @@ export function inviteErrorOverrides(
 }
 
 /**
- * 출생연도 옆 "연령대 밖"(★S1 (a) — 신청은 막지 않고 운영자가 보고 고른다). 경계 포함. 범위가 없거나 출생연도를 모르면(탈퇴 ·
- * 조회 실패) 거짓. 지금은 남성 쌍(`maleMin/MaxBirthYear`)만 본다 — 여성 쌍은 SPEC-002 개정 PR이 열을 더한 뒤(SPEC-003 15절).
+ * 출생연도 옆 "연령대 밖"(★S1 (a) — 신청은 막지 않고 운영자가 보고 고른다). 신청 성별의 쌍(남성 `maleMin/MaxBirthYear`,
+ * 여성 `femaleMin/MaxBirthYear` — SPEC-002 D16)과 비교하고 경계는 포함. 그 성별의 범위가 없거나 출생연도를 모르면(탈퇴 ·
+ * 조회 실패) 거짓. 서버는 판정하지 않는다(표시만).
  */
 export function outsideBirthYears(
   gender: Gender,
   birthYear: number | null,
-  schedule: Pick<AdminSchedule, 'maleMinBirthYear' | 'maleMaxBirthYear'>,
+  schedule: Pick<
+    AdminSchedule,
+    | 'maleMinBirthYear'
+    | 'maleMaxBirthYear'
+    | 'femaleMinBirthYear'
+    | 'femaleMaxBirthYear'
+  >,
 ): boolean {
-  if (birthYear === null || gender !== 'MALE') {
+  if (birthYear === null) {
     return false;
   }
-  return (
-    (schedule.maleMinBirthYear !== null &&
-      birthYear < schedule.maleMinBirthYear) ||
-    (schedule.maleMaxBirthYear !== null &&
-      birthYear > schedule.maleMaxBirthYear)
-  );
+  const [min, max] =
+    gender === 'MALE'
+      ? [schedule.maleMinBirthYear, schedule.maleMaxBirthYear]
+      : [schedule.femaleMinBirthYear, schedule.femaleMaxBirthYear];
+  return (min !== null && birthYear < min) || (max !== null && birthYear > max);
 }
 
 /** 계정 상태 칸 — 정지 · 탈퇴일 때만 보인다(4절 A10). */
