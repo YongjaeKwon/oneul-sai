@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  REFUND_POLICY,
   ScheduleIdSchema,
   type AdminSchedule,
   type Meetup,
@@ -12,8 +13,8 @@ import { useEndSessionOn401 } from '@/lib/auth-provider';
 import { describeEventError } from '@/lib/errors';
 import {
   EMPTY,
+  formatBirthYears,
   formatCapacity,
-  formatMaleBirthYears,
   formatPrice,
   formatScheduleRange,
   formatScheduleTime,
@@ -146,22 +147,27 @@ function ScheduleDetail({
                 },
                 {
                   label: '참가비',
-                  value: formatPrice(schedule.priceMale, schedule.priceFemale),
+                  value: formatPrice(
+                    schedule.priceMale,
+                    schedule.priceFemale,
+                    schedule.priceNote,
+                  ),
                 },
                 {
                   label: '정원',
                   value: formatCapacity(
                     schedule.capacityMale,
                     schedule.capacityFemale,
+                    schedule.minPerGender,
                   ),
                 },
                 {
-                  label: '남성 연령대',
-                  value:
-                    formatMaleBirthYears(
-                      schedule.maleMinBirthYear,
-                      schedule.maleMaxBirthYear,
-                    ) || '제한 없음',
+                  label: '연령대',
+                  value: formatBirthYears(schedule) || '제한 없음',
+                },
+                {
+                  label: '참가 조건',
+                  value: schedule.participantCondition ?? EMPTY,
                 },
                 { label: '지역', value: schedule.venueArea },
                 {
@@ -190,6 +196,18 @@ function ScheduleDetail({
 
       <Section title="확정자에게 보일 장소 안내">
         <VenuePreview schedule={schedule} />
+      </Section>
+
+      {/* D18 · R3 — contracts 상수를 그대로 그린다(회차마다 고칠 수 없다). 제목은 사이트 머리글 그대로 */}
+      <Section title="취소 및 환불 규정">
+        <ul className="flex flex-col gap-1.5 text-sm text-ink">
+          {REFUND_POLICY.lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-ink-soft">
+          참가자 일정 화면에 같은 문장이 보입니다.
+        </p>
       </Section>
     </div>
   );

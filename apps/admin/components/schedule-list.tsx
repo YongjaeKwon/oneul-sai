@@ -24,8 +24,8 @@ import { selectClasses } from '@/lib/form-styles';
 import {
   EMPTY,
   SCHEDULE_STATUS_LABELS,
+  formatBirthYears,
   formatCapacity,
-  formatMaleBirthYears,
   formatPrice,
   formatScheduleRange,
 } from '@/lib/format';
@@ -45,7 +45,8 @@ interface Progress {
 }
 
 /**
- * A6 아래쪽 회차 목록 — 상태 · 기간 필터(기본 "오늘 이후"), 한 줄에 일시 · 지역 · 참가비 · 정원 · 신청 수(자리 잡은 수 / 정원 · 접수 수) · 남성 연령대 · 상태.
+ * A6 아래쪽 회차 목록 — 상태 · 기간 필터(기본 "오늘 이후"), 한 줄에 일시 · 지역 · 참가비(보조 문구 포함) · 정원(최소 인원 포함) ·
+ * 신청 수(자리 잡은 수 / 정원 · 접수 수) · 연령대(남녀) · 상태. 참가 조건 문구는 상세에서 본다(SPEC-002 4절 A6).
  * DRAFT 행을 골라 "선택한 회차 공개"하면 회차마다 상태 API를 차례로 부르고 행마다 결과를 붙인다(D15).
  * 한 페이지(최대 100개)가 한 번에 고를 수 있는 수의 상한이다.
  */
@@ -256,7 +257,7 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
                     '참가비',
                     '정원',
                     '신청',
-                    '남성 연령대',
+                    '연령대',
                     '상태',
                   ].map((column) => (
                     <th
@@ -320,12 +321,14 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
                           {formatPrice(
                             schedule.priceMale,
                             schedule.priceFemale,
+                            schedule.priceNote,
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
                           {formatCapacity(
                             schedule.capacityMale,
                             schedule.capacityFemale,
+                            schedule.minPerGender,
                           )}
                         </td>
                         {/* SPEC-003 A6 — 성별 자리 잡은 신청 수 / 정원 · 접수 수 */}
@@ -333,10 +336,7 @@ export function ScheduleList({ meetupId }: { meetupId: string }) {
                           {formatAppliedCounts(schedule)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-ink-soft tabular-nums">
-                          {formatMaleBirthYears(
-                            schedule.maleMinBirthYear,
-                            schedule.maleMaxBirthYear,
-                          ) || EMPTY}
+                          {formatBirthYears(schedule) || EMPTY}
                         </td>
                         <td className="px-4 py-3">
                           <ScheduleStatusBadge

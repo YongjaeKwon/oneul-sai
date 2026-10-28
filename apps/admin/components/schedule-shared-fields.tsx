@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  PARTICIPANT_CONDITION_MAX_LENGTH,
+  PRICE_NOTE_MAX_LENGTH,
   VENUE_ADDRESS_MAX_LENGTH,
   VENUE_AREA_MAX_LENGTH,
   VENUE_DIRECTIONS_MAX_LENGTH,
@@ -46,9 +48,14 @@ function FieldGroup({
   );
 }
 
+/** 숫자 칸이 비었거나 숫자가 아니면(`NaN`) 옮기지 않고 비운다 — 체크를 끌 때 옆 칸을 채우는 값. */
+const copyable = (value: number | null) =>
+  value === null || Number.isNaN(value) ? null : value;
+
 /**
- * 회차 폼(A7 · A8)과 여러 회차 등록 공통 값(A9)이 함께 쓰는 칸: 참가비("남녀 같은 금액"), 성별 정원,
- * 남성 연령대, 지역 · 장소 안내. 필드 이름이 요청 필드와 같아 contracts 스키마의 오류가 그 칸에 붙는다.
+ * 회차 폼(A7 · A8)과 여러 회차 등록 공통 값(A9)이 함께 쓰는 칸: 참가비("남녀 같은 금액") · 참가비 보조 문구, 성별 정원 ·
+ * 최소 인원, 연령대("남녀 같은 범위") · 참가 조건, 지역 · 장소 안내(SPEC-002 4절 A7 — 개정 2026-10-14).
+ * 필드 이름이 요청 필드와 같아 contracts 스키마의 오류가 그 칸에 붙는다.
  * `capacity`가 있으면(A8) 정원 칸 아래에 그 성별의 신청 수를 보이고, 저장된 정원에서 바꾼 값이 신청 수보다 작으면 칸에 알린다
  * (SPEC-003 A8 · D8 — 막지 않는다, 판정은 서버의 409).
  */
@@ -62,9 +69,11 @@ export function ScheduleSharedFields({
     watch,
     getValues,
     setValue,
+    clearErrors,
     formState: { errors, touchedFields },
   } = useFormContext<ScheduleSharedValues>();
   const samePrice = watch('samePrice');
+  const sameBirthYears = watch('sameBirthYears');
   const [capacityMale, capacityFemale] = useWatch<
     ScheduleSharedValues,
     ['capacityMale', 'capacityFemale']
@@ -83,6 +92,43 @@ export function ScheduleSharedFields({
         )
       : undefined;
   const samePriceId = useId();
+  const sameBirthYearsId = useId();
+  const birthYearHelpId = useId();
+
+  /** 연령대 칸 하나. "남녀 같은 범위"가 켜져 있으면 남성 칸만 성별 말 없이 보인다. */
+  const birthYearField = (
+    name:
+      | 'maleMinBirthYear'
+      | 'maleMaxBirthYear'
+      | 'femaleMinBirthYear'
+      | 'femaleMaxBirthYear',
+    gender: string,
+  ) => {
+    const isMin = name.endsWith('MinBirthYear');
+    const label = isMin
+      ? '앞 연도(가장 이른 출생연도)'
+      : '뒤 연도(가장 늦은 출생연도)';
+    return (
+      <FormField
+        key={name}
+        label={sameBirthYears ? label : `${gender} ${label}`}
+        error={errors[name]?.message}
+      >
+        {(control) => (
+          <Input
+            {...control}
+            aria-describedby={[birthYearHelpId, control['aria-describedby']]
+              .filter(Boolean)
+              .join(' ')}
+            inputMode="numeric"
+            placeholder={isMin ? '예: 1990' : '예: 1995'}
+            className="tabular-nums"
+            {...register(name, numberInput)}
+          />
+        )}
+      </FormField>
+    );
+  };
 
   return (
     <>
@@ -99,11 +145,7 @@ export function ScheduleSharedFields({
               // 끌 때 두 칸을 한 칸의 값으로 채워 둔다(A7).
               onChange: (event: { target: { checked: boolean } }) => {
                 if (!event.target.checked) {
-                  const price = getValues('priceMale');
-                  setValue(
-                    'priceFemale',
-                    price === null || Number.isNaN(price) ? null : price,
-                  );
+                  setValue('priceFemale', copyable(getValues('priceMale')));
                 }
               },
             })}
@@ -142,10 +184,24 @@ export function ScheduleSharedFields({
             </FormField>
           )}
         </div>
+        <FormField
+          label="참가비 보조 문구"
+          help="참가비 옆에 보입니다. 예: 커피 1잔 포함"
+          error={errors.priceNote?.message}
+        >
+          {(control) => (
+            <Input
+              {...control}
+              maxLength={PRICE_NOTE_MAX_LENGTH}
+              autoComplete="off"
+              {...register('priceNote')}
+            />
+          )}
+        </FormField>
       </FieldGroup>
 
       <FieldGroup title="성별 정원">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <FormField
             label="남 정원(명)"
             required
@@ -184,44 +240,83 @@ export function ScheduleSharedFields({
               />
             )}
           </FormField>
+          <FormField
+            label="최소 인원(명)"
+            help="행사를 진행하는 데 필요한 성별 최소 인원입니다. 미달 여부는 운영자가 판단합니다 — 자동으로 취소되지 않습니다."
+            error={errors.minPerGender?.message}
+          >
+            {(control) => (
+              <Input
+                {...control}
+                inputMode="numeric"
+                className="tabular-nums"
+                {...register('minPerGender', numberInput)}
+              />
+            )}
+          </FormField>
         </div>
       </FieldGroup>
 
-      <FieldGroup title="남성 연령대(출생연도)">
-        <p className="text-xs text-ink-soft">
-          여성에게는 연령 조건이 없습니다. 비우면 남성도 제한이 없습니다.
+      <FieldGroup title="연령대(출생연도)">
+        <label
+          htmlFor={sameBirthYearsId}
+          className="flex items-center gap-2 text-sm text-ink"
+        >
+          <input
+            id={sameBirthYearsId}
+            type="checkbox"
+            className="size-4 accent-ink"
+            {...register('sameBirthYears', {
+              // 끌 때 여성 칸을 남성 값으로 채워 둔다(A7 — D16).
+              onChange: (event: { target: { checked: boolean } }) => {
+                if (!event.target.checked) {
+                  setValue(
+                    'femaleMinBirthYear',
+                    copyable(getValues('maleMinBirthYear')),
+                  );
+                  setValue(
+                    'femaleMaxBirthYear',
+                    copyable(getValues('maleMaxBirthYear')),
+                  );
+                  // 켜진 동안 숨은 여성 칸에 붙은 오류(남성 값을 옮긴 검사 결과)는 낡았다 — 다음 검사가 다시 판정한다
+                  clearErrors(['femaleMinBirthYear', 'femaleMaxBirthYear']);
+                }
+              },
+            })}
+          />
+          남녀 같은 범위
+        </label>
+        <p id={birthYearHelpId} className="text-xs text-ink-soft">
+          비우면 그 성별은 제한이 없습니다.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            label="앞 연도(가장 이른 출생연도)"
-            error={errors.maleMinBirthYear?.message}
-          >
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="numeric"
-                placeholder="예: 1990"
-                className="tabular-nums"
-                {...register('maleMinBirthYear', numberInput)}
-              />
-            )}
-          </FormField>
-          <FormField
-            label="뒤 연도(가장 늦은 출생연도)"
-            error={errors.maleMaxBirthYear?.message}
-          >
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="numeric"
-                placeholder="예: 1995"
-                className="tabular-nums"
-                {...register('maleMaxBirthYear', numberInput)}
-              />
-            )}
-          </FormField>
+          {birthYearField('maleMinBirthYear', '남성')}
+          {birthYearField('maleMaxBirthYear', '남성')}
+          {sameBirthYears ? null : (
+            <>
+              {birthYearField('femaleMinBirthYear', '여성')}
+              {birthYearField('femaleMaxBirthYear', '여성')}
+            </>
+          )}
         </div>
       </FieldGroup>
+
+      <div className="border-t border-line pt-5">
+        <FormField
+          label="참가 조건"
+          help="참가자에게 그대로 보입니다. 예: 90년대생 직장인"
+          error={errors.participantCondition?.message}
+        >
+          {(control) => (
+            <Input
+              {...control}
+              maxLength={PARTICIPANT_CONDITION_MAX_LENGTH}
+              autoComplete="off"
+              {...register('participantCondition')}
+            />
+          )}
+        </FormField>
+      </div>
 
       <FieldGroup title="장소">
         <FormField

@@ -24,6 +24,7 @@ import {
   scheduleFormDefaults,
   scheduleFormSchema,
   scheduleWarnings,
+  startFollowers,
   type ScheduleFormValues,
   type TimeField,
 } from '@/lib/schedule-form';
@@ -44,8 +45,8 @@ interface Pending {
 
 /**
  * A7 회차 만들기(`schedule` 없음 → `POST`, 항상 DRAFT → A8) · A8 회차 수정(바꾼 필드만 `PATCH`, 비운 선택 칸은 `null`).
- * 입력 시각은 브라우저 시간대와 무관하게 서울 시각으로 보낸다(`+09:00`). 일요일이 아니거나 남녀 정원이 다르면
- * 제출 전에 한 번 묻는다 — 경고일 뿐 막지 않는다(D2 · D6). A8은 활성 신청이 있는 회차의 시각 · 장소 · 참가비를 바꿀 때도
+ * 입력 시각은 브라우저 시간대와 무관하게 서울 시각으로 보낸다(`+09:00`). 남녀 정원이 다르거나 최소 인원이 정원보다 크면
+ * 제출 전에 한 번 묻는다 — 경고일 뿐 막지 않는다(D2 · D17, 요일은 묻지 않는다 — D19). A8은 활성 신청이 있는 회차의 시각 · 장소 · 참가비를 바꿀 때도
  * 묻고(SPEC-003 H), 정원을 그 성별의 신청 수보다 작게 넣으면 칸에 알린다(D8 — 신청 수는 가장 최근에 불러온 회차 값).
  */
 export function ScheduleForm({
@@ -88,7 +89,7 @@ export function ScheduleForm({
   // 마지막으로 보낸 수정 — 409 `CAPACITY_BELOW_APPLICATIONS` 문구의 N을 고른다
   const [sent, setSent] = useState<UpdateScheduleRequest | null>(null);
   const schema = useMemo(() => scheduleFormSchema(baseline), [baseline]);
-  const [defaults] = useState(() => scheduleFormDefaults(baseline, Date.now()));
+  const [defaults] = useState(() => scheduleFormDefaults(baseline));
   const form = useForm<ScheduleFormValues, unknown, CreateScheduleRequest>({
     resolver: zodResolver(schema),
     defaultValues: defaults,
@@ -130,7 +131,7 @@ export function ScheduleForm({
         },
         onSuccess: (saved) => {
           setBaseline(saved);
-          reset(scheduleFormDefaults(saved, Date.now()));
+          reset(scheduleFormDefaults(saved));
           setNotice({ tone: 'success', text: '저장했습니다.' });
         },
       });
@@ -175,10 +176,22 @@ export function ScheduleForm({
     send(next);
   });
 
-  /** 시작을 바꾸면 이미 본 종료 · 신청 마감 칸의 순서 오류를 다시 확인한다. 새 회차의 신청 마감은 손대기 전까지 시작을 따라간다. */
+  /**
+   * 시작을 바꾸면 이미 본 종료 · 신청 마감 칸의 순서 오류를 다시 확인한다. 새 회차의 신청 마감 · 종료(+ 90분)는 손대기 전까지
+   * 시작을 따라간다(D19). 저장된 회차(A8)는 따라가지 않는다.
+   */
   const onStartsAtChange = (event: { target: { value: string } }) => {
-    if (creating && !getFieldState('applyDeadlineAt').isDirty) {
-      setValue('applyDeadlineAt', event.target.value);
+    if (creating) {
+      const { endsAt, applyDeadlineAt } = startFollowers(event.target.value, {
+        endsAt: getFieldState('endsAt').isDirty,
+        applyDeadlineAt: getFieldState('applyDeadlineAt').isDirty,
+      });
+      if (endsAt !== undefined) {
+        setValue('endsAt', endsAt);
+      }
+      if (applyDeadlineAt !== undefined) {
+        setValue('applyDeadlineAt', applyDeadlineAt);
+      }
     }
     const dependents = (['endsAt', 'applyDeadlineAt'] as const).filter(
       (field) =>

@@ -1,13 +1,15 @@
 import type { AdminSchedule } from '@oneul-sai/contracts';
 
+import { BIRTH_YEAR_RANGE_MESSAGE } from './errors';
 import {
   NOT_A_NUMBER_MESSAGE,
-  nextSunday,
+  defaultEndsAt,
   scheduleChanges,
   scheduleFormDefaults,
   scheduleFormSchema,
   scheduleTimeIssues,
   scheduleWarnings,
+  startFollowers,
   startOfSeoulToday,
   toNumberOrNull,
   type ScheduleFormValues,
@@ -55,28 +57,17 @@ function formValues(
   patch: Partial<ScheduleFormValues> = {},
 ): ScheduleFormValues {
   return {
-    ...scheduleFormDefaults(undefined, NOW),
+    ...scheduleFormDefaults(undefined),
+    startsAt: '2026-09-27T14:00',
     endsAt: '2026-09-27T16:30',
+    applyDeadlineAt: '2026-09-27T14:00',
     priceMale: 30000,
     venueArea: '강남역 인근',
     ...patch,
   };
 }
 
-describe('nextSunday (D6)', () => {
-  it('returns this week’s Sunday from a Monday', () => {
-    expect(nextSunday(Date.parse('2026-09-21T03:00:00.000Z'))).toBe(
-      '2026-09-27',
-    );
-  });
-
-  it('returns the Sunday after next when today is Sunday in Seoul (even if it is Saturday in UTC)', () => {
-    // 2026-09-26 23:30 UTC = 2026-09-27(일) 08:30 서울
-    expect(nextSunday(Date.parse('2026-09-26T23:30:00.000Z'))).toBe(
-      '2026-10-04',
-    );
-  });
-
+describe('startOfSeoulToday', () => {
   it('builds "오늘 이후" from Seoul midnight', () => {
     expect(startOfSeoulToday(Date.parse('2026-09-26T23:30:00.000Z'))).toBe(
       '2026-09-27T00:00:00+09:00',
@@ -84,26 +75,110 @@ describe('nextSunday (D6)', () => {
   });
 });
 
-describe('scheduleFormDefaults', () => {
-  it('prefills next Sunday 14:00, deadline = start, 7 · 7, same price on', () => {
-    expect(scheduleFormDefaults(undefined, NOW)).toMatchObject({
-      startsAt: '2026-09-27T14:00',
-      applyDeadlineAt: '2026-09-27T14:00',
+describe('scheduleFormDefaults (D19)', () => {
+  it('leaves start · end · deadline · price empty, prefills 7 · 7 and minimum 5, both checks on', () => {
+    expect(scheduleFormDefaults(undefined)).toMatchObject({
+      startsAt: '',
       endsAt: '',
+      applyDeadlineAt: '',
       samePrice: true,
       priceMale: null,
+      priceFemale: null,
+      priceNote: '',
       capacityMale: 7,
       capacityFemale: 7,
+      minPerGender: 5,
+      sameBirthYears: true,
       maleMinBirthYear: null,
+      femaleMinBirthYear: null,
+      participantCondition: '',
     });
   });
 
   it('opens the edit form with same price on only when both prices match', () => {
-    expect(scheduleFormDefaults(saved, NOW).samePrice).toBe(true);
+    expect(scheduleFormDefaults(saved).samePrice).toBe(true);
     expect(
-      scheduleFormDefaults({ ...saved, priceFemale: 25000 }, NOW).samePrice,
+      scheduleFormDefaults({ ...saved, priceFemale: 25000 }).samePrice,
     ).toBe(false);
-    expect(scheduleFormDefaults(saved, NOW).startsAt).toBe('2026-10-04T14:00');
+    expect(scheduleFormDefaults(saved).startsAt).toBe('2026-10-04T14:00');
+  });
+
+  it('opens the edit form with same range on only when the four values match in pairs', () => {
+    const range = {
+      maleMinBirthYear: 1990,
+      maleMaxBirthYear: 1999,
+      femaleMinBirthYear: 1990,
+      femaleMaxBirthYear: 1999,
+    };
+    expect(scheduleFormDefaults(saved).sameBirthYears).toBe(true);
+    expect(scheduleFormDefaults({ ...saved, ...range }).sameBirthYears).toBe(
+      true,
+    );
+    expect(
+      scheduleFormDefaults({ ...saved, ...range, femaleMaxBirthYear: 1995 })
+        .sameBirthYears,
+    ).toBe(false);
+    expect(
+      scheduleFormDefaults({ ...saved, maleMinBirthYear: 1990 }).sameBirthYears,
+    ).toBe(false);
+  });
+
+  it('keeps the stored values when editing — no defaults over them', () => {
+    expect(scheduleFormDefaults(saved)).toMatchObject({
+      endsAt: '2026-10-04T16:30',
+      minPerGender: null,
+      priceNote: '',
+      participantCondition: '',
+    });
+    expect(
+      scheduleFormDefaults({
+        ...saved,
+        minPerGender: 4,
+        priceNote: '커피 1잔 포함',
+        participantCondition: '90년대생 직장인',
+      }),
+    ).toMatchObject({
+      minPerGender: 4,
+      priceNote: '커피 1잔 포함',
+      participantCondition: '90년대생 직장인',
+    });
+  });
+});
+
+describe('startFollowers · defaultEndsAt (D19 — 종료 = 시작 + 90분)', () => {
+  it('fills end = start + 90 minutes and deadline = start for a new schedule', () => {
+    expect(
+      startFollowers('2026-10-14T19:30', {
+        endsAt: false,
+        applyDeadlineAt: false,
+      }),
+    ).toEqual({
+      endsAt: '2026-10-14T21:00',
+      applyDeadlineAt: '2026-10-14T19:30',
+    });
+  });
+
+  it('stops following a field the operator has edited', () => {
+    expect(
+      startFollowers('2026-10-18T14:00', {
+        endsAt: true,
+        applyDeadlineAt: false,
+      }),
+    ).toEqual({ applyDeadlineAt: '2026-10-18T14:00' });
+    expect(
+      startFollowers('2026-10-18T14:00', {
+        endsAt: true,
+        applyDeadlineAt: true,
+      }),
+    ).toEqual({});
+  });
+
+  it('crosses midnight in Seoul time under TZ=UTC, and empties with an empty start', () => {
+    expect(defaultEndsAt('2026-10-14T23:00')).toBe('2026-10-15T00:30');
+    expect(defaultEndsAt('')).toBe('');
+    expect(
+      startFollowers('', { endsAt: false, applyDeadlineAt: false }),
+    ).toEqual({ endsAt: '', applyDeadlineAt: '' });
   });
 });
 
@@ -132,6 +207,129 @@ describe('scheduleFormSchema → request', () => {
     );
     expect(result.priceMale).toBe(30000);
     expect(result.priceFemale).toBe(25000);
+  });
+
+  it('sends the one range to all four fields when same range is on (D16)', () => {
+    const result = scheduleFormSchema().parse(
+      formValues({
+        maleMinBirthYear: 1990,
+        maleMaxBirthYear: 1999,
+        femaleMinBirthYear: 1980,
+        femaleMaxBirthYear: null,
+      }),
+    );
+    expect(result).toMatchObject({
+      maleMinBirthYear: 1990,
+      maleMaxBirthYear: 1999,
+      femaleMinBirthYear: 1990,
+      femaleMaxBirthYear: 1999,
+    });
+  });
+
+  it('sends each range when same range is off', () => {
+    const result = scheduleFormSchema().parse(
+      formValues({
+        sameBirthYears: false,
+        maleMinBirthYear: 1990,
+        maleMaxBirthYear: 1995,
+        femaleMinBirthYear: null,
+        femaleMaxBirthYear: 1999,
+      }),
+    );
+    expect(result).toMatchObject({
+      maleMinBirthYear: 1990,
+      maleMaxBirthYear: 1995,
+      femaleMinBirthYear: null,
+      femaleMaxBirthYear: 1999,
+    });
+  });
+
+  it('sends the new optional fields, and empty text as null', () => {
+    expect(
+      scheduleFormSchema().parse(
+        formValues({
+          priceNote: '커피 1잔 포함',
+          participantCondition: '90년대생 직장인',
+        }),
+      ),
+    ).toMatchObject({
+      priceNote: '커피 1잔 포함',
+      participantCondition: '90년대생 직장인',
+      minPerGender: 5,
+    });
+    expect(
+      scheduleFormSchema().parse(
+        formValues({ priceNote: '  ', minPerGender: null }),
+      ),
+    ).toMatchObject({
+      priceNote: null,
+      participantCondition: null,
+      minPerGender: null,
+    });
+  });
+
+  it('puts the birth-year order error on each gender’s first year field', () => {
+    const paths = (values: ScheduleFormValues) =>
+      scheduleFormSchema()
+        .safeParse(values)
+        .error?.issues.filter(
+          (issue) => issue.message === BIRTH_YEAR_RANGE_MESSAGE,
+        )
+        .map((issue) => issue.path.join('.'));
+    expect(
+      paths(
+        formValues({
+          sameBirthYears: false,
+          maleMinBirthYear: 1990,
+          maleMaxBirthYear: 1995,
+          femaleMinBirthYear: 1999,
+          femaleMaxBirthYear: 1990,
+        }),
+      ),
+    ).toEqual(['femaleMinBirthYear']);
+    // 켜진 채면 여성 쌍은 남성 값을 옮긴 것이라 숨은 여성 칸에도 붙는다 — 체크를 끌 때 화면이 그 오류를 지운다
+    expect(
+      paths(formValues({ maleMinBirthYear: 1995, maleMaxBirthYear: 1990 })),
+    ).toEqual(['maleMinBirthYear', 'femaleMinBirthYear']);
+    expect(
+      paths(formValues({ maleMinBirthYear: 1990, maleMaxBirthYear: 1990 })),
+    ).toBeUndefined();
+    // 한쪽만 넣으면 순서 오류가 아니다("비우면 그 성별은 제한이 없습니다.")
+    expect(
+      paths(formValues({ maleMinBirthYear: 1990, maleMaxBirthYear: null })),
+    ).toBeUndefined();
+    expect(
+      paths(
+        formValues({
+          sameBirthYears: false,
+          femaleMinBirthYear: 1999,
+          femaleMaxBirthYear: null,
+        }),
+      ),
+    ).toBeUndefined();
+    expect(
+      paths(
+        formValues({
+          sameBirthYears: false,
+          femaleMinBirthYear: null,
+          femaleMaxBirthYear: 1990,
+        }),
+      ),
+    ).toBeUndefined();
+  });
+
+  it('sends the four birth-year fields when a same-range edit changes the male years (A8 · D16)', () => {
+    const result = scheduleFormSchema(saved).parse({
+      ...scheduleFormDefaults(saved),
+      maleMinBirthYear: 1990,
+      maleMaxBirthYear: 1999,
+    });
+    expect(scheduleChanges(result, saved)).toEqual({
+      maleMinBirthYear: 1990,
+      maleMaxBirthYear: 1999,
+      femaleMinBirthYear: 1990,
+      femaleMaxBirthYear: 1999,
+    });
   });
 
   it('puts contracts and time-rule errors on the field', () => {
@@ -271,6 +469,11 @@ describe('scheduleChanges (A8 PATCH)', () => {
     capacityFemale: 7,
     maleMinBirthYear: null,
     maleMaxBirthYear: null,
+    femaleMinBirthYear: null,
+    femaleMaxBirthYear: null,
+    participantCondition: null,
+    priceNote: null,
+    minPerGender: null,
     venueArea: '강남역 인근',
     venueName: '카페',
     venueAddress: null,
@@ -300,31 +503,69 @@ describe('scheduleChanges (A8 PATCH)', () => {
       ),
     ).toEqual({ priceMale: 35000, priceFemale: 35000, venueName: null });
   });
+
+  it('sends the four birth-year fields together when a same-range edit changes them', () => {
+    expect(
+      scheduleChanges(
+        {
+          ...unchanged,
+          maleMinBirthYear: 1990,
+          maleMaxBirthYear: 1999,
+          femaleMinBirthYear: 1990,
+          femaleMaxBirthYear: 1999,
+          minPerGender: 5,
+          priceNote: '커피 1잔 포함',
+        },
+        saved,
+      ),
+    ).toEqual({
+      maleMinBirthYear: 1990,
+      maleMaxBirthYear: 1999,
+      femaleMinBirthYear: 1990,
+      femaleMaxBirthYear: 1999,
+      minPerGender: 5,
+      priceNote: '커피 1잔 포함',
+    });
+  });
 });
 
-describe('scheduleWarnings (D2 · D6)', () => {
-  const sunday = {
-    startsAt: '2026-10-04T14:00:00+09:00',
-    capacityMale: 7,
-    capacityFemale: 7,
-  };
+describe('scheduleWarnings (D2 · D17 · D19)', () => {
+  const base = { capacityMale: 7, capacityFemale: 7, minPerGender: 5 };
 
-  it('warns about a non-Sunday start and different capacities', () => {
-    expect(scheduleWarnings(sunday)).toEqual([]);
+  // "일요일이 아닙니다."는 지웠다 — 수요일 회차가 정상 운영이다(D19)
+  it('does not warn about the weekday', () => {
+    const saturday = { ...base, startsAt: '2026-10-03T14:00:00+09:00' };
+    expect(scheduleWarnings(saturday)).toEqual([]);
+  });
+
+  it('warns about different capacities and a minimum above a capacity', () => {
+    expect(scheduleWarnings({ ...base, capacityFemale: 6 })).toEqual([
+      '남녀 정원이 다릅니다.',
+    ]);
+    expect(scheduleWarnings({ ...base, minPerGender: 8 })).toEqual([
+      '최소 인원이 정원보다 큽니다.',
+    ]);
     expect(
-      scheduleWarnings({
-        startsAt: '2026-10-03T14:00:00+09:00',
-        capacityMale: 7,
-        capacityFemale: 6,
-      }),
-    ).toEqual(['일요일이 아닙니다.', '남녀 정원이 다릅니다.']);
+      scheduleWarnings({ capacityMale: 7, capacityFemale: 4, minPerGender: 5 }),
+    ).toEqual(['남녀 정원이 다릅니다.', '최소 인원이 정원보다 큽니다.']);
+    expect(
+      scheduleWarnings({ capacityMale: 4, capacityFemale: 7, minPerGender: 5 }),
+    ).toEqual(['남녀 정원이 다릅니다.', '최소 인원이 정원보다 큽니다.']);
+  });
+
+  it('does not warn when the minimum equals the capacity or is empty', () => {
+    expect(scheduleWarnings({ ...base, minPerGender: 7 })).toEqual([]);
+    expect(scheduleWarnings({ ...base, minPerGender: null })).toEqual([]);
   });
 
   it('only warns about the fields an edit changed', () => {
-    const saturday = { ...sunday, startsAt: '2026-10-03T14:00:00+09:00' };
-    expect(scheduleWarnings(saturday, { priceMale: 1 })).toEqual([]);
-    expect(scheduleWarnings(saturday, { startsAt: saturday.startsAt })).toEqual(
-      ['일요일이 아닙니다.'],
-    );
+    const over = { ...base, minPerGender: 8 };
+    expect(scheduleWarnings(over, { priceMale: 1 })).toEqual([]);
+    expect(scheduleWarnings(over, { minPerGender: 8 })).toEqual([
+      '최소 인원이 정원보다 큽니다.',
+    ]);
+    expect(scheduleWarnings(over, { capacityMale: 7 })).toEqual([
+      '최소 인원이 정원보다 큽니다.',
+    ]);
   });
 });

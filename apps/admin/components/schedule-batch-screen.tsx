@@ -14,7 +14,11 @@ import { flushSync } from 'react-dom';
 import { FormProvider, useForm } from 'react-hook-form';
 
 import { useEndSessionOn401 } from '@/lib/auth-provider';
-import { describeEventError, isApiClientError } from '@/lib/errors';
+import {
+  BIRTH_YEAR_RANGE_MESSAGE,
+  describeEventError,
+  isApiClientError,
+} from '@/lib/errors';
 import { selectClasses } from '@/lib/form-styles';
 import {
   EMPTY,
@@ -33,6 +37,7 @@ import {
   batchFormKey,
   buildRows,
   checkRows,
+  defaultEndTime,
   extractItemIndexes,
   weeklyDates,
   type BatchCommonValues,
@@ -40,7 +45,6 @@ import {
 } from '@/lib/schedule-batch';
 import {
   NOT_A_NUMBER_MESSAGE,
-  nextSunday,
   toNumberOrNull,
   type ScheduleSharedValues,
 } from '@/lib/schedule-form';
@@ -54,13 +58,13 @@ import { Section } from './section';
 
 interface PreviewTable {
   rows: BatchRow[];
-  /** 표를 만들 때의 공통 값(남성 연령대 · 장소 안내는 모든 행에 같다). */
+  /** 표를 만들 때의 공통 값(연령대 · 참가 조건 · 보조 문구 · 최소 인원 · 장소 안내는 모든 행에 같다). */
   shared: ScheduleSharedValues;
   /** 행 검사의 "지금" — 표를 만들 때 읽는다. 제출 직전에는 새로 읽어 다시 확인한다. */
   checkedAt: number;
   /** 행에서 고친 적이 있는지 — 다시 만들기 전에 묻는다. */
   edited: boolean;
-  /** 표를 만들 때 보낼 공통 값(`batchFormKey`). 지금 입력과 다르면 표가 낡은 것이다(남성 연령대 · 장소 안내는 표에 안 보인다). */
+  /** 표를 만들 때 보낼 공통 값(`batchFormKey`). 지금 입력과 다르면 표가 낡은 것이다(연령대 · 장소 안내 등은 표에 안 보인다). */
   formKey: string;
 }
 
@@ -75,10 +79,11 @@ const DATE_INVALID_MESSAGE = '날짜를 확인해 주세요.';
 /** 날짜 칸의 연도를 네 자리로 막는다(다섯 자리 연도는 날짜 계산에서 RangeError). */
 const DATE_INPUT_MAX = '9999-12-31';
 
-// 여러 회차 등록의 400 `SCHEDULE_TIME_INVALID`는 저장과 같은 문구 대신 "새로 고침" 없이 행을 고치게 안내한다(표가 사라지지 않게).
+// 여러 회차 등록의 400은 저장과 같은 문구 대신 "새로 고침" 없이 고치게 안내한다(표가 사라지지 않게).
 const ROW_ERROR_OVERRIDES = {
   [API_ERROR_CODES.SCHEDULE_TIME_INVALID]:
     '일시가 맞지 않습니다. 이 회차의 일시를 고쳐 주세요.',
+  [API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID]: BIRTH_YEAR_RANGE_MESSAGE,
 };
 
 const LOCAL_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -126,7 +131,8 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
   const [targetId, setTargetId] = useState(meetup.id);
 
   const [mode, setMode] = useState<'weekly' | 'manual'>('weekly');
-  const [firstDate, setFirstDate] = useState(() => nextSunday(Date.now()));
+  // 첫 날짜 · 시작 시각은 비어 있다 — 운영자가 고른다(D19)
+  const [firstDate, setFirstDate] = useState('');
   const [weeks, setWeeks] = useState('');
   const [pickDate, setPickDate] = useState('');
   const [manualDates, setManualDates] = useState<string[]>([]);
@@ -145,8 +151,22 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
   const {
     register,
     handleSubmit,
+    getFieldState,
+    setValue,
+    trigger,
     formState: { errors },
   } = form;
+
+  /** 종료 시각은 손대기 전까지 시작 시각 + 90분을 따라간다(D19). 이미 본 종료 칸의 오류는 다시 확인한다. */
+  const onStartTimeChange = (event: { target: { value: string } }) => {
+    if (!getFieldState('endTime').isDirty) {
+      setValue('endTime', defaultEndTime(event.target.value));
+    }
+    const end = getFieldState('endTime');
+    if (end.isTouched || end.error !== undefined) {
+      void trigger('endTime');
+    }
+  };
 
   // 공통 값 입력이 바뀔 때마다 다시 그린다 — 미리보기 뒤에 보낼 값이 바뀌었는지 알아야 한다
   const formKey = batchFormKey(form.watch());
@@ -279,7 +299,7 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
   const hasWarnings =
     check !== null &&
     Object.values(check.byKey).some(
-      (row) => row.notSunday || row.capacityDiffers,
+      (row) => row.capacityDiffers || row.minAboveCapacity,
     );
 
   const send = () => {
@@ -500,7 +520,7 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
                     type="time"
                     step={60}
                     className="tabular-nums"
-                    {...register('startTime')}
+                    {...register('startTime', { onChange: onStartTimeChange })}
                   />
                 )}
               </FormField>
@@ -556,8 +576,9 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
         <Section title="미리보기">
           <div className="flex flex-col gap-4">
             <p className="text-sm text-ink-soft">
-              남성 연령대 · 장소 안내는 모든 회차에 같습니다. 회차마다
-              달리하려면 등록한 뒤 회차 상세에서 고쳐 주세요.
+              연령대 · 참가 조건 · 참가비 보조 문구 · 최소 인원 · 장소 안내는
+              모든 회차에 같습니다. 회차마다 달리하려면 등록한 뒤 회차 상세에서
+              고쳐 주세요.
             </p>
             {failure ? (
               <Notice tone="danger">
@@ -625,9 +646,11 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
                             ...(serverError !== null ? [serverError] : []),
                           ]}
                           notes={[
-                            ...(rowCheck?.notSunday ? ['일요일 아님'] : []),
                             ...(rowCheck?.capacityDiffers
                               ? ['남녀 정원 다름']
+                              : []),
+                            ...(rowCheck?.minAboveCapacity
+                              ? ['최소 인원이 정원보다 큽니다.']
                               : []),
                           ]}
                           editing={editingKey === row.key}
@@ -697,7 +720,8 @@ function BatchForm({ meetup }: { meetup: Meetup }) {
         describedBy={submitQuestionId}
       >
         <p id={submitQuestionId}>
-          남녀 정원이 다르거나 일요일이 아닌 회차가 있습니다. 이대로 등록할까요?
+          남녀 정원이 다르거나 최소 인원이 정원보다 큰 회차가 있습니다. 이대로
+          등록할까요?
         </p>
         <div className="flex flex-wrap gap-2">
           <Button disabled={locked} onClick={send}>

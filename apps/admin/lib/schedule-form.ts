@@ -1,6 +1,8 @@
 import {
   CreateScheduleRequestSchema,
   DEFAULT_CAPACITY_PER_GENDER,
+  DEFAULT_MIN_PER_GENDER,
+  SCHEDULE_DEFAULT_DURATION_MINUTES,
   SCHEDULE_MAX_DURATION_MINUTES,
   SCHEDULE_MAX_LEAD_DAYS,
   type AdminSchedule,
@@ -9,12 +11,11 @@ import {
 } from '@oneul-sai/contracts';
 import { z } from 'zod';
 
-import { fromSeoulLocal, toSeoulLocal, weekdayOf } from './format';
+import { BIRTH_YEAR_RANGE_MESSAGE } from './errors';
+import { fromSeoulLocal, toSeoulLocal } from './format';
 
 // SPEC-002 4절 A7 · A8 · A9 회차 폼. 형식은 contracts의 `CreateScheduleRequestSchema`가 판정하고,
-// 시간 규칙은 화면 편의로 먼저 알려 준다(판정의 원천은 서버 — D14).
-
-export const DEFAULT_START_TIME = '14:00';
+// 시간 규칙 · 연령대 순서는 화면 편의로 먼저 알려 준다(판정의 원천은 서버 — D14).
 
 /** 회차 폼 · 여러 회차 등록 공통 값이 함께 쓰는 필드. 이름은 요청 필드와 같다. */
 export interface ScheduleSharedValues {
@@ -22,10 +23,17 @@ export interface ScheduleSharedValues {
   samePrice: boolean;
   priceMale: number | null;
   priceFemale: number | null;
+  priceNote: string;
   capacityMale: number | null;
   capacityFemale: number | null;
+  minPerGender: number | null;
+  /** "남녀 같은 범위"(D16). 켜져 있으면 남성 한 쌍의 값을 여성 두 필드에도 넣어 보낸다. 저장하지 않는다. */
+  sameBirthYears: boolean;
   maleMinBirthYear: number | null;
   maleMaxBirthYear: number | null;
+  femaleMinBirthYear: number | null;
+  femaleMaxBirthYear: number | null;
+  participantCondition: string;
   venueArea: string;
   venueName: string;
   venueAddress: string;
@@ -66,10 +74,16 @@ export const ScheduleSharedFieldsShape = {
   samePrice: z.boolean(),
   priceMale: numberValue,
   priceFemale: numberValue,
+  priceNote: z.string(),
   capacityMale: numberValue,
   capacityFemale: numberValue,
+  minPerGender: numberValue,
+  sameBirthYears: z.boolean(),
   maleMinBirthYear: numberValue,
   maleMaxBirthYear: numberValue,
+  femaleMinBirthYear: numberValue,
+  femaleMaxBirthYear: numberValue,
+  participantCondition: z.string(),
   venueArea: z.string(),
   venueName: z.string(),
   venueAddress: z.string(),
@@ -95,10 +109,19 @@ export function toSharedRequestInput(values: ScheduleSharedValues) {
   return {
     priceMale: values.priceMale,
     priceFemale: values.samePrice ? values.priceMale : values.priceFemale,
+    priceNote: emptyToNull(values.priceNote),
     capacityMale: values.capacityMale,
     capacityFemale: values.capacityFemale,
+    minPerGender: values.minPerGender,
     maleMinBirthYear: values.maleMinBirthYear,
     maleMaxBirthYear: values.maleMaxBirthYear,
+    femaleMinBirthYear: values.sameBirthYears
+      ? values.maleMinBirthYear
+      : values.femaleMinBirthYear,
+    femaleMaxBirthYear: values.sameBirthYears
+      ? values.maleMaxBirthYear
+      : values.femaleMaxBirthYear,
+    participantCondition: emptyToNull(values.participantCondition),
     venueArea: values.venueArea,
     venueName: emptyToNull(values.venueName),
     venueAddress: emptyToNull(values.venueAddress),
@@ -207,6 +230,33 @@ export function toFieldIssues(
   }));
 }
 
+/**
+ * 연령대 순서(남 · 여 칸마다 앞 연도 ≤ 뒤 연도, D16)를 화면에서 먼저 알린다 — 오류는 앞 연도 칸에. 숫자가 아닌 칸은
+ * 형식 오류가 알린다. 판정의 원천은 서버의 병합 결과다(400 `BIRTH_YEAR_RANGE_INVALID`).
+ */
+export function birthYearOrderIssues(
+  input: Pick<
+    ReturnType<typeof toSharedRequestInput>,
+    | 'maleMinBirthYear'
+    | 'maleMaxBirthYear'
+    | 'femaleMinBirthYear'
+    | 'femaleMaxBirthYear'
+  >,
+): FieldIssue[] {
+  const pairs = [
+    ['maleMinBirthYear', input.maleMinBirthYear, input.maleMaxBirthYear],
+    ['femaleMinBirthYear', input.femaleMinBirthYear, input.femaleMaxBirthYear],
+  ] as const;
+  return pairs
+    .filter(
+      ([, min, max]) =>
+        Number.isFinite(min) &&
+        Number.isFinite(max) &&
+        Number(min) > Number(max),
+    )
+    .map(([field]) => ({ path: [field], message: BIRTH_YEAR_RANGE_MESSAGE }));
+}
+
 /** 성별 값 한 쌍(A8 정원 칸 옆 신청 수 · 저장된 정원). */
 export interface AppliedByGender {
   male: number;
@@ -233,6 +283,7 @@ export function checkScheduleValues(
     ...toFieldIssues(parsed.error, input).filter(
       (issue) => !missing.some((field) => field === issue.path[0]),
     ),
+    ...birthYearOrderIssues(input),
   ];
   const timesWellFormed = !issues.some((issue) =>
     TIME_FIELDS.some((field) => field === issue.path[0]),
@@ -270,10 +321,26 @@ export function addDays(date: string, days: number): string {
   return value.toISOString().slice(0, 10);
 }
 
-/** 오늘(서울) 이후 가장 가까운 일요일 `YYYY-MM-DD`. 오늘이 일요일이면 7일 뒤(D6). */
-export function nextSunday(now: number): string {
-  const today = toSeoulLocal(now).slice(0, 10);
-  return addDays(today, 7 - weekdayOf(today));
+/** 종료 기본값 = 시작 + 90분(`SCHEDULE_DEFAULT_DURATION_MINUTES`, D19). 서울 벽시계 값. 시작이 비었거나 형식이 아니면 빈 문자열. */
+export function defaultEndsAt(startsAt: string): string {
+  const start = Date.parse(fromSeoulLocal(startsAt));
+  return Number.isNaN(start)
+    ? ''
+    : toSeoulLocal(start + SCHEDULE_DEFAULT_DURATION_MINUTES * 60_000);
+}
+
+/**
+ * 새 회차(A7)에서 시작을 바꿀 때 따라 바뀌는 칸: 운영자가 손대지 않은 신청 마감 = 시작, 종료 = 시작 + 90분(D19).
+ * 손댄 칸은 더 따라가지 않는다.
+ */
+export function startFollowers(
+  startsAt: string,
+  edited: { endsAt: boolean; applyDeadlineAt: boolean },
+): Partial<Pick<ScheduleFormValues, 'endsAt' | 'applyDeadlineAt'>> {
+  return {
+    ...(edited.applyDeadlineAt ? {} : { applyDeadlineAt: startsAt }),
+    ...(edited.endsAt ? {} : { endsAt: defaultEndsAt(startsAt) }),
+  };
 }
 
 /** 오늘(서울) 0시 — 회차 목록의 기본 기간 "오늘 이후"의 `from`. */
@@ -281,29 +348,40 @@ export function startOfSeoulToday(now: number): string {
   return fromSeoulLocal(`${toSeoulLocal(now).slice(0, 10)}T00:00`);
 }
 
-/** A7 · A8 폼 초기값. 새 회차는 다음 일요일 14:00 · 신청 마감 = 시작 · 정원 7 · 7(D2 · D6). */
+/** 새 회차 · 여러 회차 등록 공통 값의 시각 외 초기값: 참가비 빈 칸 · 정원 7 · 7 · 최소 인원 5 · 두 체크 켜짐(D2 · D17 · D19). */
+export function sharedDefaults(): ScheduleSharedValues {
+  return {
+    samePrice: true,
+    priceMale: null,
+    priceFemale: null,
+    priceNote: '',
+    capacityMale: DEFAULT_CAPACITY_PER_GENDER,
+    capacityFemale: DEFAULT_CAPACITY_PER_GENDER,
+    minPerGender: DEFAULT_MIN_PER_GENDER,
+    sameBirthYears: true,
+    maleMinBirthYear: null,
+    maleMaxBirthYear: null,
+    femaleMinBirthYear: null,
+    femaleMaxBirthYear: null,
+    participantCondition: '',
+    venueArea: '',
+    venueName: '',
+    venueAddress: '',
+    venueDirections: '',
+    venueMapUrl: '',
+  };
+}
+
+/** A7 · A8 폼 초기값. 새 회차는 시각 세 칸이 비어 있다(시작을 넣으면 `startFollowers` — D19). 수정은 저장된 값 그대로. */
 export function scheduleFormDefaults(
   schedule: AdminSchedule | undefined,
-  now: number,
 ): ScheduleFormValues {
   if (schedule === undefined) {
-    const startsAt = `${nextSunday(now)}T${DEFAULT_START_TIME}`;
     return {
-      startsAt,
+      startsAt: '',
       endsAt: '',
-      applyDeadlineAt: startsAt,
-      samePrice: true,
-      priceMale: null,
-      priceFemale: null,
-      capacityMale: DEFAULT_CAPACITY_PER_GENDER,
-      capacityFemale: DEFAULT_CAPACITY_PER_GENDER,
-      maleMinBirthYear: null,
-      maleMaxBirthYear: null,
-      venueArea: '',
-      venueName: '',
-      venueAddress: '',
-      venueDirections: '',
-      venueMapUrl: '',
+      applyDeadlineAt: '',
+      ...sharedDefaults(),
     };
   }
   return {
@@ -314,10 +392,19 @@ export function scheduleFormDefaults(
     samePrice: schedule.priceMale === schedule.priceFemale,
     priceMale: schedule.priceMale,
     priceFemale: schedule.priceFemale,
+    priceNote: schedule.priceNote ?? '',
     capacityMale: schedule.capacityMale,
     capacityFemale: schedule.capacityFemale,
+    minPerGender: schedule.minPerGender,
+    // 저장된 네 값이 쌍으로 같을 때만 켠 채 연다(D16).
+    sameBirthYears:
+      schedule.maleMinBirthYear === schedule.femaleMinBirthYear &&
+      schedule.maleMaxBirthYear === schedule.femaleMaxBirthYear,
     maleMinBirthYear: schedule.maleMinBirthYear,
     maleMaxBirthYear: schedule.maleMaxBirthYear,
+    femaleMinBirthYear: schedule.femaleMinBirthYear,
+    femaleMaxBirthYear: schedule.femaleMaxBirthYear,
+    participantCondition: schedule.participantCondition ?? '',
     venueArea: schedule.venueArea,
     venueName: schedule.venueName ?? '',
     venueAddress: schedule.venueAddress ?? '',
@@ -329,10 +416,15 @@ export function scheduleFormDefaults(
 const VALUE_FIELDS = [
   'priceMale',
   'priceFemale',
+  'priceNote',
   'capacityMale',
   'capacityFemale',
+  'minPerGender',
   'maleMinBirthYear',
   'maleMaxBirthYear',
+  'femaleMinBirthYear',
+  'femaleMaxBirthYear',
+  'participantCondition',
   'venueArea',
   'venueName',
   'venueAddress',
@@ -360,27 +452,44 @@ export function scheduleChanges(
   return changes as UpdateScheduleRequest;
 }
 
+/** 최소 인원이 어느 성별 정원보다 큰지(D17 — 경고만, 서버는 보지 않는다). 최소 인원이 없으면 거짓. */
+export function minAboveCapacity(
+  values: Pick<
+    CreateScheduleRequest,
+    'capacityMale' | 'capacityFemale' | 'minPerGender'
+  >,
+): boolean {
+  const min = values.minPerGender;
+  return (
+    min != null && (min > values.capacityMale || min > values.capacityFemale)
+  );
+}
+
 /**
- * 제출 전 확인 문구(경고일 뿐 막지 않는다 — D2 · D6). 수정(`changes` 있음)은 바꾼 칸에 해당하는 경고만 묻는다.
+ * 제출 전 확인 문구(경고일 뿐 막지 않는다 — D2 · D17). 수정(`changes` 있음)은 바꾼 칸에 해당하는 경고만 묻는다.
+ * 요일은 묻지 않는다(D19).
  */
 export function scheduleWarnings(
   request: Pick<
     CreateScheduleRequest,
-    'startsAt' | 'capacityMale' | 'capacityFemale'
+    'capacityMale' | 'capacityFemale' | 'minPerGender'
   >,
   changes?: UpdateScheduleRequest,
 ): string[] {
   const touched = (...fields: (keyof UpdateScheduleRequest)[]) =>
     changes === undefined || fields.some((field) => field in changes);
   const warnings: string[] = [];
-  if (touched('startsAt') && weekdayOf(toSeoulLocal(request.startsAt)) !== 0) {
-    warnings.push('일요일이 아닙니다.');
-  }
   if (
     touched('capacityMale', 'capacityFemale') &&
     request.capacityMale !== request.capacityFemale
   ) {
     warnings.push('남녀 정원이 다릅니다.');
+  }
+  if (
+    touched('minPerGender', 'capacityMale', 'capacityFemale') &&
+    minAboveCapacity(request)
+  ) {
+    warnings.push('최소 인원이 정원보다 큽니다.');
   }
   return warnings;
 }

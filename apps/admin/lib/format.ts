@@ -132,36 +132,75 @@ export function formatWon(amount: number): string {
   return `${amount.toLocaleString('ko-KR')}원`;
 }
 
-/** 참가비 문구(D3): 같으면 "참가비 30,000원", 다르면 "참가비 남 30,000원 · 여 25,000원". */
-export function formatPrice(priceMale: number, priceFemale: number): string {
-  return priceMale === priceFemale
-    ? `참가비 ${formatWon(priceMale)}`
-    : `참가비 남 ${formatWon(priceMale)} · 여 ${formatWon(priceFemale)}`;
+/**
+ * 참가비 문구(D3 · D17): 같으면 "참가비 30,000원", 다르면 "참가비 남 30,000원 · 여 25,000원".
+ * 보조 문구가 있으면 뒤에 " · 커피 1잔 포함"(예시)을 붙인다.
+ */
+export function formatPrice(
+  priceMale: number,
+  priceFemale: number,
+  priceNote: string | null = null,
+): string {
+  const price =
+    priceMale === priceFemale
+      ? `참가비 ${formatWon(priceMale)}`
+      : `참가비 남 ${formatWon(priceMale)} · 여 ${formatWon(priceFemale)}`;
+  return priceNote === null ? price : `${price} · ${priceNote}`;
 }
 
-/** "정원 남 7 · 여 7". */
+/** "정원 남 7 · 여 7", 최소 인원이 있으면 뒤에 " · 최소 5"(D17 — 운영자 화면만). */
 export function formatCapacity(
   capacityMale: number,
   capacityFemale: number,
+  minPerGender: number | null = null,
 ): string {
-  return `정원 남 ${capacityMale} · 여 ${capacityFemale}`;
+  const capacity = `정원 남 ${capacityMale} · 여 ${capacityFemale}`;
+  return minPerGender === null
+    ? capacity
+    : `${capacity} · 최소 ${minPerGender}`;
 }
 
-/** 남성 연령대 문구(D5). 범위가 없으면 빈 문자열. 여성에게는 연령 조건이 없다. */
-export function formatMaleBirthYears(
-  min: number | null,
-  max: number | null,
-): string {
+/** 한 성별의 연령대: "1990~1995년생" · "1990년생부터" · "1995년생까지", 범위가 없으면 빈 문자열. */
+function formatBirthYearRange(min: number | null, max: number | null): string {
   if (min !== null && max !== null) {
-    return `남성 ${min}~${max}년생`;
+    return `${min}~${max}년생`;
   }
   if (min !== null) {
-    return `남성 ${min}년생부터`;
+    return `${min}년생부터`;
   }
   if (max !== null) {
-    return `남성 ${max}년생까지`;
+    return `${max}년생까지`;
   }
   return '';
+}
+
+/**
+ * 연령대 문구(D16 — 7절 규칙). 남녀 문구가 같으면 성별 말 없이 하나("1990~1999년생"), 다르면
+ * "남성 1990~1995년생 · 여성 1990~1999년생", 한 성별만 있으면 그 성별만("남성 1990년생부터"), 둘 다 없으면 빈 문자열.
+ */
+export function formatBirthYears(
+  schedule: Pick<
+    AdminSchedule,
+    | 'maleMinBirthYear'
+    | 'maleMaxBirthYear'
+    | 'femaleMinBirthYear'
+    | 'femaleMaxBirthYear'
+  >,
+): string {
+  const male = formatBirthYearRange(
+    schedule.maleMinBirthYear,
+    schedule.maleMaxBirthYear,
+  );
+  const female = formatBirthYearRange(
+    schedule.femaleMinBirthYear,
+    schedule.femaleMaxBirthYear,
+  );
+  if (male === female) {
+    return male;
+  }
+  return [male && `남성 ${male}`, female && `여성 ${female}`]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, string> = {

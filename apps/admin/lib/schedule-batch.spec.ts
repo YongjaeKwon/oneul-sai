@@ -8,6 +8,7 @@ import {
   buildRows,
   checkRows,
   deadlineHoursBefore,
+  defaultEndTime,
   extractItemIndexes,
   publishInOrder,
   weeklyDates,
@@ -29,10 +30,35 @@ function apiError(status: number, code: string): ApiClientError {
 
 const common = {
   ...batchCommonDefaults(),
+  startTime: '14:00',
   endTime: '16:30',
   priceMale: 30000,
   venueArea: '강남역 인근',
 };
+
+describe('batchCommonDefaults · defaultEndTime (D19)', () => {
+  it('leaves start · end · price empty, prefills 7 · 7, minimum 5 and deadline 0 hours before', () => {
+    expect(batchCommonDefaults()).toMatchObject({
+      startTime: '',
+      endTime: '',
+      hoursBefore: 0,
+      priceMale: null,
+      capacityMale: 7,
+      capacityFemale: 7,
+      minPerGender: 5,
+      samePrice: true,
+      sameBirthYears: true,
+    });
+  });
+
+  it('fills the end time 90 minutes after the start time', () => {
+    expect(defaultEndTime('19:30')).toBe('21:00');
+    expect(defaultEndTime('14:00')).toBe('15:30');
+    expect(defaultEndTime('')).toBe('');
+    // 자정을 넘기면 같은 날짜 안의 "시작 < 종료"가 알린다
+    expect(defaultEndTime('23:00')).toBe('00:30');
+  });
+});
 
 describe('weeklyDates (매주 반복)', () => {
   it('makes 12 dates 7 days apart from the first date', () => {
@@ -88,16 +114,45 @@ describe('BatchCommonSchema', () => {
   });
 
   // 서버 400이 행에서 고칠 수 없는 칸에 붙지 않게 공통 값에서 먼저 막는다(리뷰)
-  it('checks the male birth-year order on the common values', () => {
+  it('checks the birth-year order of each gender on the common values', () => {
+    const messageAt = (values: typeof common, path: string) =>
+      BatchCommonSchema.safeParse(values).error?.issues.find(
+        (item) => item.path.join('.') === path,
+      )?.message;
+    expect(
+      messageAt(
+        { ...common, maleMinBirthYear: 1995, maleMaxBirthYear: 1990 },
+        'maleMinBirthYear',
+      ),
+    ).toBe(BIRTH_YEAR_RANGE_MESSAGE);
+    expect(
+      messageAt(
+        {
+          ...common,
+          sameBirthYears: false,
+          femaleMinBirthYear: 1999,
+          femaleMaxBirthYear: 1990,
+        },
+        'femaleMinBirthYear',
+      ),
+    ).toBe(BIRTH_YEAR_RANGE_MESSAGE);
+  });
+
+  it('checks the new optional fields with the contracts rules', () => {
     const result = BatchCommonSchema.safeParse({
       ...common,
-      maleMinBirthYear: 1995,
-      maleMaxBirthYear: 1990,
+      minPerGender: 51,
+      priceNote: '가'.repeat(51),
+      participantCondition: '90년대생\n직장인',
     });
-    const issue = result.error?.issues.find(
-      (item) => item.path.join('.') === 'maleMinBirthYear',
+    const paths = result.error?.issues.map((issue) => issue.path.join('.'));
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        'minPerGender',
+        'priceNote',
+        'participantCondition',
+      ]),
     );
-    expect(issue?.message).toBe(BIRTH_YEAR_RANGE_MESSAGE);
   });
 
   // 상한이 없으면 아주 큰 값에서 날짜 계산이 깨져 미리보기가 조용히 실패했다(리뷰)
@@ -135,8 +190,26 @@ describe('buildRows · checkRows', () => {
     ]);
     expect(check.byKey['2026-09-27']).toEqual({
       errors: [],
-      notSunday: false,
       capacityDiffers: false,
+      minAboveCapacity: false,
+    });
+  });
+
+  it('sends the common new fields on every item', () => {
+    const shared = {
+      ...common,
+      priceNote: '커피 1잔 포함',
+      participantCondition: '90년대생 직장인',
+      maleMinBirthYear: 1990,
+      maleMaxBirthYear: 1999,
+    };
+    const check = checkRows(buildRows(['2026-09-27'], shared), shared, NOW);
+    expect(check.items?.[0]).toMatchObject({
+      priceNote: '커피 1잔 포함',
+      participantCondition: '90년대생 직장인',
+      minPerGender: 5,
+      femaleMinBirthYear: 1990,
+      femaleMaxBirthYear: 1999,
     });
   });
 
@@ -162,18 +235,24 @@ describe('buildRows · checkRows', () => {
     expect(check.byKey['2026-09-27']?.errors).toEqual([]);
   });
 
-  it('marks a non-Sunday row and a row with different capacities (warnings only)', () => {
-    const [row] = buildRows(['2026-09-26'], { ...common, capacityFemale: 6 });
+  // 토요일 행이어도 "일요일 아님"은 없다(D19)
+  it('marks different capacities and a minimum above a capacity (warnings only), never the weekday', () => {
+    const [row] = buildRows(['2026-09-26'], { ...common, capacityFemale: 4 });
     if (row === undefined) {
       throw new Error('row expected');
     }
     const check = checkRows([row], common, NOW);
-    expect(check.byKey['2026-09-26']).toMatchObject({
-      notSunday: true,
+    expect(check.byKey['2026-09-26']).toEqual({
       capacityDiffers: true,
+      minAboveCapacity: true,
       errors: [],
     });
     expect(check.items).toHaveLength(1);
+    expect(
+      checkRows([row], { ...common, minPerGender: null }, NOW).byKey[
+        '2026-09-26'
+      ]?.minAboveCapacity,
+    ).toBe(false);
   });
 
   it('does not add "남녀 정원 다름" when a capacity is not a number (the error is enough)', () => {
@@ -187,6 +266,7 @@ describe('buildRows · checkRows', () => {
       NOW,
     );
     expect(check.byKey['2026-09-27']?.capacityDiffers).toBe(false);
+    expect(check.byKey['2026-09-27']?.minAboveCapacity).toBe(false);
     expect(check.byKey['2026-09-27']?.errors.length).toBeGreaterThan(0);
     expect(check.items).toBeNull();
   });

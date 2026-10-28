@@ -64,16 +64,17 @@ export function describeError(
 const STATE_CHANGED_MESSAGE =
   '지금 상태에서는 할 수 없는 작업입니다. 화면을 새로 고쳐 주세요.';
 
-/** 400 `BIRTH_YEAR_RANGE_INVALID` 문구. 여러 회차 등록의 공통 값 검사도 같은 문구를 쓴다. */
+/** 폼 검사: 연령대 앞 연도 > 뒤 연도(남 · 여 칸마다, 개정 2026-10-14). */
 export const BIRTH_YEAR_RANGE_MESSAGE =
-  '남성 연령대의 앞 연도가 뒤 연도보다 클 수 없습니다.';
+  '연령대의 앞 연도가 뒤 연도보다 클 수 없습니다.';
 
 const EVENT_MESSAGES_BY_CODE: Partial<Record<string, string>> = {
   [API_ERROR_CODES.VALIDATION_FAILED]: '입력한 내용을 확인해 주세요.',
   // 폼 검사를 통과했는데 서버가 거절한 저장(다른 운영자의 동시 수정 등). 상태 요청은 STATUS_TIME_INVALID_MESSAGE.
   [API_ERROR_CODES.SCHEDULE_TIME_INVALID]:
     '일시가 맞지 않습니다. 화면을 새로 고친 뒤 다시 저장해 주세요.',
-  [API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID]: BIRTH_YEAR_RANGE_MESSAGE,
+  // 폼 검사를 통과했는데 서버가 병합한 값으로 거절한 저장
+  [API_ERROR_CODES.BIRTH_YEAR_RANGE_INVALID]: `${BIRTH_YEAR_RANGE_MESSAGE} 화면을 새로 고친 뒤 다시 저장해 주세요.`,
   [API_ERROR_CODES.MEETUP_NOT_FOUND]:
     '찾을 수 없는 모임 상품입니다. 목록에서 다시 골라 주세요.',
   [API_ERROR_CODES.SCHEDULE_NOT_FOUND]:
