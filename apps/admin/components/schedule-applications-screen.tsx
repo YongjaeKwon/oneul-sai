@@ -413,7 +413,7 @@ function ApplicationRowView({
   onCancel,
 }: {
   row: ApplicationRow;
-  schedule: Pick<AdminSchedule, 'maleMinBirthYear' | 'maleMaxBirthYear'>;
+  schedule: Parameters<typeof outsideBirthYears>[2];
   /** 지금 목록에서의 줄 번호(페이지를 넘어 이어진다, 필터마다 다르다) — 이름을 모르는 행을 한 화면 안에서 가르는 데 쓴다. */
   ordinal: number;
   disabled: boolean;
@@ -446,7 +446,7 @@ function ApplicationRowView({
       </td>
       <td className="px-4 py-3 whitespace-nowrap text-ink tabular-nums">
         {birthYear ?? EMPTY}
-        {/* ★S1 (a) — 신청은 막지 않고 운영자가 보고 고른다. 지금은 남성 쌍만(여성 쌍은 SPEC-002 개정 PR 뒤) */}
+        {/* ★S1 (a) — 신청은 막지 않고 운영자가 보고 고른다. 신청 성별의 연령대 쌍과 비교(SPEC-002 D16) */}
         {outsideBirthYears(application.gender, birthYear, schedule) ? (
           <span className="ml-2 text-xs text-ink-soft">연령대 밖</span>
         ) : null}

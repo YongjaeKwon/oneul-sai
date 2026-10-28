@@ -208,8 +208,20 @@ describe('inviteErrorOverrides (4절 운영자 화면 오류 문구)', () => {
   });
 });
 
-describe('outsideBirthYears (★S1 (a) — 연령대 밖)', () => {
-  const range = { maleMinBirthYear: 1990, maleMaxBirthYear: 1995 };
+describe('outsideBirthYears (★S1 (a) — 연령대 밖, 신청 성별의 쌍)', () => {
+  const none = {
+    maleMinBirthYear: null,
+    maleMaxBirthYear: null,
+    femaleMinBirthYear: null,
+    femaleMaxBirthYear: null,
+  };
+  // 남녀가 다른 범위 — 어느 쌍을 보는지 가른다
+  const range = {
+    maleMinBirthYear: 1990,
+    maleMaxBirthYear: 1995,
+    femaleMinBirthYear: 1992,
+    femaleMaxBirthYear: 1999,
+  };
 
   it('is true outside the male range and false on the boundaries', () => {
     expect(outsideBirthYears('MALE', 1989, range)).toBe(true);
@@ -218,30 +230,33 @@ describe('outsideBirthYears (★S1 (a) — 연령대 밖)', () => {
     expect(outsideBirthYears('MALE', 1995, range)).toBe(false);
   });
 
-  it('checks one open end, and is false with no range or no birth year', () => {
+  it('judges women by the female range (SPEC-002 D16), boundaries included', () => {
+    expect(outsideBirthYears('FEMALE', 1991, range)).toBe(true);
+    expect(outsideBirthYears('FEMALE', 2000, range)).toBe(true);
+    expect(outsideBirthYears('FEMALE', 1992, range)).toBe(false);
+    // 남성 범위 밖이어도 여성 범위 안이면 아니다
+    expect(outsideBirthYears('FEMALE', 1998, range)).toBe(false);
+    expect(outsideBirthYears('MALE', 1998, range)).toBe(true);
+  });
+
+  it('checks one open end, and is false with no range for that gender or no birth year', () => {
     expect(
-      outsideBirthYears('MALE', 1989, {
+      outsideBirthYears('MALE', 1989, { ...none, maleMinBirthYear: 1990 }),
+    ).toBe(true);
+    expect(
+      outsideBirthYears('FEMALE', 2000, { ...none, femaleMaxBirthYear: 1999 }),
+    ).toBe(true);
+    expect(outsideBirthYears('MALE', 1980, none)).toBe(false);
+    // 여성 범위가 없으면(남성만 정한 회차) 여성은 표시 없음
+    expect(
+      outsideBirthYears('FEMALE', 1980, {
+        ...none,
         maleMinBirthYear: 1990,
-        maleMaxBirthYear: null,
-      }),
-    ).toBe(true);
-    expect(
-      outsideBirthYears('MALE', 1996, {
-        maleMinBirthYear: null,
         maleMaxBirthYear: 1995,
-      }),
-    ).toBe(true);
-    expect(
-      outsideBirthYears('MALE', 1980, {
-        maleMinBirthYear: null,
-        maleMaxBirthYear: null,
       }),
     ).toBe(false);
     expect(outsideBirthYears('MALE', null, range)).toBe(false);
-  });
-
-  it('does not judge women until SPEC-002 adds the female range columns', () => {
-    expect(outsideBirthYears('FEMALE', 1980, range)).toBe(false);
+    expect(outsideBirthYears('FEMALE', null, range)).toBe(false);
   });
 });
 
@@ -455,6 +470,12 @@ describe('describeEventError (운영자 화면 오류 문구)', () => {
     );
     expect(describeEventError(apiError(500, 'INTERNAL_ERROR'))).toBe(
       '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+    );
+  });
+
+  it('asks to reload and save again for 400 BIRTH_YEAR_RANGE_INVALID (4절 표)', () => {
+    expect(describeEventError(apiError(400, 'BIRTH_YEAR_RANGE_INVALID'))).toBe(
+      '연령대의 앞 연도가 뒤 연도보다 클 수 없습니다. 화면을 새로 고친 뒤 다시 저장해 주세요.',
     );
   });
 });
